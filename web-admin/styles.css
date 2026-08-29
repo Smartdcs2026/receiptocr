@@ -31,3 +31,42 @@ textarea{width:100%;border:1px solid #d7dde8;border-radius:9px;padding:9px 10px;
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}.toolbar select,.toolbar input{width:auto;min-width:120px}
 .small{font-size:10px;color:#667085}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;word-break:break-all}
 @media(max-width:900px){.storageGrid{grid-template-columns:1fr}.metricGrid{grid-template-columns:1fr 1fr}}
+
+.workPlanPage{max-width:1220px;margin:0 auto;padding:16px}
+.mappingGrid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:8px}
+.tableWrap{overflow:auto;max-height:460px}
+@media(max-width:1000px){.mappingGrid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.mappingGrid{grid-template-columns:1fr}}
+
+/* Round24 professional admin shell */
+body.adminBody{background:#f4f6fa}
+.adminShell{display:grid;grid-template-columns:244px minmax(0,1fr);min-height:100vh}
+.adminSidebar{background:#101828;color:#fff;padding:18px 14px;position:sticky;top:0;height:100vh;overflow:auto}
+.adminBrand{display:flex;gap:10px;align-items:center;padding:2px 8px 18px;border-bottom:1px solid rgba(255,255,255,.09)}
+.adminLogo{width:38px;height:38px;border-radius:10px;background:#2f6fed;display:grid;place-items:center;font-weight:800}
+.adminBrandTitle{font-weight:800;font-size:15px}.adminBrandSub{font-size:10px;color:#98a2b3;margin-top:2px}
+.adminNav{display:flex;flex-direction:column;gap:5px;margin-top:16px}
+.adminNav a{color:#d0d5dd;text-decoration:none;padding:10px 11px;border-radius:10px;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+.adminNav a:hover,.adminNav a.active{background:#1d2939;color:#fff}
+.navBadge{font-size:9px;background:#344054;color:#d0d5dd;padding:3px 6px;border-radius:999px}
+.sidebarFooter{margin-top:18px;padding:14px 8px;border-top:1px solid rgba(255,255,255,.09);font-size:10px;color:#98a2b3}
+.adminMain{min-width:0}
+.adminHeader{background:#fff;border-bottom:1px solid #e3e8f0;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;position:sticky;top:0;z-index:20}
+.adminHeaderTitle{font-size:18px;font-weight:800}.adminHeaderSub{font-size:11px;color:#667085;margin-top:2px}
+.adminUser{display:flex;gap:8px;align-items:center}
+.adminUserName{font-size:11px;color:#475467;text-align:right}
+.adminContent{padding:16px;max-width:1500px;margin:0 auto}
+.dashboardGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.dashboardCard{background:#fff;border:1px solid #e3e8f0;border-radius:15px;padding:14px}
+.dashboardCard .big{font-size:26px;font-weight:800}.dashboardCard .smallLabel{font-size:11px;color:#667085;margin-top:3px}
+.adminSectionGrid{display:grid;grid-template-columns:1.25fr .75fr;gap:14px;margin-top:14px}
+.loginPage{min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#eef4ff 0,#f8fafc 50%,#eef2f6 100%);padding:20px}
+.loginCard{width:min(430px,100%);background:#fff;border:1px solid #e3e8f0;border-radius:20px;padding:24px;box-shadow:0 18px 50px rgba(16,24,40,.12)}
+.loginLogo{width:48px;height:48px;border-radius:14px;background:#2f6fed;color:#fff;display:grid;place-items:center;font-weight:900;margin-bottom:16px}
+.loginCard h1{font-size:22px;margin:0 0 4px}.loginCard p{font-size:12px;color:#667085;margin:0 0 18px}
+.swal2-popup.swal-compact{font-size:13px!important;border-radius:14px!important;padding:1rem!important}
+.swal2-popup.swal-compact .swal2-title{font-size:17px!important}
+.swal2-popup.swal-compact .swal2-html-container{font-size:12px!important}
+.swal2-popup.swal-compact .swal2-confirm,.swal2-popup.swal-compact .swal2-cancel{font-size:12px!important;padding:8px 14px!important}
+@media(max-width:950px){.adminShell{grid-template-columns:1fr}.adminSidebar{position:static;height:auto}.adminNav{display:grid;grid-template-columns:1fr 1fr}.dashboardGrid{grid-template-columns:1fr 1fr}.adminSectionGrid{grid-template-columns:1fr}}
+@media(max-width:600px){.dashboardGrid{grid-template-columns:1fr 1fr}.adminHeader{align-items:flex-start}.adminNav{grid-template-columns:1fr}.adminContent{padding:10px}}

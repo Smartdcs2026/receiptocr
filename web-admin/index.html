@@ -5,23 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ReceiptOCR Admin - OCR Profile</title>
   <link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <div class="eyebrow">ReceiptOCR Admin</div>
-      <h1>OCR Profile Builder</h1>
-      <p>กำหนดตำแหน่งอ่านข้อมูลและเงื่อนไขของแต่ละแบรนด์</p>
-    </div>
-    <div class="actions">
-      <a class="secondary linkButton" href="storage.html">R2 Storage</a>
-      <button id="newProfileBtn" class="secondary">โปรไฟล์ใหม่</button>
-      <button id="saveCloudBtn" class="secondary">บันทึก Cloudflare</button>
-      <button id="exportBtn" class="primary">Export JSON</button>
-    </div>
-  </header>
-
-  <main class="layout">
+  <div class="layout">
     <section class="panel settings">
       <h2>ข้อมูล Profile</h2>
       <div class="grid2">
@@ -141,9 +128,13 @@
         <pre id="jsonPreview"></pre>
       </div>
     </section>
-  </main>
+  </div>
 
   <script src="config.js"></script>
+<script src="admin-auth.js"></script>
+<script src="admin-shell.js"></script>
+<script>(async()=>{if(!await AdminAuth.guard())return;AdminShell.wrap("OCR Profile","กำหนดตำแหน่งและเงื่อนไขการอ่านบิล")})();</script>
+
   <script src="app.js"></script>
 </body>
 </html>

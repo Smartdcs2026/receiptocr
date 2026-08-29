@@ -105,7 +105,7 @@ renderRules();renderJson();
 async function apiPost(path, body){
   const base=(window.RECEIPTOCR_CONFIG?.API_BASE_URL||"").replace(/\/$/,"");
   if(!base || base.includes("REPLACE_WITH")) throw new Error("กรุณาตั้งค่า API_BASE_URL ใน config.js");
-  const res=await fetch(base+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+  const res=await AdminAuth.request(path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
   const data=await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(data.error||("HTTP "+res.status));
   return data;
@@ -118,7 +118,7 @@ async function apiUploadTrainingImage(file, brandId, profileId){
   fd.append("file",file);
   fd.append("brandId",brandId);
   fd.append("profileId",profileId||"");
-  const res=await fetch(base+"/api/training-images",{method:"POST",body:fd});
+  const res=await AdminAuth.request("/api/training-images",{method:"POST",body:fd});
   const data=await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(data.error||("HTTP "+res.status));
   return data;
@@ -129,8 +129,8 @@ $("saveCloudBtn").onclick=async()=>{
     $("saveCloudBtn").disabled=true;
     $("saveCloudBtn").textContent="กำลังบันทึก...";
     const result=await apiPost("/api/ocr-profiles",buildProfile());
-    alert(`บันทึก Cloudflare สำเร็จ\nProfile: ${result.profileId}\nVersion: ${result.version}`);
-  }catch(e){alert("บันทึกไม่สำเร็จ: "+e.message)}
+    SwalSmall.ok("บันทึก Cloudflare สำเร็จ",`Profile ${result.profileId} • v${result.version}`);
+  }catch(e){SwalSmall.error("บันทึกไม่สำเร็จ",e.message)}
   finally{$("saveCloudBtn").disabled=false;$("saveCloudBtn").textContent="บันทึก Cloudflare"}
 };
 $("saveExampleBtn").onclick=async()=>{
@@ -167,10 +167,10 @@ $("saveExampleBtn").onclick=async()=>{
 
     $("selectedImageInfo").textContent=`บันทึก R2 แล้ว: ${imageResult.imageKey}`;
     $("selectedImageInfo").className="cloudInfo ok";
-    alert(`บันทึกตัวอย่างสำเร็จ\nID: ${result.id}\nR2: ${imageResult.imageKey}`);
+    SwalSmall.ok("บันทึกตัวอย่างสำเร็จ",`ID ${result.id}`);
   }catch(e){
     $("selectedImageInfo").className="cloudInfo warn";
-    alert("บันทึกตัวอย่างไม่สำเร็จ: "+e.message)
+    SwalSmall.error("บันทึกตัวอย่างไม่สำเร็จ",e.message)
   }finally{
     btn.disabled=false;
     btn.textContent="อัปโหลดภาพ + บันทึกตัวอย่าง";

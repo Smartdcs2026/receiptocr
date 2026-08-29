@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ReceiptOCR Admin</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<div class="dashboardGrid">
+  <div class="dashboardCard"><div id="dUsers" class="big">-</div><div class="smallLabel">ผู้ใช้งาน</div></div>
+  <div class="dashboardCard"><div id="dStorage" class="big">-</div><div class="smallLabel">R2 Usage</div></div>
+  <div class="dashboardCard"><div id="dObjects" class="big">-</div><div class="smallLabel">R2 Objects</div></div>
+  <div class="dashboardCard"><div id="dLevel" class="big">-</div><div class="smallLabel">Storage Level</div></div>
+</div>
+<div class="adminSectionGrid">
+  <section class="panel">
+    <h2>งานหลัก</h2>
+    <div class="rulesList">
+      <a class="ruleItem" href="workplans.html"><div class="ruleTitle">อัปโหลดแผนงานรายบุคคล</div><div class="ruleMeta">Excel mapping → D1/R2 → APK</div></a>
+      <a class="ruleItem" href="index.html"><div class="ruleTitle">กำหนด OCR Profile</div><div class="ruleMeta">ROI / วันที่ / เวลา / ยอดลูกค้า / POS / จุดจำเพาะ</div></a>
+      <a class="ruleItem" href="storage.html"><div class="ruleTitle">R2 Storage Governance</div><div class="ruleMeta">70% / 85% / 95% • Archive • Retention</div></a>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>สถานะระบบ</h2>
+    <div id="systemStatus" class="notice ok">กำลังตรวจสอบ...</div>
+  </section>
+</div>
+<script src="config.js"></script><script src="admin-auth.js"></script><script src="admin-shell.js"></script><script src="dashboard.js"></script>
+</body></html>

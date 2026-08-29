@@ -5,21 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ReceiptOCR Admin - R2 Storage</title>
   <link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-<header class="topbar">
-  <div>
-    <div class="eyebrow">ReceiptOCR Admin</div>
-    <h1>R2 Storage Governance</h1>
-    <p>ติดตามพื้นที่ • เตือน 70/85/95% • Archive ก่อนลบ • Retention ตามประเภทภาพ</p>
-  </div>
-  <div class="actions">
-    <a href="index.html" class="secondary linkButton">OCR Profile</a>
-    <button id="refreshBtn" class="primary">Refresh</button>
-  </div>
-</header>
-
-<main class="storagePage">
+<div class="storagePage">
   <div id="usageNotice" class="notice ok">กำลังโหลดข้อมูล...</div>
 
   <section class="panel">
@@ -85,8 +74,12 @@
       </div>
     </section>
   </div>
-</main>
+</div>
 <script src="config.js"></script>
+<script src="admin-auth.js"></script>
+<script src="admin-shell.js"></script>
+<script>(async()=>{if(!await AdminAuth.guard())return;AdminShell.wrap("R2 Storage","พื้นที่จัดเก็บ • Alerts • Archive • Retention")})();</script>
+
 <script src="storage.js"></script>
 </body>
 </html>

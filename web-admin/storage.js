@@ -7,13 +7,13 @@ function base(){
   return b;
 }
 async function getJson(path){
-  const r=await fetch(base()+path,{cache:"no-store"});
+  const r=await AdminAuth.request(path,{cache:"no-store"});
   const d=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
   return d;
 }
 async function postJson(path,body){
-  const r=await fetch(base()+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body||{})});
+  const r=await AdminAuth.request(path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body||{})});
   const d=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
   return d;
@@ -70,8 +70,8 @@ $("saveSettingsBtn").onclick=async()=>{
       archiveBatchMaxObjects:Number($("batchObjects").value),
       archiveBatchMaxBytes:Number($("batchMb").value)*1e6
     });
-    alert("บันทึก Storage Policy แล้ว");await refresh();
-  }catch(e){alert("บันทึกไม่สำเร็จ: "+e.message)}
+    SwalSmall.ok("บันทึก Storage Policy แล้ว");await refresh();
+  }catch(e){SwalSmall.error("บันทึกไม่สำเร็จ",e.message)}
 };
 $("reconcileBtn").onclick=async()=>{
   let cursor=null,total=0,pages=0;
@@ -85,9 +85,9 @@ $("reconcileBtn").onclick=async()=>{
       cursor=r.nextCursor||null;
       if(pages>=20)break;
     }while(cursor);
-    alert(`Reconcile สำเร็จ ${total} objects`);
+    SwalSmall.ok("Reconcile สำเร็จ",`${total} objects`);
     await refresh();
-  }catch(e){alert("Reconcile ไม่สำเร็จ: "+e.message)}
+  }catch(e){SwalSmall.error("Reconcile ไม่สำเร็จ",e.message)}
   finally{btn.disabled=false;btn.textContent="Reconcile R2"}
 };
 function selected(){
@@ -106,7 +106,7 @@ async function loadCandidates(){
         <td>${escapeHtml(x.created_at||"-")}</td>
         <td>${bytes(x.size_bytes)}</td>
       </tr>`).join("");
-  }catch(e){alert("ค้นหาไม่สำเร็จ: "+e.message)}
+  }catch(e){SwalSmall.error("ค้นหาไม่สำเร็จ",e.message)}
 }
 $("loadCandidatesBtn").onclick=loadCandidates;
 
@@ -126,8 +126,8 @@ function concat(chunks,total){
   const out=new Uint8Array(total);let off=0;for(const c of chunks){out.set(c,off);off+=c.length}return out;
 }
 $("downloadArchiveBtn").onclick=async()=>{
-  const keys=selected();if(!keys.length){alert("กรุณาเลือกรายการ");return}
-  if(keys.length>100){alert("เพื่อความปลอดภัย จำกัด Archive ครั้งละ 100 ไฟล์");return}
+  const keys=selected();if(!keys.length){SwalSmall.error("กรุณาเลือกรายการ");return}
+  if(keys.length>100){SwalSmall.error("จำกัด Archive ครั้งละ 100 ไฟล์");return}
   const btn=$("downloadArchiveBtn");btn.disabled=true;btn.textContent="กำลังสร้าง Archive...";
   try{
     const chosen=state.candidates.filter(x=>keys.includes(x.object_key));
@@ -154,17 +154,17 @@ $("downloadArchiveBtn").onclick=async()=>{
     a.download=`receiptocr-archive-${$("archiveCategory").value}-${new Date().toISOString().slice(0,10)}.tar`;
     a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);
     alert("สร้าง Archive แล้ว กรุณาตรวจไฟล์ที่ดาวน์โหลดก่อนกด 'ยืนยันว่า Archive แล้ว'");
-  }catch(e){alert("Archive ไม่สำเร็จ: "+e.message)}
+  }catch(e){SwalSmall.error("Archive ไม่สำเร็จ",e.message)}
   finally{btn.disabled=false;btn.textContent="ดาวน์โหลด Archive (.tar)"}
 };
 $("markArchivedBtn").onclick=async()=>{
-  const keys=selected();if(!keys.length)return alert("กรุณาเลือกรายการ");
+  const keys=selected();if(!keys.length)return SwalSmall.error("กรุณาเลือกรายการ");
   if(!confirm("ยืนยันว่าคุณดาวน์โหลดและตรวจ Archive แล้ว?"))return;
   try{await postJson("/api/storage/mark-archived",{keys});alert("บันทึกสถานะ Archived แล้ว");await loadCandidates();await refresh()}
   catch(e){alert("ทำรายการไม่สำเร็จ: "+e.message)}
 };
 $("purgeBtn").onclick=async()=>{
-  const keys=selected();if(!keys.length)return alert("กรุณาเลือกรายการ");
+  const keys=selected();if(!keys.length)return SwalSmall.error("กรุณาเลือกรายการ");
   if(!confirm("ลบไฟล์ที่มีสถานะ Archived จาก R2 จริงหรือไม่? การลบย้อนกลับไม่ได้"))return;
   try{
     const r=await postJson("/api/storage/purge-archived",{keys});
