@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ReceiptOCR Admin - OCR Profile</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">ReceiptOCR Admin</div>
+      <h1>OCR Profile Builder</h1>
+      <p>กำหนดตำแหน่งอ่านข้อมูลและเงื่อนไขของแต่ละแบรนด์</p>
+    </div>
+    <div class="actions">
+      <button id="newProfileBtn" class="secondary">โปรไฟล์ใหม่</button>
+      <button id="saveCloudBtn" class="secondary">บันทึก Cloudflare</button>
+      <button id="exportBtn" class="primary">Export JSON</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel settings">
+      <h2>ข้อมูล Profile</h2>
+      <div class="grid2">
+        <label>Brand ID<input id="brandId" value="CJ MORE"></label>
+        <label>Profile ID<input id="profileId" value="cj-more-v1"></label>
+      </div>
+      <label>ชื่อ Profile<input id="profileName" value="CJ MORE Receipt Profile"></label>
+      <div class="grid2">
+        <label>Version<input id="version" type="number" min="1" value="1"></label>
+        <label>สถานะ
+          <select id="active">
+            <option value="true">ใช้งาน</option>
+            <option value="false">ปิดใช้งาน</option>
+          </select>
+        </label>
+      </div>
+
+      <hr>
+
+      <h2>ตัวอย่างบิล</h2>
+      <label class="uploadBox">
+        <input id="imageInput" type="file" accept="image/*">
+        <span>เลือกภาพตัวอย่างบิล</span>
+      </label>
+      <p class="hint">ลากเมาส์บนภาพเพื่อสร้าง ROI แล้วเลือกประเภทข้อมูล</p>
+
+      <div class="fieldPicker">
+        <label>ประเภทข้อมูล
+          <select id="fieldType">
+            <option>STORE_ID</option>
+            <option>POS_NUMBER</option>
+            <option>BILL_DATE</option>
+            <option>BILL_TIME</option>
+            <option>CUSTOMER_VALUE</option>
+            <option>RECEIPT_UNIQUE_KEY</option>
+          </select>
+        </label>
+        <label>Match
+          <select id="matchMode">
+            <option>INSIDE_REGION</option>
+            <option selected>NEAR_LABEL</option>
+            <option>REGEX</option>
+            <option>EXACT_TOKEN</option>
+            <option>PREFIX</option>
+            <option>SUFFIX</option>
+          </select>
+        </label>
+      </div>
+
+      <label>Label hints
+        <input id="labelHints" placeholder="เช่น DATE, วันที่, POS">
+      </label>
+      <label>Regex
+        <input id="regexPattern" placeholder="เช่น \\b\\d{1,2}/\\d{1,2}/\\d{4}\\b">
+      </label>
+      <div class="grid2">
+        <label>Priority<input id="priority" type="number" value="100"></label>
+        <label class="check"><input id="required" type="checkbox"> Required</label>
+      </div>
+
+      <button id="addRuleBtn" class="secondary full">เพิ่ม Rule จาก ROI ที่วาด</button>
+    </section>
+
+    <section class="panel canvasPanel">
+      <div class="canvasHeader">
+        <div>
+          <h2>พื้นที่กำหนดตำแหน่ง OCR</h2>
+          <p>ตำแหน่งถูกบันทึกแบบ normalized 0.0–1.0</p>
+        </div>
+        <button id="clearDraftBtn" class="ghost">ยกเลิกกรอบที่กำลังวาด</button>
+      </div>
+
+      <div id="canvasWrap" class="canvasWrap">
+        <canvas id="imageCanvas"></canvas>
+        <div id="emptyState">กรุณาเลือกภาพตัวอย่างบิล</div>
+      </div>
+
+      <div id="draftInfo" class="draftInfo">ยังไม่ได้วาด ROI</div>
+    </section>
+
+    <section class="panel rules">
+      <div class="sectionHead">
+        <h2>Rules</h2>
+        <span id="ruleCount" class="badge">0</span>
+      </div>
+      <div id="rulesList" class="rulesList"></div>
+
+      <hr>
+      <h2>Learning / ตัวอย่างบิล</h2>
+      <p class="hint">Admin ใช้ตัวอย่างบิลเพื่อสอนระบบว่าแต่ละแบรนด์มีข้อความจำเพาะและตำแหน่งใด ไม่ใช่ให้ APK เดาสุ่ม</p>
+      <label>ชื่อชุดตัวอย่าง<input id="sampleName" placeholder="เช่น CJ แบบเก่า 2026"></label>
+      <label>ข้อความจำเพาะ / หมายเหตุ
+        <textarea id="sampleNotes" rows="3" placeholder="เช่น ต้องพบ CJ1078, คำว่า POS NO, DATE อยู่ขวาบน"></textarea>
+      </label>
+      <button id="saveExampleBtn" class="secondary full">บันทึกตัวอย่างให้ระบบเรียนรู้</button>
+
+      <hr>
+      <h2>Validation Settings</h2>
+      <div class="grid2">
+        <label>ก่อนวันงาน (วัน)<input id="beforeDays" type="number" min="0" value="2"></label>
+        <label>หลังวันงาน (วัน)<input id="afterDays" type="number" min="0" value="2"></label>
+      </div>
+      <label>ระดับเมื่อวันที่ไม่ผ่าน
+        <select id="dateSeverity">
+          <option>WARNING</option>
+          <option>BLOCK</option>
+        </select>
+      </label>
+      <label>ข้อความเตือน
+        <input id="dateMessage" value="วันที่ไม่ตรงเงื่อนไข">
+      </label>
+      <label class="check"><input id="uniquenessEnabled" type="checkbox" checked> เปิดป้องกันข้อมูลซ้ำ</label>
+
+      <div class="previewBox">
+        <div class="previewTitle">JSON Preview</div>
+        <pre id="jsonPreview"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
