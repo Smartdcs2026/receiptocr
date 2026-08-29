@@ -176,3 +176,12 @@ $("saveExampleBtn").onclick=async()=>{
     btn.textContent="อัปโหลดภาพ + บันทึกตัวอย่าง";
   }
 };
+
+(async function loadBrandOptions(){
+  try{
+    if(!window.AdminAuth || !AdminAuth.token())return;
+    const d=await AdminAuth.json("/api/brands");
+    const list=document.getElementById("brandOptions");
+    if(list) list.innerHTML=(d.items||[]).filter(x=>x.active).map(x=>`<option value="${x.brand_name}">${x.brand_abbr}</option>`).join("");
+  }catch(_){}
+})();

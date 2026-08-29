@@ -4,7 +4,6 @@ const state={file:null,workbook:null,headers:[],rows:[],normalized:[],mapping:{}
 const fields=[
   {key:"workDate",label:"วันที่งาน *",aliases:["date","work date","workdate","วันที่","วันที่ทำงาน","วันทำงาน"]},
   {key:"brand",label:"Brand *",aliases:["brand","แบรนด์","ยี่ห้อ"]},
-  {key:"brandAbbr",label:"ตัวย่อ Brand",aliases:["brand abbr","abbr","short brand","ตัวย่อ","ตัวย่อแบรนด์"]},
   {key:"businessType",label:"Business Type",aliases:["business type","type","ประเภทธุรกิจ"]},
   {key:"storeCode",label:"รหัสร้าน *",aliases:["store code","storecode","branch code","code","รหัสร้าน","รหัสสาขา"]},
   {key:"storeName",label:"ชื่อร้าน *",aliases:["store name","storename","branch name","ชื่อร้าน","ชื่อสาขา"]},
@@ -82,7 +81,7 @@ function normalizeRows(){
     _row:i+2,
     workDate:excelDateToIso(value(r,"workDate")),
     brand:String(value(r,"brand")||"").trim(),
-    brandAbbr:String(value(r,"brandAbbr")||"").trim(),
+    brandAbbr:"",
     businessType:String(value(r,"businessType")||"").trim(),
     storeCode:String(value(r,"storeCode")||"").trim(),
     storeName:String(value(r,"storeName")||"").trim(),

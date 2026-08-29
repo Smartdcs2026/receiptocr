@@ -10,14 +10,14 @@
 <body>
   <div class="layout">
     <section class="panel settings">
-      <h2>ข้อมูล Profile</h2>
+      <h2>ข้อมูลโปรไฟล์</h2>
       <div class="grid2">
-        <label>Brand ID<input id="brandId" value="CJ MORE"></label>
-        <label>Profile ID<input id="profileId" value="cj-more-v1"></label>
+        <label>รหัสแบรนด์<input id="brandId" list="brandOptions" value="CJ MORE"><datalist id="brandOptions"></datalist></label>
+        <label>รหัสโปรไฟล์<input id="profileId" value="cj-more-v1"></label>
       </div>
-      <label>ชื่อ Profile<input id="profileName" value="CJ MORE Receipt Profile"></label>
+      <label>ชื่อโปรไฟล์<input id="profileName" value="CJ MORE Receipt Profile"></label>
       <div class="grid2">
-        <label>Version<input id="version" type="number" min="1" value="1"></label>
+        <label>เวอร์ชัน<input id="version" type="number" min="1" value="1"></label>
         <label>สถานะ
           <select id="active">
             <option value="true">ใช้งาน</option>
@@ -34,10 +34,10 @@
         <span>เลือกภาพตัวอย่างบิล</span>
       </label>
       <div id="selectedImageInfo" class="cloudInfo">ยังไม่ได้เลือกภาพ</div>
-      <p class="hint">ลากเมาส์บนภาพเพื่อสร้าง ROI แล้วเลือกประเภทข้อมูล</p>
+      <p class="hint">ลากเมาส์บนภาพเพื่อสร้าง ROI แล้วเลือกข้อมูลที่ต้องอ่าน</p>
 
       <div class="fieldPicker">
-        <label>ประเภทข้อมูล
+        <label>ข้อมูลที่ต้องอ่าน
           <select id="fieldType">
             <option>STORE_ID</option>
             <option>POS_NUMBER</option>
@@ -47,7 +47,7 @@
             <option>RECEIPT_UNIQUE_KEY</option>
           </select>
         </label>
-        <label>Match
+        <label>วิธีจับคู่
           <select id="matchMode">
             <option>INSIDE_REGION</option>
             <option selected>NEAR_LABEL</option>
@@ -59,15 +59,15 @@
         </label>
       </div>
 
-      <label>Label hints
+      <label>คำใบ้ข้อความ
         <input id="labelHints" placeholder="เช่น DATE, วันที่, POS">
       </label>
-      <label>Regex
+      <label>รูปแบบข้อความ (Regex)
         <input id="regexPattern" placeholder="เช่น \\b\\d{1,2}/\\d{1,2}/\\d{4}\\b">
       </label>
       <div class="grid2">
-        <label>Priority<input id="priority" type="number" value="100"></label>
-        <label class="check"><input id="required" type="checkbox"> Required</label>
+        <label>ลำดับความสำคัญ<input id="priority" type="number" value="100"></label>
+        <label class="check"><input id="required" type="checkbox"> จำเป็นต้องพบ</label>
       </div>
 
       <button id="addRuleBtn" class="secondary full">เพิ่ม Rule จาก ROI ที่วาด</button>
@@ -92,13 +92,13 @@
 
     <section class="panel rules">
       <div class="sectionHead">
-        <h2>Rules</h2>
+        <h2>กฎการอ่าน</h2>
         <span id="ruleCount" class="badge">0</span>
       </div>
       <div id="rulesList" class="rulesList"></div>
 
       <hr>
-      <h2>Learning / ตัวอย่างบิล</h2>
+      <h2>ตัวอย่างสำหรับเรียนรู้</h2>
       <p class="hint">Admin ใช้ตัวอย่างบิลเพื่อสอนระบบว่าแต่ละแบรนด์มีข้อความจำเพาะและตำแหน่งใด ไม่ใช่ให้ APK เดาสุ่ม</p>
       <label>ชื่อชุดตัวอย่าง<input id="sampleName" placeholder="เช่น CJ แบบเก่า 2026"></label>
       <label>ข้อความจำเพาะ / หมายเหตุ
@@ -107,7 +107,7 @@
       <button id="saveExampleBtn" class="secondary full">อัปโหลดภาพ + บันทึกตัวอย่าง</button>
 
       <hr>
-      <h2>Validation Settings</h2>
+      <h2>เงื่อนไขตรวจสอบ</h2>
       <div class="grid2">
         <label>ก่อนวันงาน (วัน)<input id="beforeDays" type="number" min="0" value="2"></label>
         <label>หลังวันงาน (วัน)<input id="afterDays" type="number" min="0" value="2"></label>

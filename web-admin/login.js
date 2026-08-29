@@ -2,7 +2,7 @@ let setupMode=false;
 async function init(){
   try{
     if(AdminAuth.token()){
-      try{await AdminAuth.json("/api/admin/me");location.href="dashboard.html";return}catch{}
+      try{await AdminAuth.json("/api/admin/me");location.href="admin.html#home";return}catch{}
     }
     const r=await fetch(AdminAuth.apiBase()+"/api/admin/status");
     const d=await r.json();
@@ -35,7 +35,7 @@ document.getElementById("loginBtn").onclick=async()=>{
       body:JSON.stringify({username,password})
     });
     AdminAuth.saveSession(data.token,data.user);
-    location.href="dashboard.html";
+    location.href="admin.html#home";
   }catch(e){SwalSmall.error("เข้าสู่ระบบไม่สำเร็จ",e.message)}
   finally{btn.disabled=false}
 };

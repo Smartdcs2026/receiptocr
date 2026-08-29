@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>แบรนด์</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<div class="brandPage">
+  <section class="panel">
+    <div class="sectionHead">
+      <div>
+        <h2>กำหนดแบรนด์และตัวย่อ</h2>
+        <div class="small">ตัวย่อนี้จะถูกใช้ในไฟล์แผนงานและแสดงบน APK อัตโนมัติ</div>
+      </div>
+    </div>
+    <div class="brandFormGrid">
+      <label>รหัสแบรนด์<input id="brandId" placeholder="เช่น CJ_MORE"></label>
+      <label>ชื่อแบรนด์<input id="brandName" placeholder="เช่น CJ MORE"></label>
+      <label>ตัวย่อ<input id="brandAbbr" maxlength="8" placeholder="เช่น CJ"></label>
+      <div id="abbrPreview" class="brandAbbrPreview">--</div>
+    </div>
+    <button id="saveBrandBtn" class="primary">บันทึกแบรนด์</button>
+  </section>
+
+  <section class="panel" style="margin-top:14px">
+    <h2>รายการแบรนด์</h2>
+    <div class="tableWrap">
+      <table class="storageTable">
+        <thead><tr><th>ตัวย่อ</th><th>รหัส</th><th>ชื่อแบรนด์</th><th>สถานะ</th><th></th></tr></thead>
+        <tbody id="brandRows"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+<script src="config.js"></script><script src="admin-auth.js"></script><script src="admin-shell.js"></script><script src="brands.js"></script>
+</body></html>

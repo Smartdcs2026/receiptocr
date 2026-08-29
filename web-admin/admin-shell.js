@@ -2,13 +2,18 @@ const AdminShell = (() => {
   const nav=[
     ["dashboard.html","หน้าหลัก",""],
     ["users.html","ผู้ใช้งาน",""],
+    ["brands.html","แบรนด์",""],
     ["workplans.html","แผนงาน","Excel"],
-    ["index.html","OCR Profile","ROI"],
-    ["storage.html","R2 Storage","70/85/95"],
+    ["index.html","โปรไฟล์ OCR","ROI"],
+    ["storage.html","พื้นที่จัดเก็บ R2","70/85/95"],
     ["reports.html","รายงาน","Soon"],
     ["settings.html","ตั้งค่า","Soon"]
   ];
   function wrap(title,subtitle=""){
+    if(new URLSearchParams(location.search).get("embed")==="1"){
+      document.body.classList.add("embedPage");
+      return;
+    }
     const body=document.body;
     body.classList.add("adminBody");
     const current=location.pathname.split("/").pop()||"dashboard.html";
