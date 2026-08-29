@@ -12,3 +12,22 @@ hr{border:0;border-top:1px solid #edf0f5;margin:16px 0}.uploadBox{border:1px das
 @media(max-width:1100px){.layout{grid-template-columns:1fr}.canvasWrap{min-height:420px}.topbar{position:static}}
 
 textarea{width:100%;border:1px solid #d7dde8;border-radius:9px;padding:9px 10px;background:#fff;color:#152033;resize:vertical}
+
+.cloudInfo{margin:-3px 0 10px;padding:8px 10px;border-radius:9px;background:#f8faff;color:#667085;font-size:11px;border:1px solid #e3e8f0}
+.cloudInfo.ok{background:#ecfdf3;color:#027a48;border-color:#abefc6}
+.cloudInfo.warn{background:#fffaeb;color:#b54708;border-color:#fedf89}
+
+.linkButton{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.storagePage{max-width:1220px;margin:0 auto;padding:16px}
+.storageGrid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+.metricGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}
+.metric{border:1px solid #e3e8f0;border-radius:12px;padding:12px;background:#fff}
+.metric .value{font-size:22px;font-weight:800}.metric .label{font-size:11px;color:#667085;margin-top:3px}
+.usageBar{height:18px;background:#eef2f7;border-radius:999px;overflow:hidden;border:1px solid #e3e8f0}
+.usageFill{height:100%;width:0;background:#37a26c;transition:width .25s}
+.level-ok{color:#027a48}.level-warning{color:#b54708}.level-high,.level-critical{color:#b42318}
+.notice{border-radius:12px;padding:10px 12px;font-size:12px;margin:10px 0}.notice.ok{background:#ecfdf3;color:#027a48}.notice.warn{background:#fffaeb;color:#b54708}.notice.danger{background:#fef3f2;color:#b42318}
+.storageTable{width:100%;border-collapse:collapse;font-size:11px}.storageTable th,.storageTable td{border-bottom:1px solid #edf0f5;padding:8px;text-align:left;vertical-align:top}.storageTable th{color:#667085}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}.toolbar select,.toolbar input{width:auto;min-width:120px}
+.small{font-size:10px;color:#667085}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;word-break:break-all}
+@media(max-width:900px){.storageGrid{grid-template-columns:1fr}.metricGrid{grid-template-columns:1fr 1fr}}

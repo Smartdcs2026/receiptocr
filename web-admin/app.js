@@ -1,4 +1,4 @@
-const state={img:null,rules:[],draftRect:null,drawing:false,start:null};
+const state={img:null,selectedFile:null,rules:[],draftRect:null,drawing:false,start:null};
 const $=id=>document.getElementById(id);
 const canvas=$("imageCanvas"),ctx=canvas.getContext("2d");
 function resizeCanvasToImage(img){
@@ -32,7 +32,11 @@ canvas.addEventListener("mousedown",ev=>{if(!state.img)return;state.drawing=true
 canvas.addEventListener("mousemove",ev=>{if(!state.drawing)return;state.draftRect=normRect(state.start,point(ev));$("draftInfo").textContent="ROI: "+JSON.stringify(state.draftRect);draw()});
 window.addEventListener("mouseup",()=>{state.drawing=false});
 $("imageInput").addEventListener("change",ev=>{
-  const f=ev.target.files?.[0];if(!f)return;const img=new Image();img.onload=()=>{state.img=img;resizeCanvasToImage(img);$("emptyState").style.display="none";draw()};img.src=URL.createObjectURL(f);
+  const f=ev.target.files?.[0];if(!f)return;
+  state.selectedFile=f;
+  $("selectedImageInfo").textContent=`เลือกแล้ว: ${f.name} • ${(f.size/1024).toFixed(1)} KB`;
+  $("selectedImageInfo").className="cloudInfo ok";
+  const img=new Image();img.onload=()=>{state.img=img;resizeCanvasToImage(img);$("emptyState").style.display="none";draw()};img.src=URL.createObjectURL(f);
 });
 $("clearDraftBtn").onclick=()=>{state.draftRect=null;$("draftInfo").textContent="ยังไม่ได้วาด ROI";draw()};
 $("addRuleBtn").onclick=()=>{
@@ -106,6 +110,20 @@ async function apiPost(path, body){
   if(!res.ok) throw new Error(data.error||("HTTP "+res.status));
   return data;
 }
+
+async function apiUploadTrainingImage(file, brandId, profileId){
+  const base=(window.RECEIPTOCR_CONFIG?.API_BASE_URL||"").replace(/\/$/,"");
+  if(!base || base.includes("REPLACE_WITH")) throw new Error("กรุณาตั้งค่า API_BASE_URL ใน config.js");
+  const fd=new FormData();
+  fd.append("file",file);
+  fd.append("brandId",brandId);
+  fd.append("profileId",profileId||"");
+  const res=await fetch(base+"/api/training-images",{method:"POST",body:fd});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||("HTTP "+res.status));
+  return data;
+}
+
 $("saveCloudBtn").onclick=async()=>{
   try{
     $("saveCloudBtn").disabled=true;
@@ -116,20 +134,45 @@ $("saveCloudBtn").onclick=async()=>{
   finally{$("saveCloudBtn").disabled=false;$("saveCloudBtn").textContent="บันทึก Cloudflare"}
 };
 $("saveExampleBtn").onclick=async()=>{
+  const btn=$("saveExampleBtn");
   try{
+    if(!state.selectedFile) throw new Error("กรุณาเลือกภาพตัวอย่างบิลก่อน");
     const profile=buildProfile().ocrProfile;
+    btn.disabled=true;
+    btn.textContent="กำลังอัปโหลดภาพ...";
+
+    const imageResult=await apiUploadTrainingImage(
+      state.selectedFile,
+      profile.brandId,
+      profile.profileId
+    );
+
+    btn.textContent="กำลังบันทึก Annotation...";
     const annotations={
       regions:state.rules,
       notes:$("sampleNotes").value.trim(),
+      originalFileName:state.selectedFile.name,
+      imageContentType:state.selectedFile.type,
       defaultSearchOrder:["BILL_DATE","POS_NUMBER","STORE_ID","BILL_TIME","CUSTOMER_VALUE","RECEIPT_UNIQUE_KEY"]
     };
+
     const result=await apiPost("/api/training-examples",{
       brandId:profile.brandId,
       profileId:profile.profileId,
       sampleName:$("sampleName").value.trim()||("ตัวอย่าง "+new Date().toLocaleString("th-TH")),
+      imageKey:imageResult.imageKey,
       annotations,
       approved:true
     });
-    alert("บันทึกตัวอย่างสำเร็จ ID "+result.id);
-  }catch(e){alert("บันทึกตัวอย่างไม่สำเร็จ: "+e.message)}
+
+    $("selectedImageInfo").textContent=`บันทึก R2 แล้ว: ${imageResult.imageKey}`;
+    $("selectedImageInfo").className="cloudInfo ok";
+    alert(`บันทึกตัวอย่างสำเร็จ\nID: ${result.id}\nR2: ${imageResult.imageKey}`);
+  }catch(e){
+    $("selectedImageInfo").className="cloudInfo warn";
+    alert("บันทึกตัวอย่างไม่สำเร็จ: "+e.message)
+  }finally{
+    btn.disabled=false;
+    btn.textContent="อัปโหลดภาพ + บันทึกตัวอย่าง";
+  }
 };

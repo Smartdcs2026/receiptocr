@@ -14,6 +14,7 @@
       <p>กำหนดตำแหน่งอ่านข้อมูลและเงื่อนไขของแต่ละแบรนด์</p>
     </div>
     <div class="actions">
+      <a class="secondary linkButton" href="storage.html">R2 Storage</a>
       <button id="newProfileBtn" class="secondary">โปรไฟล์ใหม่</button>
       <button id="saveCloudBtn" class="secondary">บันทึก Cloudflare</button>
       <button id="exportBtn" class="primary">Export JSON</button>
@@ -45,6 +46,7 @@
         <input id="imageInput" type="file" accept="image/*">
         <span>เลือกภาพตัวอย่างบิล</span>
       </label>
+      <div id="selectedImageInfo" class="cloudInfo">ยังไม่ได้เลือกภาพ</div>
       <p class="hint">ลากเมาส์บนภาพเพื่อสร้าง ROI แล้วเลือกประเภทข้อมูล</p>
 
       <div class="fieldPicker">
@@ -115,7 +117,7 @@
       <label>ข้อความจำเพาะ / หมายเหตุ
         <textarea id="sampleNotes" rows="3" placeholder="เช่น ต้องพบ CJ1078, คำว่า POS NO, DATE อยู่ขวาบน"></textarea>
       </label>
-      <button id="saveExampleBtn" class="secondary full">บันทึกตัวอย่างให้ระบบเรียนรู้</button>
+      <button id="saveExampleBtn" class="secondary full">อัปโหลดภาพ + บันทึกตัวอย่าง</button>
 
       <hr>
       <h2>Validation Settings</h2>
