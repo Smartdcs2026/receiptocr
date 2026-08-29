@@ -13,7 +13,7 @@
   <section class="panel">
     <h2>1. ผู้ใช้งาน</h2>
     <div class="grid2">
-      <label>รหัสผู้ใช้ / รหัสผู้ใช้งาน
+      <label>รหัสผู้ใช้งาน
         <input id="employeeCode" value="0111" placeholder="เช่น 0111">
       </label>
       <label>ชื่อ-สกุล
@@ -31,7 +31,7 @@
     </label>
     <div id="fileInfo" class="cloudInfo">ยังไม่ได้เลือกไฟล์</div>
     <div class="grid2">
-      <label>Sheet
+      <label>แผ่นงาน
         <select id="sheetSelect"></select>
       </label>
       <label>จำนวนแถว
@@ -44,7 +44,7 @@
     <div class="sectionHead">
       <div>
         <h2>3. จับคู่คอลัมน์</h2>
-        <div class="small">ชื่อหัว Excel เปลี่ยนได้ ระบบพยายามจับ Alias ให้อัตโนมัติ และ Admin แก้ได้</div>
+        <div class="small">ชื่อหัว Excel เปลี่ยนได้ ระบบพยายามจับ ชื่อที่ใกล้เคียง ให้อัตโนมัติ และ ผู้ดูแลระบบสามารถแก้ได้</div>
       </div>
       <button id="autoMapBtn" class="secondary">จับคู่อัตโนมัติ</button>
     </div>
@@ -57,14 +57,14 @@
         <h2>4. ตัวอย่างข้อมูล</h2>
         <div id="validationSummary" class="small">ยังไม่มีข้อมูล</div>
       </div>
-      <button id="refreshตัวอย่างข้อมูลBtn" class="secondary">Refresh ตัวอย่างข้อมูล</button>
+      <button id="refreshPreviewBtn" class="secondary">อัปเดตตัวอย่าง</button>
     </div>
     <div class="tableWrap">
       <table class="storageTable">
         <thead>
           <tr>
             <th>#</th><th>วันที่งาน</th><th>แบรนด์</th><th>รหัสร้าน</th>
-            <th>ชื่อร้าน</th><th>POS</th><th>Lat/Lng</th>
+            <th>ชื่อร้าน</th><th>จำนวน POS</th><th>พิกัด</th>
           </tr>
         </thead>
         <tbody id="previewRows"></tbody>
@@ -75,7 +75,7 @@
   <section class="panel" style="margin-top:14px;margin-bottom:30px">
     <h2>5. อัปโหลด</h2>
     <div class="notice warn">
-      การ Import รอบใหม่จะปิดงานเดิมของ "ผู้ใช้นี้ + วันที่ที่มีอยู่ในไฟล์ใหม่" แล้วใช้ข้อมูลรอบล่าสุดแทน
+      การนำเข้ารอบใหม่จะปิดงานเดิมของ "ผู้ใช้นี้ + วันที่ที่มีอยู่ในไฟล์ใหม่" แล้วใช้ข้อมูลรอบล่าสุดแทน
       วันที่อื่นที่ไม่อยู่ในไฟล์จะไม่ถูกลบ
     </div>
     <button id="uploadBtn" class="primary full">อัปโหลดไฟล์งานให้ผู้ใช้งาน</button>
@@ -85,9 +85,7 @@
 
 <script src="config.js"></script>
 <script src="admin-auth.js"></script>
-<script src="admin-shell.js"></script>
-<script>(async()=>{if(!await AdminAuth.guard())return;AdminShell.wrap("แผนงาน","อัปโหลด Excel งานรายบุคคล")})();</script>
-
+<script src="content-page.js"></script>
 <script src="workplans.js"></script>
 </body>
 </html>

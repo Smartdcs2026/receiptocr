@@ -1,6 +1,5 @@
 (async()=>{
-  if(!await AdminAuth.guard())return;
-  AdminShell.wrap("หน้าหลัก","ภาพรวม ReceiptOCR Admin");
+  if(!await ContentPage.init())return;
   try{
     const [users,storage,health]=await Promise.all([
       AdminAuth.json("/api/users"),
@@ -10,10 +9,16 @@
     document.getElementById("dUsers").textContent=users.items?.length||0;
     document.getElementById("dStorage").textContent=(storage.percentUsed||0)+"%";
     document.getElementById("dObjects").textContent=storage.objectCount||0;
-    document.getElementById("dLevel").textContent=storage.level||"-";
-    document.getElementById("systemStatus").textContent=health.ok?"Worker / D1 / Admin API พร้อมใช้งาน":"ตรวจสอบ Worker";
+    document.getElementById("dLevel").textContent=thaiLevel(storage.level);
+    const box=document.getElementById("systemStatus");
+    box.textContent=health.ok?"ระบบเชื่อมต่อพร้อมใช้งาน":"ควรตรวจสอบการเชื่อมต่อ";
+    box.className="notice "+(health.ok?"ok":"danger");
   }catch(e){
-    document.getElementById("systemStatus").className="notice danger";
-    document.getElementById("systemStatus").textContent="โหลด Dashboard ไม่สำเร็จ: "+e.message;
+    const box=document.getElementById("systemStatus");
+    box.className="notice danger";
+    box.textContent="โหลดข้อมูลภาพรวมไม่สำเร็จ: "+e.message;
   }
 })();
+function thaiLevel(v){
+  return ({OK:"ปกติ",WARNING:"เฝ้าระวัง",HIGH:"สูง",CRITICAL:"วิกฤต"})[v]||"-";
+}

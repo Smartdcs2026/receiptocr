@@ -1,3 +1,5 @@
+(async()=>{
+if(!await ContentPage.init()) return;
 const $=id=>document.getElementById(id);
 const state={file:null,workbook:null,headers:[],rows:[],normalized:[],mapping:{}};
 
@@ -102,7 +104,7 @@ function renderPreview(){
   $("validationSummary").textContent=`${state.normalized.length} แถว • พร้อมใช้ ${state.normalized.length-bad.length} • ต้องแก้ ${bad.length}`;
   $("previewRows").innerHTML=state.normalized.slice(0,50).map((r,i)=>`
     <tr style="${invalid(r)?"background:#fef3f2":""}">
-      <td>${r._row}</td><td>${esc(r.workDate||"INVALID")}</td><td>${esc(r.brand)}</td>
+      <td>${r._row}</td><td>${esc(r.workDate||"ไม่ถูกต้อง")}</td><td>${esc(r.brand)}</td>
       <td>${esc(r.storeCode)}</td><td>${esc(r.storeName)}</td><td>${r.posCount}</td>
       <td>${esc(r.latitude)}/${esc(r.longitude)}</td>
     </tr>`).join("");
@@ -149,8 +151,8 @@ $("uploadBtn").onclick=async()=>{
     if(!state.file)throw new Error("กรุณาเลือก Excel");
     normalizeRows();
     const valid=state.normalized.filter(r=>!invalid(r));
-    if(!valid.length)throw new Error("ไม่มีแถวที่พร้อม Import");
-    if(valid.length!==state.normalized.length && !confirm(`มี ${state.normalized.length-valid.length} แถวไม่สมบูรณ์ จะ Import เฉพาะ ${valid.length} แถวหรือไม่?`))return;
+    if(!valid.length)throw new Error("ไม่มีแถวที่พร้อม นำเข้า");
+    if(valid.length!==state.normalized.length && !confirm(`มี ${state.normalized.length-valid.length} แถวไม่สมบูรณ์ จะ นำเข้า เฉพาะ ${valid.length} แถวหรือไม่?`))return;
 
     btn.disabled=true;btn.textContent="กำลังเก็บ Excel ต้นฉบับใน R2...";
     await postJson("/api/users",{employeeCode,fullName});
@@ -164,10 +166,12 @@ $("uploadBtn").onclick=async()=>{
       mapping:state.mapping,
       rows:valid
     });
-    $("uploadResult").textContent=`สำเร็จ Batch ${result.batchId} • Import ${result.imported} ร้าน • Reject ${result.rejected?.length||0}`;
+    $("uploadResult").textContent=`สำเร็จ Batch ${result.batchId} • นำเข้า ${result.imported} ร้าน • ไม่ผ่าน ${result.rejected?.length||0}`;
     SwalSmall.ok("อัปโหลดงานสำเร็จ",`${employeeCode} ${fullName} • ${result.imported} ร้าน`);
   }catch(err){
     $("uploadResult").textContent="ผิดพลาด: "+err.message;
     SwalSmall.error("อัปโหลดไม่สำเร็จ",err.message);
   }finally{btn.disabled=false;btn.textContent="อัปโหลดไฟล์งานให้ผู้ใช้งาน"}
 };
+
+})();

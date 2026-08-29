@@ -3,14 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>ReceiptOCR Admin - OCR Profile</title>
+  <title>ReceiptOCR Admin - โปรไฟล์ OCR</title>
   <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
   <div class="layout">
     <section class="panel settings">
-      <h2>ข้อมูลโปรไฟล์</h2>
+      <div class="sectionHead profileHead">
+        <div>
+          <h2 style="margin-bottom:3px">ข้อมูลโปรไฟล์</h2>
+          <div class="small">เลือกแบรนด์ กำหนดกฎการอ่าน แล้วบันทึกใช้งานกับ APK</div>
+        </div>
+      </div>
+      <div class="profileActions">
+        <button id="newProfileBtn" class="ghost">สร้างโปรไฟล์ใหม่</button>
+        <button id="exportBtn" class="secondary">ส่งออกไฟล์ตั้งค่า</button>
+        <button id="saveCloudBtn" class="primary">บันทึกโปรไฟล์</button>
+      </div>
       <div class="grid2">
         <label>รหัสแบรนด์<input id="brandId" list="brandOptions" value="CJ MORE"><datalist id="brandOptions"></datalist></label>
         <label>รหัสโปรไฟล์<input id="profileId" value="cj-more-v1"></label>
@@ -39,22 +49,22 @@
       <div class="fieldPicker">
         <label>ข้อมูลที่ต้องอ่าน
           <select id="fieldType">
-            <option>STORE_ID</option>
-            <option>POS_NUMBER</option>
-            <option>BILL_DATE</option>
-            <option>BILL_TIME</option>
-            <option>CUSTOMER_VALUE</option>
-            <option>RECEIPT_UNIQUE_KEY</option>
+            <option value="STORE_ID">รหัสร้าน</option>
+            <option value="POS_NUMBER">หมายเลข POS</option>
+            <option value="BILL_DATE">วันที่ในบิล</option>
+            <option value="BILL_TIME">เวลาในบิล</option>
+            <option value="CUSTOMER_VALUE">ยอด/เลขลูกค้า</option>
+            <option value="RECEIPT_UNIQUE_KEY">จุดจำเพาะป้องกันข้อมูลซ้ำ</option>
           </select>
         </label>
         <label>วิธีจับคู่
           <select id="matchMode">
-            <option>INSIDE_REGION</option>
-            <option selected>NEAR_LABEL</option>
-            <option>REGEX</option>
-            <option>EXACT_TOKEN</option>
-            <option>PREFIX</option>
-            <option>SUFFIX</option>
+            <option value="INSIDE_REGION">อยู่ภายในพื้นที่ที่กำหนด</option>
+            <option value="NEAR_LABEL" selected>อยู่ใกล้คำกำกับ</option>
+            <option value="REGEX">ตรงตามรูปแบบข้อความ</option>
+            <option value="EXACT_TOKEN">ตรงกับข้อความที่กำหนด</option>
+            <option value="PREFIX">ขึ้นต้นด้วย</option>
+            <option value="SUFFIX">ลงท้ายด้วย</option>
           </select>
         </label>
       </div>
@@ -70,14 +80,14 @@
         <label class="check"><input id="required" type="checkbox"> จำเป็นต้องพบ</label>
       </div>
 
-      <button id="addRuleBtn" class="secondary full">เพิ่ม Rule จาก ROI ที่วาด</button>
+      <button id="addRuleBtn" class="secondary full">เพิ่มกฎจากพื้นที่ที่วาด</button>
     </section>
 
     <section class="panel canvasPanel">
       <div class="canvasHeader">
         <div>
           <h2>พื้นที่กำหนดตำแหน่ง OCR</h2>
-          <p>ตำแหน่งถูกบันทึกแบบ normalized 0.0–1.0</p>
+          <p>ลากกรอบครอบเฉพาะบริเวณที่ต้องการให้ระบบอ่าน</p>
         </div>
         <button id="clearDraftBtn" class="ghost">ยกเลิกกรอบที่กำลังวาด</button>
       </div>
@@ -87,7 +97,7 @@
         <div id="emptyState">กรุณาเลือกภาพตัวอย่างบิล</div>
       </div>
 
-      <div id="draftInfo" class="draftInfo">ยังไม่ได้วาด ROI</div>
+      <div id="draftInfo" class="draftInfo">ยังไม่ได้กำหนดพื้นที่</div>
     </section>
 
     <section class="panel rules">
@@ -99,7 +109,7 @@
 
       <hr>
       <h2>ตัวอย่างสำหรับเรียนรู้</h2>
-      <p class="hint">Admin ใช้ตัวอย่างบิลเพื่อสอนระบบว่าแต่ละแบรนด์มีข้อความจำเพาะและตำแหน่งใด ไม่ใช่ให้ APK เดาสุ่ม</p>
+      <p class="hint">ผู้ดูแลระบบใช้ตัวอย่างบิลเพื่อกำหนดให้ระบบว่าแต่ละแบรนด์มีข้อความจำเพาะและตำแหน่งใด เพื่อให้ APK อ่านตามเงื่อนไขเดียวกัน</p>
       <label>ชื่อชุดตัวอย่าง<input id="sampleName" placeholder="เช่น CJ แบบเก่า 2026"></label>
       <label>ข้อความจำเพาะ / หมายเหตุ
         <textarea id="sampleNotes" rows="3" placeholder="เช่น ต้องพบ CJ1078, คำว่า POS NO, DATE อยู่ขวาบน"></textarea>
@@ -114,8 +124,8 @@
       </div>
       <label>ระดับเมื่อวันที่ไม่ผ่าน
         <select id="dateSeverity">
-          <option>WARNING</option>
-          <option>BLOCK</option>
+          <option value="WARNING">เตือน แต่ยังให้ทำงานต่อ</option>
+          <option value="BLOCK">ไม่อนุญาตให้ผ่าน</option>
         </select>
       </label>
       <label>ข้อความเตือน
@@ -123,18 +133,13 @@
       </label>
       <label class="check"><input id="uniquenessEnabled" type="checkbox" checked> เปิดป้องกันข้อมูลซ้ำ</label>
 
-      <div class="previewBox">
-        <div class="previewTitle">JSON Preview</div>
-        <pre id="jsonPreview"></pre>
-      </div>
+      <details class="technicalDetails"><summary>ดูข้อมูลเทคนิคของโปรไฟล์</summary><div class="previewBox"><pre id="jsonPreview"></pre></div></details>
     </section>
   </div>
 
   <script src="config.js"></script>
 <script src="admin-auth.js"></script>
-<script src="admin-shell.js"></script>
-<script>(async()=>{if(!await AdminAuth.guard())return;AdminShell.wrap("OCR Profile","กำหนดตำแหน่งและเงื่อนไขการอ่านบิล")})();</script>
-
-  <script src="app.js"></script>
+<script src="content-page.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

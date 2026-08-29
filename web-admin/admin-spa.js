@@ -1,76 +1,133 @@
 (async()=>{
-  if(!await AdminAuth.guard())return;
+  if(!await AdminAuth.guard()) return;
 
+  const VERSION="26";
   const routes={
-    home:{title:"หน้าหลัก",sub:"ภาพรวมระบบ",url:"dashboard.html?embed=1"},
-    users:{title:"ผู้ใช้งาน",sub:"จัดการผู้ใช้งานภาคสนาม",url:"users.html?embed=1"},
-    brands:{title:"แบรนด์",sub:"กำหนดชื่อและตัวย่อที่ใช้ในแผนงานและ APK",url:"brands.html?embed=1"},
-    workplans:{title:"แผนงาน",sub:"อัปโหลดไฟล์ Excel รายบุคคล",url:"workplans.html?embed=1"},
-    ocr:{title:"โปรไฟล์ OCR",sub:"กำหนดตำแหน่งและเงื่อนไขการอ่านบิล",url:"index.html?embed=1"},
-    storage:{title:"พื้นที่จัดเก็บ R2",sub:"ติดตามพื้นที่ • แจ้งเตือน • Archive • Retention",url:"storage.html?embed=1"},
-    reports:{title:"รายงาน",sub:"รายงานการทำงานและคุณภาพ OCR",url:"reports.html?embed=1"},
-    settings:{title:"ตั้งค่า",sub:"ตั้งค่าระบบส่วนกลาง",url:"settings.html?embed=1"}
+    home:{title:"หน้าหลัก",sub:"ภาพรวมและสถานะระบบ",url:"dashboard.html"},
+    users:{title:"ผู้ใช้งาน",sub:"ผู้ใช้งานภาคสนามและรหัสสำหรับรับแผนงาน",url:"users.html"},
+    brands:{title:"แบรนด์",sub:"กำหนดชื่อแบรนด์และตัวย่อที่ใช้ใน APK",url:"brands.html"},
+    workplans:{title:"แผนงาน",sub:"อัปโหลดและตรวจสอบไฟล์งานรายบุคคล",url:"workplans.html"},
+    ocr:{title:"โปรไฟล์ OCR",sub:"กำหนดสิ่งที่ต้องอ่าน ตำแหน่ง และเงื่อนไขของแต่ละแบรนด์",url:"index.html"},
+    storage:{title:"พื้นที่จัดเก็บ R2",sub:"ติดตามพื้นที่ แจ้งเตือน สำรอง และลบข้อมูลตามอายุ",url:"storage.html"},
+    reports:{title:"รายงาน",sub:"รายงานการทำงานและคุณภาพการอ่านข้อมูล",url:"reports.html"},
+    settings:{title:"ตั้งค่า",sub:"ตั้งค่าระบบส่วนกลาง",url:"settings.html"}
   };
 
   const nav=[
     ["home","หน้าหลัก",""],
     ["users","ผู้ใช้งาน",""],
     ["brands","แบรนด์",""],
-    ["workplans","แผนงาน","Excel"],
-    ["ocr","โปรไฟล์ OCR","ROI"],
-    ["storage","พื้นที่จัดเก็บ R2","70/85/95"],
-    ["reports","รายงาน","เร็ว ๆ นี้"],
-    ["settings","ตั้งค่า","เร็ว ๆ นี้"]
+    ["workplans","แผนงาน",""],
+    ["ocr","โปรไฟล์ OCR",""],
+    ["storage","พื้นที่จัดเก็บ R2",""],
+    ["reports","รายงาน",""],
+    ["settings","ตั้งค่า",""]
   ];
 
   const root=document.getElementById("spaRoot");
   const u=AdminAuth.user()||{};
+
   root.innerHTML=`
     <div class="adminShell">
       <aside class="adminSidebar">
         <div class="adminBrand">
           <div class="adminLogo">RO</div>
-          <div><div class="adminBrandTitle">ReceiptOCR Admin</div><div class="adminBrandSub">ศูนย์ควบคุมระบบ</div></div>
+          <div>
+            <div class="adminBrandTitle">ReceiptOCR Admin</div>
+            <div class="adminBrandSub">ระบบจัดการงานและการอ่านบิล</div>
+          </div>
         </div>
+
         <nav class="adminNav" id="spaNav">
-          ${nav.map(([key,label,badge])=>`<a href="#${key}" data-route="${key}"><span>${label}</span>${badge?`<span class="navBadge">${badge}</span>`:""}</a>`).join("")}
+          ${nav.map(([key,label])=>`
+            <a href="#${key}" data-route="${key}">
+              <span class="navText">${label}</span>
+            </a>`).join("")}
         </nav>
-        <div class="sidebarFooter">GitHub Pages • Cloudflare Worker • D1 • R2</div>
+
+        <div class="sidebarFooter">
+          <div>สถานะระบบออนไลน์</div>
+          <div class="footerTech">GitHub Pages · Cloudflare · D1 · R2</div>
+        </div>
       </aside>
+
       <section class="adminMain">
         <header class="adminHeader">
-          <div><div id="spaTitle" class="adminHeaderTitle"></div><div id="spaSub" class="adminHeaderSub"></div></div>
+          <div>
+            <div id="spaTitle" class="adminHeaderTitle"></div>
+            <div id="spaSub" class="adminHeaderSub"></div>
+          </div>
           <div class="adminUser">
-            <div class="adminUserName">${u.fullName||u.username||"Admin"}<br><span class="small">${u.role||"ADMIN"}</span></div>
-            <button id="spaLogout" class="ghost">ออกจากระบบ</button>
+            <div class="adminUserName">
+              ${escapeHtml(u.fullName||u.username||"ผู้ดูแลระบบ")}
+              <br><span class="small">${u.role==="ADMIN"?"ผู้ดูแลระบบ":escapeHtml(u.role||"")}</span>
+            </div>
+            <button id="spaLogout" class="ghost compactBtn">ออกจากระบบ</button>
           </div>
         </header>
+
+        <div class="spaProgress" id="spaProgress"></div>
         <div class="spaFrameWrap">
-          <div id="spaLoading" class="spaLoading">กำลังโหลด...</div>
-          <iframe id="spaFrame" class="spaFrame" title="ReceiptOCR Admin"></iframe>
+          <iframe id="frameA" class="spaFrame active" title="พื้นที่ทำงาน"></iframe>
+          <iframe id="frameB" class="spaFrame" title="พื้นที่ทำงาน"></iframe>
         </div>
       </section>
     </div>`;
 
-  const frame=document.getElementById("spaFrame");
-  const loading=document.getElementById("spaLoading");
+  function escapeHtml(v){
+    return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+  }
+
+  const frames=[document.getElementById("frameA"),document.getElementById("frameB")];
+  let activeIndex=0;
+  let currentRoute="";
+  let navSerial=0;
+  const progress=document.getElementById("spaProgress");
   const navHost=document.getElementById("spaNav");
 
-  function currentKey(){
-    const k=(location.hash||"#home").slice(1);
-    return routes[k]?k:"home";
+  function keyFromHash(){
+    const key=(location.hash||"#home").slice(1);
+    return routes[key]?key:"home";
   }
-  function navigate(){
-    const key=currentKey(),r=routes[key];
+
+  function routeUrl(route){
+    const join=route.url.includes("?")?"&":"?";
+    return `${route.url}${join}embed=1&v=${VERSION}`;
+  }
+
+  function setHeader(key){
+    const r=routes[key];
     document.getElementById("spaTitle").textContent=r.title;
     document.getElementById("spaSub").textContent=r.sub;
-    navHost.querySelectorAll("a").forEach(a=>a.classList.toggle("active",a.dataset.route===key));
-    loading.style.display="grid";
-    frame.classList.remove("ready");
-    frame.src=r.url;
+    navHost.querySelectorAll("a").forEach(a=>{
+      a.classList.toggle("active",a.dataset.route===key);
+    });
   }
-  frame.addEventListener("load",()=>{loading.style.display="none";frame.classList.add("ready")});
-  window.addEventListener("hashchange",navigate);
+
+  function navigate(force=false){
+    const key=keyFromHash();
+    setHeader(key);
+    if(!force && key===currentRoute) return;
+
+    const serial=++navSerial;
+    const nextIndex=1-activeIndex;
+    const next=frames[nextIndex];
+    progress.classList.add("show");
+
+    next.onload=()=>{
+      if(serial!==navSerial) return;
+      next.classList.add("active");
+      frames[activeIndex].classList.remove("active");
+      activeIndex=nextIndex;
+      currentRoute=key;
+      progress.classList.remove("show");
+    };
+
+    next.src=routeUrl(routes[key]);
+  }
+
+  window.addEventListener("hashchange",()=>navigate());
   document.getElementById("spaLogout").onclick=AdminAuth.logout;
-  navigate();
+
+  navigate(true);
 })();

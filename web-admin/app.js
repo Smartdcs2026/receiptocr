@@ -1,3 +1,21 @@
+(async()=>{
+if(!await ContentPage.init()) return;
+const FIELD_LABELS={
+  STORE_ID:"รหัสร้าน",
+  POS_NUMBER:"หมายเลข POS",
+  BILL_DATE:"วันที่ในบิล",
+  BILL_TIME:"เวลาในบิล",
+  CUSTOMER_VALUE:"ยอด/เลขลูกค้า",
+  RECEIPT_UNIQUE_KEY:"จุดจำเพาะป้องกันข้อมูลซ้ำ"
+};
+const MATCH_LABELS={
+  INSIDE_REGION:"อยู่ภายในพื้นที่ที่กำหนด",
+  NEAR_LABEL:"อยู่ใกล้คำกำกับ",
+  REGEX:"ตรงตามรูปแบบข้อความ",
+  EXACT_TOKEN:"ตรงกับข้อความที่กำหนด",
+  PREFIX:"ขึ้นต้นด้วย",
+  SUFFIX:"ลงท้ายด้วย"
+};
 const state={img:null,selectedFile:null,rules:[],draftRect:null,drawing:false,start:null};
 const $=id=>document.getElementById(id);
 const canvas=$("imageCanvas"),ctx=canvas.getContext("2d");
@@ -13,7 +31,7 @@ function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   if(!state.img)return;
   ctx.drawImage(state.img,0,0,canvas.width,canvas.height);
-  state.rules.forEach((r,i)=>drawRect(r.region,`Rule ${i+1}: ${r.fieldType}`,"#2f6fed"));
+  state.rules.forEach((r,i)=>drawRect(r.region,`${i+1}. ${FIELD_LABELS[r.fieldType]||r.fieldType}`,"#2f6fed"));
   if(state.draftRect)drawRect(state.draftRect,"Draft","#f59e0b");
 }
 function drawRect(n,label,color){
@@ -40,7 +58,7 @@ $("imageInput").addEventListener("change",ev=>{
 });
 $("clearDraftBtn").onclick=()=>{state.draftRect=null;$("draftInfo").textContent="ยังไม่ได้วาด ROI";draw()};
 $("addRuleBtn").onclick=()=>{
-  if(!state.draftRect){alert("กรุณาวาด ROI บนภาพก่อน");return}
+  if(!state.draftRect){SwalSmall.error("ยังไม่ได้กำหนดพื้นที่","กรุณาลากกรอบบนภาพก่อนเพิ่มกฎ");return}
   const hints=$("labelHints").value.split(",").map(s=>s.trim()).filter(Boolean);
   state.rules.push({
     id:"rule-"+Date.now(),
@@ -55,14 +73,14 @@ $("addRuleBtn").onclick=()=>{
     searchRadiusY:.08,
     allowMultiple:$("fieldType").value==="POS_NUMBER"
   });
-  state.draftRect=null;$("draftInfo").textContent="เพิ่ม Rule แล้ว";renderRules();draw();renderJson();
+  state.draftRect=null;$("draftInfo").textContent="เพิ่มกฎการอ่านแล้ว";renderRules();draw();renderJson();
 };
 function renderRules(){
   $("ruleCount").textContent=state.rules.length;
   $("rulesList").innerHTML="";
   state.rules.forEach((r,i)=>{
     const el=document.createElement("div");el.className="ruleItem";
-    el.innerHTML=`<div class="ruleTop"><div><div class="ruleTitle">${i+1}. ${r.fieldType}</div><div class="ruleMeta">${r.matchMode} • priority ${r.priority}<br>${JSON.stringify(r.region)}</div></div><button class="deleteRule">ลบ</button></div>`;
+    el.innerHTML=`<div class="ruleTop"><div><div class="ruleTitle">${i+1}. ${r.fieldType}</div><div class="ruleMeta">${MATCH_LABELS[r.matchMode]||r.matchMode} • ลำดับ ${r.priority}<br>${JSON.stringify(r.region)}</div></div><button class="deleteRule">ลบ</button></div>`;
     el.querySelector("button").onclick=()=>{state.rules.splice(i,1);renderRules();draw();renderJson()};
     $("rulesList").appendChild(el);
   });
@@ -99,7 +117,7 @@ $("exportBtn").onclick=()=>{
   const blob=new Blob([JSON.stringify(buildProfile(),null,2)],{type:"application/json"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=($("profileId").value||"ocr-profile")+".json";a.click();URL.revokeObjectURL(a.href);
 };
-$("newProfileBtn").onclick=()=>{if(confirm("ล้าง Rules และเริ่ม Profile ใหม่?")){state.rules=[];state.draftRect=null;renderRules();draw();renderJson()}};
+$("newProfileBtn").onclick=()=>{SwalSmall.confirm("เริ่มโปรไฟล์ใหม่?","กฎที่ยังไม่ได้บันทึกจะถูกล้าง").then(r=>{if(r.isConfirmed){state.rules=[];state.draftRect=null;renderRules();draw();renderJson()}})};
 renderRules();renderJson();
 
 async function apiPost(path, body){
@@ -184,4 +202,6 @@ $("saveExampleBtn").onclick=async()=>{
     const list=document.getElementById("brandOptions");
     if(list) list.innerHTML=(d.items||[]).filter(x=>x.active).map(x=>`<option value="${x.brand_name}">${x.brand_abbr}</option>`).join("");
   }catch(_){}
+})();
+
 })();

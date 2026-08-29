@@ -1,6 +1,5 @@
 (async()=>{
-  if(!await AdminAuth.guard())return;
-  AdminShell.wrap("แบรนด์","กำหนดชื่อและตัวย่อที่ใช้ในแผนงานและ APK");
+  if(!await ContentPage.init())return;
 
   const $=id=>document.getElementById(id);
   $("brandAbbr").addEventListener("input",()=>{

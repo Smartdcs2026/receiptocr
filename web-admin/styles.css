@@ -83,3 +83,61 @@ body.embedPage>.layout,body.embedPage>.storagePage,body.embedPage>.workPlanPage{
 .brandFormGrid{display:grid;grid-template-columns:1fr 1.4fr .7fr auto;gap:10px;align-items:end}
 .brandAbbrPreview{width:64px;height:48px;border-radius:10px;background:#2f6fed;color:#fff;font-weight:800;display:grid;place-items:center;font-size:18px}
 @media(max-width:800px){.brandFormGrid{grid-template-columns:1fr 1fr}.spaFrameWrap{height:calc(100vh - 86px)}}
+
+/* Round26 — corrected single-shell admin UX */
+html,body{min-height:100%}
+body{font-family:"Segoe UI",Tahoma,Arial,sans-serif}
+.adminShell{grid-template-columns:228px minmax(0,1fr);height:100vh;min-height:0}
+.adminSidebar{height:100vh;position:relative;padding:16px 12px;display:flex;flex-direction:column;overflow:hidden;background:#0f1b2d}
+.adminBrand{padding:2px 6px 16px}
+.adminLogo{width:40px;height:40px;border-radius:11px}
+.adminBrandTitle{font-size:14px}.adminBrandSub{font-size:10px;color:#9aa8bc}
+.adminNav{gap:4px;overflow:auto;padding-right:2px}
+.adminNav a{padding:10px 12px;font-size:12px;border-left:3px solid transparent}
+.adminNav a.active{background:#20314a;border-left-color:#4f8df7}
+.adminNav a:hover{background:#192a40}
+.sidebarFooter{margin-top:auto;padding:12px 7px 2px}
+.footerTech{margin-top:4px;color:#718096;font-size:9px}
+.adminMain{height:100vh;display:grid;grid-template-rows:auto 2px minmax(0,1fr);overflow:hidden}
+.adminHeader{position:relative;top:auto;padding:12px 16px;min-height:66px}
+.adminHeaderTitle{font-size:17px}.adminHeaderSub{font-size:11px}
+.compactBtn{padding:8px 11px}
+.spaProgress{height:2px;background:transparent;overflow:hidden}
+.spaProgress.show:before{content:"";display:block;height:100%;width:35%;background:#2f6fed;animation:spaProgress 1s infinite ease-in-out}
+@keyframes spaProgress{0%{transform:translateX(-110%)}100%{transform:translateX(320%)}}
+.spaFrameWrap{position:relative;height:100%;min-height:0;background:#f5f7fa;overflow:hidden}
+.spaFrame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#f5f7fa;opacity:0;pointer-events:none;transition:opacity .14s ease}
+.spaFrame.active{opacity:1;pointer-events:auto;z-index:1}
+body.embedPage{background:#f5f7fa!important;overflow:auto}
+body.embedPage>.layout,body.embedPage>.storagePage,body.embedPage>.workPlanPage,body.embedPage>.brandPage{
+  margin:0!important;max-width:none!important;padding:14px!important
+}
+body.embedPage .dashboardGrid,body.embedPage .adminSectionGrid{margin:14px}
+.layout{grid-template-columns:minmax(260px,310px) minmax(430px,1fr) minmax(300px,360px);align-items:start}
+.panel{border-radius:14px;box-shadow:0 1px 3px rgba(16,24,40,.05)}
+.canvasWrap{min-height:520px}
+input,select,textarea{font-size:12px}
+select{cursor:pointer}
+button,a.secondary,a.primary{transition:background .15s,border-color .15s,transform .05s}
+button:active,a.secondary:active,a.primary:active{transform:translateY(1px)}
+.ruleItem{color:inherit;text-decoration:none}
+.technicalDetails{margin-top:12px}
+.technicalDetails summary{cursor:pointer;color:#667085;font-size:11px;padding:8px 0}
+.previewBox{margin-top:4px}
+.brandAbbrPreview{border-radius:8px}
+@media(max-width:1150px){
+  .layout{grid-template-columns:280px minmax(400px,1fr)}
+  .layout>.rules{grid-column:1/-1}
+}
+@media(max-width:900px){
+  .adminShell{grid-template-columns:1fr;height:auto;min-height:100vh}
+  .adminSidebar{height:auto;overflow:visible}
+  .adminNav{display:grid;grid-template-columns:repeat(3,1fr);overflow:visible}
+  .adminMain{height:calc(100vh - 190px)}
+  .layout{grid-template-columns:1fr}
+}
+
+.profileHead{margin-bottom:10px}
+.profileActions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px}
+.profileActions .primary{grid-column:1/-1}
+@media(max-width:500px){.profileActions{grid-template-columns:1fr}.profileActions .primary{grid-column:auto}}

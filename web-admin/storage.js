@@ -1,3 +1,5 @@
+(async()=>{
+if(!await ContentPage.init()) return;
 const $=id=>document.getElementById(id);
 const state={usage:null,settings:null,candidates:[]};
 
@@ -173,3 +175,5 @@ $("purgeBtn").onclick=async()=>{
   }catch(e){alert("ลบไม่สำเร็จ: "+e.message)}
 };
 refresh();
+
+})();
