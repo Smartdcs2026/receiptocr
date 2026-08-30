@@ -217,3 +217,51 @@ button:active,a.secondary:active,a.primary:active{transform:translateY(1px)}
   .patternRowLabel{flex-direction:row}
   .patternRowsHead{align-items:flex-start;flex-direction:column}
 }
+
+/* Round29 - Simple Admin */
+.simplePage{padding:14px;max-width:1250px;margin:0 auto}
+.simpleHero{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.simpleHero h2{font-size:18px;margin:0 0 3px}.simpleHero p{font-size:11px;color:#667085;margin:0}
+.simplePanel{background:#fff;border:1px solid #e4e7ec;border-radius:14px;padding:14px;margin-bottom:12px}
+.simpleToolbar,.simpleBrandSelect,.editorSimpleHead{display:flex;justify-content:space-between;align-items:end;gap:10px}
+.simpleToolbar input{max-width:340px}
+.simpleBrandSelect label{min-width:280px;margin:0}
+.brandCardList,.patternListSimple{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.brandSimpleCard,.patternSimpleCard{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center;border:1px solid #e4e7ec;border-radius:12px;padding:10px 12px}
+.brandBadge{width:48px;height:38px;border-radius:9px;background:#eef4ff;color:#175cd3;font-weight:800;display:grid;place-items:center}
+.brandSimpleInfo,.patternSimpleMain{display:flex;flex-direction:column;gap:2px;min-width:0}
+.brandSimpleInfo strong,.patternSimpleMain strong{font-size:12px}.brandSimpleInfo span,.patternSimpleMain span{font-size:10px;color:#667085;white-space:normal}
+.brandSimpleState{font-size:10px;border-radius:999px;padding:5px 8px}.brandSimpleState.on{background:#ecfdf3;color:#027a48}.brandSimpleState.off{background:#f2f4f7;color:#667085}
+.brandSimpleActions,.patternSimpleActions,.editorHeadActions{display:flex;gap:6px}
+.dangerBtn{color:#b42318!important;border-color:#fecdca!important}
+.simpleFormGrid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
+.simpleFormGrid.two{grid-template-columns:1fr 1fr}
+.rowChoice{border-top:1px solid #eaecf0;border-bottom:1px solid #eaecf0;padding:12px 0;margin:12px 0}
+.rowChoice>span{display:block;font-size:11px;font-weight:700;margin-bottom:7px}
+.segmented{display:inline-flex;border:1px solid #d0d5dd;border-radius:9px;overflow:hidden;margin-bottom:5px}
+.segmented button{border:0;border-right:1px solid #d0d5dd;background:#fff;color:#475467;padding:8px 12px;font-size:10px}
+.segmented button:last-child{border-right:0}.segmented button.active{background:#eef4ff;color:#175cd3;font-weight:700}
+.simplePalette{padding:10px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:11px}
+.simplePaletteTitle{font-size:11px;font-weight:700;margin-bottom:7px}
+.simplePaletteItems{display:flex;gap:6px;flex-wrap:wrap}
+.simplePaletteItems button{border:1px solid #cfd8e6;background:#fff;border-radius:8px;padding:8px 10px;font-size:10px}
+.simpleRowsArea{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.simplePatternRow{display:grid;grid-template-columns:76px minmax(0,1fr);gap:7px;border:1px solid #e4e7ec;border-radius:11px;padding:7px;background:#fbfcfe}
+.simplePatternRow.selected{border-color:#84adff;background:#f7faff}
+.simpleRowLabel{border:0;border-radius:8px;background:#eef4ff;color:#175cd3;font-size:10px;font-weight:700}
+.simpleRowDrop{min-height:56px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;border:1px dashed #cbd5e1;border-radius:8px;padding:6px;background:#fff}
+.simpleRowDrop.dragOver{background:#eef4ff;border-color:#2f6fed}
+.simpleRowEmpty{font-size:10px;color:#98a2b3;margin:auto}
+.simpleFieldChip{display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;padding:7px 9px;font-size:10px;cursor:grab}
+.simpleFieldChip.active{border-color:#2f6fed;background:#eef4ff;color:#1849a9}.simpleFieldChip small{font-size:9px;color:#667085}
+.fieldSettingsSimple{border-top:1px solid #eaecf0;margin-top:14px;padding-top:12px}
+.fieldSettingsHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.simpleCheckPanel{border-top:1px solid #eaecf0;margin-top:14px;padding-top:12px}.simpleCheckPanel h4{font-size:12px;margin:0 0 8px}
+.swalForm{text-align:left}.swalForm label{display:block;font-size:11px;margin:8px 0}.swalForm .swal2-input{width:100%;margin:5px 0 0;height:40px;font-size:13px}
+.swalCheck{display:flex!important;align-items:center;gap:6px}
+@media(max-width:750px){
+  .simpleHero,.simpleToolbar,.simpleBrandSelect,.editorSimpleHead{align-items:stretch;flex-direction:column}
+  .simpleBrandSelect label{min-width:0;width:100%}
+  .brandSimpleCard,.patternSimpleCard{grid-template-columns:auto 1fr}.brandSimpleState{grid-column:1}.brandSimpleActions,.patternSimpleActions{grid-column:2;justify-content:flex-end}
+  .simpleFormGrid.two{grid-template-columns:1fr}.simplePatternRow{grid-template-columns:1fr}
+}

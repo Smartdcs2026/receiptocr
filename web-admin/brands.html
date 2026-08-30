@@ -1,39 +1,35 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>แบรนด์</title>
-<link rel="stylesheet" href="styles.css">
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ReceiptOCR Admin - แบรนด์</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-<div class="brandPage">
-  <section class="panel">
-    <div class="sectionHead">
-      <div>
-        <h2>กำหนดแบรนด์และตัวย่อ</h2>
-        <div class="small">ตัวย่อนี้จะถูกใช้ในไฟล์แผนงานและแสดงบน APK อัตโนมัติ</div>
-      </div>
+<div class="simplePage">
+  <section class="simpleHero">
+    <div>
+      <h2>แบรนด์</h2>
+      <p>เพิ่ม แก้ไข หรือลบแบรนด์ที่ใช้งานในระบบ</p>
     </div>
-    <div class="brandFormGrid">
-      <label>รหัสแบรนด์<input id="brandId" placeholder="เช่น CJ_MORE"></label>
-      <label>ชื่อแบรนด์<input id="brandName" placeholder="เช่น CJ MORE"></label>
-      <label>ตัวย่อ<input id="brandAbbr" maxlength="8" placeholder="เช่น CJ"></label>
-      <div id="abbrPreview" class="brandAbbrPreview">--</div>
-    </div>
-    <button id="saveแบรนด์Btn" class="primary">บันทึกแบรนด์</button>
+    <button id="addBrandBtn" class="primary">เพิ่มแบรนด์</button>
   </section>
 
-  <section class="panel" style="margin-top:14px">
-    <h2>รายการแบรนด์</h2>
-    <div class="tableWrap">
-      <table class="storageTable">
-        <thead><tr><th>ตัวย่อ</th><th>รหัส</th><th>ชื่อแบรนด์</th><th>สถานะ</th><th></th></tr></thead>
-        <tbody id="brandRows"></tbody>
-      </table>
+  <section class="simplePanel">
+    <div class="simpleToolbar">
+      <input id="brandSearch" placeholder="ค้นหาชื่อแบรนด์หรือตัวย่อ">
+      <div id="brandCount" class="small">0 แบรนด์</div>
     </div>
+
+    <div id="brandList" class="brandCardList"></div>
   </section>
 </div>
-<script src="config.js"></script><script src="admin-auth.js"></script>
-<script src="content-page.js"></script><script src="brands.js"></script>
-</body></html>
+
+<script src="config.js"></script>
+<script src="admin-auth.js"></script>
+<script src="content-page.js"></script>
+<script src="brands-simple.js"></script>
+</body>
+</html>
