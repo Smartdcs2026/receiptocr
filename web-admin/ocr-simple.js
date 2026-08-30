@@ -226,6 +226,31 @@ async function deletePattern(i=null){
   }catch(e){SwalSmall.error("ลบไม่สำเร็จ",e.message)}
 }
 
+$("addCjExampleBtn").onclick=()=>{
+  editing=makePattern(1);
+  editing.templateId=`cj-${Date.now()}`;
+  editing.templateName="CJ - BNO:S";
+  editing.sampleText="20/08/2026 22:41 BNO:S26080652N02-004184";
+  editing.validation.counterCycle="MONTHLY";
+
+  const row=editing.rows[0];
+  const d=makeField("BILL_DATE");d.example="20/08/2026";d.minLength=10;d.maxLength=10;
+  const t=makeField("BILL_TIME");t.example="22:41";t.minLength=5;t.maxLength=5;
+  const lit=makeField("LITERAL");lit.literal="BNO:S";lit.example="BNO:S";lit.minLength=5;lit.maxLength=5;
+  const y=makeField("YEAR_VALUE");y.example="26";y.minLength=2;y.maxLength=2;y.compareTo="BILL_DATE";
+  const mo=makeField("MONTH_VALUE");mo.example="08";mo.minLength=2;mo.maxLength=2;mo.compareTo="BILL_DATE";
+  const store=makeField("STORE_ID");store.example="0652";store.minLength=4;store.maxLength=4;
+  const pos=makeField("POS_NUMBER");pos.example="N02";pos.posPrefixes="N,B";pos.posDigits=2;pos.minLength=3;pos.maxLength=3;
+  const sep=makeField("SEPARATOR");sep.example="-";sep.separatorValue="-";sep.minLength=1;sep.maxLength=1;
+  const cust=makeField("CUSTOMER_VALUE");cust.example="004184";cust.minLength=6;cust.maxLength=6;
+  row.push(d,t,lit,y,mo,store,pos,sep,cust);
+
+  selectedRow=0;selectedFieldId=null;
+  showEditor();
+  $("testInputText").value=editing.sampleText;
+  $("testStoreCode").value="0652";
+  $("testPosCount").value="5";
+};
 $("brandId").onchange=()=>{editing=null;$("editorPanel").classList.add("hidden");loadPatterns()};
 $("addPatternBtn").onclick=openNew;
 $("savePatternBtn").onclick=save;
@@ -235,42 +260,73 @@ function normalizeSpaces(v){
   return String(v||"").replace(/\r/g,"").split("\n").map(x=>x.trim().replace(/\s+/g," ")).filter(Boolean);
 }
 function escapeRegex(v){return String(v||"").replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}
-function fieldRegex(f){
-  const min=Math.max(0,Number(f.minLength||0)), max=Math.max(min||1,Number(f.maxLength||1));
-  if(f.type==="BILL_DATE")return "(?<BILL_DATE>\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})";
-  if(f.type==="BILL_TIME")return "(?<BILL_TIME>\\d{1,2}:\\d{2}(?::\\d{2})?)";
-  if(f.type==="STORE_ID")return `(?<STORE_ID>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
-  if(f.type==="CUSTOMER_VALUE")return `(?<CUSTOMER_VALUE>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
-  if(f.type==="YEAR_VALUE")return `(?<YEAR_VALUE>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
-  if(f.type==="MONTH_VALUE")return `(?<MONTH_VALUE>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
-  if(f.type==="DAY_VALUE")return `(?<DAY_VALUE>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
-  if(f.type==="EMPLOYEE_CODE")return `(?<EMPLOYEE_CODE>[A-Za-z0-9]{${Math.max(1,min)},${Math.max(1,max)}})`;
+function exactOrRange(f, fallbackMin=1, fallbackMax=12){
+  const ex=String(f.example||"").trim();
+  if(ex && !["BILL_DATE","BILL_TIME","LITERAL","SEPARATOR"].includes(f.type)){
+    const n=[...ex].length;
+    return {min:n,max:n};
+  }
+  const min=Math.max(0,Number(f.minLength??fallbackMin));
+  const max=Math.max(min||1,Number(f.maxLength??fallbackMax));
+  return {min,max};
+}
+function fieldRegex(f, occurrence){
+  const {min,max}=exactOrRange(f);
+  const suffix=occurrence>1?`_${occurrence}`:"";
+  const group=name=>`${name}${suffix}`;
+
+  if(f.type==="BILL_DATE")return `(?<${group("BILL_DATE")}>\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})`;
+  if(f.type==="BILL_TIME")return `(?<${group("BILL_TIME")}>\\d{1,2}:\\d{2}(?::\\d{2})?)`;
+  if(f.type==="STORE_ID")return `(?<${group("STORE_ID")}>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+  if(f.type==="CUSTOMER_VALUE")return `(?<${group("CUSTOMER_VALUE")}>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+  if(f.type==="YEAR_VALUE")return `(?<${group("YEAR_VALUE")}>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+  if(f.type==="MONTH_VALUE")return `(?<${group("MONTH_VALUE")}>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+  if(f.type==="DAY_VALUE")return `(?<${group("DAY_VALUE")}>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+  if(f.type==="EMPLOYEE_CODE")return `(?<${group("EMPLOYEE_CODE")}>[A-Za-z0-9]{${Math.max(1,min)},${Math.max(1,max)}})`;
   if(f.type==="NUMBER_TEXT")return `\\d{${Math.max(1,min)},${Math.max(1,max)}}`;
   if(f.type==="ALNUM_TEXT")return `[A-Za-z0-9]{${Math.max(1,min)},${Math.max(1,max)}}`;
   if(f.type==="LITERAL")return escapeRegex(f.literal||f.example||"");
   if(f.type==="SEPARATOR")return escapeRegex(f.separatorValue||f.example||"-");
   if(f.type==="IGNORE")return ".{0,40}?";
+
   if(f.type==="POS_NUMBER"){
     const prefixes=String(f.posPrefixes||"").split(",").map(x=>x.trim()).filter(Boolean);
+    const digits=Math.max(1,Number(f.posDigits||2));
     if(prefixes.length){
       const p=prefixes.map(escapeRegex).join("|");
-      return `(?<POS_NUMBER>(?:${p})\\d{${Number(f.posDigits||2)}})`;
+      return `(?<${group("POS_NUMBER")}>(?:${p})\\d{${digits}})`;
     }
-    return `(?<POS_NUMBER>[A-Za-z]?\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+    // If example N02/B01 exists, infer letter prefix + digit count.
+    const ex=String(f.example||"").trim();
+    const m=ex.match(/^([A-Za-z]+)(\\d+)$/);
+    if(m){
+      return `(?<${group("POS_NUMBER")}>${escapeRegex(m[1])}\\d{${m[2].length}})`;
+    }
+    return `(?<${group("POS_NUMBER")}>[A-Za-z]?\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
   }
+
   if(f.type==="COMPOSITE_CODE"){
     if(f.segments?.length){
       let parts="";
       if(f.prefix)parts+=escapeRegex(f.prefix);
+
+      const seen={};
       for(const s of f.segments){
-        const len=Math.max(0,Number(s.length||0));
-        if(s.type==="YEAR_VALUE")parts+=`(?<YEAR_VALUE>\\d{${len}})`;
-        else if(s.type==="MONTH_VALUE")parts+=`(?<MONTH_VALUE>\\d{${len}})`;
-        else if(s.type==="DAY_VALUE")parts+=`(?<DAY_VALUE>\\d{${len}})`;
-        else if(s.type==="STORE_ID")parts+=`(?<STORE_ID>\\d{${len}})`;
-        else if(s.type==="POS_NUMBER")parts+=`(?<POS_NUMBER>[A-Za-z]?\\d{${Math.max(1,len-1)},${Math.max(1,len)}})`;
-        else if(s.type==="CUSTOMER_VALUE")parts+=`(?<CUSTOMER_VALUE>\\d{${len}})`;
-        else if(s.type==="EMPLOYEE_CODE")parts+=`(?<EMPLOYEE_CODE>[A-Za-z0-9]{${len}})`;
+        seen[s.type]=(seen[s.type]||0)+1;
+        const sg=seen[s.type]>1?`_${seen[s.type]}`:"";
+        const len=Math.max(0,Number(s.length||String(s.example||"").length||0));
+        if(s.type==="YEAR_VALUE")parts+=`(?<YEAR_VALUE${sg}>\\d{${len}})`;
+        else if(s.type==="MONTH_VALUE")parts+=`(?<MONTH_VALUE${sg}>\\d{${len}})`;
+        else if(s.type==="DAY_VALUE")parts+=`(?<DAY_VALUE${sg}>\\d{${len}})`;
+        else if(s.type==="STORE_ID")parts+=`(?<STORE_ID${sg}>\\d{${len}})`;
+        else if(s.type==="POS_NUMBER"){
+          const ex=String(s.example||"").trim();
+          const pm=ex.match(/^([A-Za-z]+)(\\d+)$/);
+          if(pm)parts+=`(?<POS_NUMBER${sg}>${escapeRegex(pm[1])}\\d{${pm[2].length}})`;
+          else parts+=`(?<POS_NUMBER${sg}>[A-Za-z]?\\d{${Math.max(1,len-1)},${Math.max(1,len)}})`;
+        }
+        else if(s.type==="CUSTOMER_VALUE")parts+=`(?<CUSTOMER_VALUE${sg}>\\d{${len}})`;
+        else if(s.type==="EMPLOYEE_CODE")parts+=`(?<EMPLOYEE_CODE${sg}>[A-Za-z0-9]{${len}})`;
         else if(s.type==="LITERAL")parts+=escapeRegex(s.example||"");
         else if(s.type==="SEPARATOR")parts+=escapeRegex(s.example||"-");
         else if(s.type==="NUMBER_TEXT")parts+=`\\d{${len}}`;
@@ -279,15 +335,40 @@ function fieldRegex(f){
       }
       return parts;
     }
-    return `(?<COMPOSITE_CODE>[A-Za-z0-9:_-]{${Math.max(1,min)},${Math.max(1,max)}})`;
+    return `(?<${group("COMPOSITE_CODE")}>[A-Za-z0-9:_-]{${Math.max(1,min)},${Math.max(1,max)}})`;
   }
   return "\\S+";
 }
 function parseDateParts(v){
   const m=String(v||"").match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
   if(!m)return null;
-  let d=+m[1],mo=+m[2],y=+m[3];if(y<100)y+=2000;
+  let d=+m[1],mo=+m[2],y=+m[3];
+  if(y<100)y+=2000;
   return {day:d,month:mo,year:y};
+}
+function gregorianEquivalent(year){
+  const y=Number(year);
+  if(!Number.isFinite(y))return null;
+  // ปี พ.ศ. เช่น 2569 -> ค.ศ. 2026
+  return y>=2400 ? y-543 : y;
+}
+function buddhistEquivalent(year){
+  const g=gregorianEquivalent(year);
+  return g==null?null:g+543;
+}
+function yearMatchesBillDate(yearToken,billYear){
+  const raw=String(yearToken||"").trim();
+  if(!raw)return false;
+  const token=Number(raw);
+  const billG=gregorianEquivalent(billYear);
+  const billB=buddhistEquivalent(billYear);
+
+  if(raw.length===2){
+    const g2=String(billG).slice(-2);
+    const b2=String(billB).slice(-2);
+    return raw===g2 || raw===b2;
+  }
+  return token===billG || token===billB || gregorianEquivalent(token)===billG;
 }
 function posNumberValue(v){
   const m=String(v||"").match(/(\d+)$/);return m?Number(m[1]):null;
@@ -308,7 +389,13 @@ function runPatternTest(){
 
   configuredRows.forEach((row,ri)=>{
     const text=lines[ri]||"";
-    const parts=row.map(fieldRegex).filter(Boolean);
+    const counts={};
+    const parts=row.map(f=>{
+      counts[f.type]=(counts[f.type]||0)+1;
+      return fieldRegex(f,counts[f.type]);
+    }).filter(Boolean);
+    // Allow normal spaces between separate boxes, but no forced space when examples are adjacent.
+    // \s* still permits CJ blocks such as BNO:S + 26 + 08 + 0652 + N02 + - + 004184.
     const gap="\\s*";
     let regex;
     try{regex=new RegExp(parts.join(gap),"i")}catch(e){
@@ -340,9 +427,13 @@ function runPatternTest(){
 
   const bill=parseDateParts(result.fields.BILL_DATE);
   if(bill && result.fields.YEAR_VALUE){
-    const y=Number(result.fields.YEAR_VALUE.length===2?2000+Number(result.fields.YEAR_VALUE):result.fields.YEAR_VALUE);
-    const ok=bill.year===y;
-    result.checks.push({ok,text:ok?`ปีตรงกับวันที่ (${result.fields.YEAR_VALUE})`:`ปีไม่ตรง: วันที่เป็น ${bill.year} แต่พบ ${result.fields.YEAR_VALUE}`});
+    const ok=yearMatchesBillDate(result.fields.YEAR_VALUE,bill.year);
+    result.checks.push({
+      ok,
+      text:ok
+        ? `ปีตรงกับวันที่ (${result.fields.YEAR_VALUE})`
+        : `ปีไม่ตรง: วันที่เป็น ${bill.year} แต่พบ ${result.fields.YEAR_VALUE}`
+    });
     if(!ok)result.matched=false;
   }
   if(bill && result.fields.MONTH_VALUE){

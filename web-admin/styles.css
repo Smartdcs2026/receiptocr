@@ -295,3 +295,5 @@ button:active,a.secondary:active,a.primary:active{transform:translateY(1px)}
 .testChecks{display:flex;flex-direction:column;gap:4px;margin-top:9px;font-size:10px}.testChecks .ok{color:#027a48}.testChecks .bad{color:#b42318}
 @media(max-width:900px){.validationGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.testInputs{grid-template-columns:1fr}.testFieldGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.validationGrid{grid-template-columns:1fr}.testFieldGrid{grid-template-columns:1fr}.testPanelHead{align-items:stretch;flex-direction:column}}
+
+.simpleTopActions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
