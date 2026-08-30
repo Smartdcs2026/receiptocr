@@ -6,7 +6,7 @@
     home:{title:"หน้าหลัก",sub:"ภาพรวมและสถานะระบบ",url:"dashboard.html"},
     users:{title:"ผู้ใช้งาน",sub:"ผู้ใช้งานภาคสนามและรหัสสำหรับรับแผนงาน",url:"users.html"},
     brands:{title:"แบรนด์",sub:"กำหนดชื่อแบรนด์และตัวย่อที่ใช้ใน APK",url:"brands.html"},
-    workplans:{title:"แผนงาน",sub:"อัปโหลดและตรวจสอบไฟล์งานรายบุคคล",url:"workplans.html"},
+    workplans:{title:"แผนงาน",sub:"นำเข้า Excel และตรวจความถูกต้องก่อนส่งเข้า APK",url:"workplans.html"},
     ocr:{title:"รูปแบบบิล",sub:"กำหนดรูปแบบข้อมูลของแต่ละแบรนด์",url:"index.html"},
     storage:{title:"พื้นที่จัดเก็บ R2",sub:"ติดตามพื้นที่ แจ้งเตือน สำรอง และลบข้อมูลตามอายุ",url:"storage.html"},
     reports:{title:"รายงาน",sub:"รายงานการทำงานและคุณภาพการอ่านข้อมูล",url:"reports.html"},

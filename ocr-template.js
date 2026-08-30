@@ -248,9 +248,9 @@ $("clearRegionBtn").onclick=()=>{state.region=null;$("regionInfo").textContent="
 function preset(kind){
   state.rows=[{id:crypto.randomUUID(),fields:[]}];state.selectedRowId=state.rows[0].id;state.selectedFieldId=null;
   if(kind==="CJ"){
-    $("templateId").value="cj-bno-row-v1";$("templateName").value="CJ - วันที่ เวลา และ BNO";$("layoutMode").value="MIXED";$("lineTolerance").value="1";$("counterCycle").value="MONTHLY";$("posRelation").value="IN_COMPOSITE";$("crossCheckYear").checked=true;$("crossCheckMonth").checked=true;$("compositeStoreMatch").checked=true;$("patternExampleText").value="23/08/2026 16:15 BNO:26082282N02-0021855";
+    $("templateId").value="cj-bno-s-row-v1";$("templateName").value="CJ - วันที่ เวลา และ BNO:S";$("layoutMode").value="MIXED";$("lineTolerance").value="2";$("counterCycle").value="MONTHLY";$("posRelation").value="IN_COMPOSITE";$("crossCheckYear").checked=true;$("crossCheckMonth").checked=true;$("compositeStoreMatch").checked=true;$("patternExampleText").value="20/08/2026 22:41 BNO:S26080652N02-004184";
     addField("BILL_DATE");addField("BILL_TIME");addField("COMPOSITE_CODE");
-    const s=selectedField();s.field.example="BNO:26082282N02-0021855";s.field.prefix="BNO:";s.field.separator="-";s.field.segments=[{type:"YEAR",length:2,example:"26"},{type:"MONTH",length:2,example:"08"},{type:"STORE_ID",length:4,example:"2282"},{type:"POS_NUMBER",length:3,example:"N02"},{type:"CUSTOMER_VALUE",length:7,example:"0021855"}];
+    const s=selectedField();s.field.example="BNO:S26080652N02-004184";s.field.prefix="BNO:S";s.field.separator="-";s.field.segments=[{type:"YEAR",length:2,example:"26"},{type:"MONTH",length:2,example:"08"},{type:"STORE_ID",length:4,example:"0652"},{type:"POS_NUMBER",length:3,example:"N02"},{type:"CUSTOMER_VALUE",length:6,example:"004184"}];
   }else{
     $("templateId").value="lgo-fresh-row-v1";$("templateName").value="L-go fresh - ข้อมูลเรียงในแถว";$("layoutMode").value="SAME_LINE";$("lineTolerance").value="0";$("counterCycle").value="CONTINUOUS";$("posRelation").value="IMMEDIATELY_AFTER_STORE";$("crossCheckYear").checked=false;$("crossCheckMonth").checked=false;$("compositeStoreMatch").checked=false;$("patternExampleText").value="22/08/2026 21:54 1705 002 17053001 6766";
     addField("BILL_DATE");selectedField().field.example="22/08/2026";
@@ -276,7 +276,7 @@ function build(){
     }))
   }));
   return {
-    schemaVersion:2,templateId:$("templateId").value.trim(),brandId:$("brandId").value,templateName:$("templateName").value.trim(),
+    schemaVersion:3,templateId:$("templateId").value.trim(),brandId:$("brandId").value,templateName:$("templateName").value.trim(),
     version:+$("templateVersion").value||1,priority:+$("templatePriority").value||100,active:$("templateActive").value==="true",
     sampleText:$("patternExampleText").value.trim(),
     recognition:{

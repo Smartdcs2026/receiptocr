@@ -251,6 +251,28 @@ $("addCjExampleBtn").onclick=()=>{
   $("testStoreCode").value="0652";
   $("testPosCount").value="5";
 };
+$("addLgoExampleBtn").onclick=()=>{
+  editing=makePattern(1);
+  editing.templateId=`lgo-fresh-${Date.now()}`;
+  editing.templateName="L-go fresh - ข้อมูลเรียงในแถว";
+  editing.sampleText="06/08/2026 14:57 1705 002 17053001 6766";
+  editing.validation.counterCycle="CONTINUOUS";
+
+  const row=editing.rows[0];
+  const d=makeField("BILL_DATE");d.example="06/08/2026";d.minLength=10;d.maxLength=10;
+  const t=makeField("BILL_TIME");t.example="14:57";t.minLength=5;t.maxLength=5;
+  const store=makeField("STORE_ID");store.example="1705";store.minLength=4;store.maxLength=4;
+  const pos=makeField("POS_NUMBER");pos.example="002";pos.posPrefixes="";pos.posDigits=3;pos.minLength=3;pos.maxLength=3;
+  const code=makeField("COMPOSITE_CODE");code.example="17053001";code.minLength=8;code.maxLength=8;code.required=false;
+  const cust=makeField("CUSTOMER_VALUE");cust.example="6766";cust.minLength=1;cust.maxLength=12;
+  row.push(d,t,store,pos,code,cust);
+
+  selectedRow=0;selectedFieldId=null;
+  showEditor();
+  $("testInputText").value=editing.sampleText;
+  $("testStoreCode").value="1705";
+  $("testPosCount").value="2";
+};
 $("brandId").onchange=()=>{editing=null;$("editorPanel").classList.add("hidden");loadPatterns()};
 $("addPatternBtn").onclick=openNew;
 $("savePatternBtn").onclick=save;
@@ -270,6 +292,16 @@ function exactOrRange(f, fallbackMin=1, fallbackMax=12){
   const max=Math.max(min||1,Number(f.maxLength??fallbackMax));
   return {min,max};
 }
+function posDigitCount(f){
+  const ex=String(f.example||"").trim();
+  const match=ex.match(/(\d+)$/);
+  if(match)return match[1].length;
+  const prefixes=String(f.posPrefixes||"").split(",").map(x=>x.trim()).filter(Boolean);
+  const min=Math.max(1,Number(f.minLength||1));
+  const max=Math.max(min,Number(f.maxLength||min));
+  if(!prefixes.length&&min===max)return min;
+  return Math.max(1,Number(f.posDigits||2));
+}
 function fieldRegex(f, occurrence){
   const {min,max}=exactOrRange(f);
   const suffix=occurrence>1?`_${occurrence}`:"";
@@ -278,7 +310,7 @@ function fieldRegex(f, occurrence){
   if(f.type==="BILL_DATE")return `(?<${group("BILL_DATE")}>\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})`;
   if(f.type==="BILL_TIME")return `(?<${group("BILL_TIME")}>\\d{1,2}:\\d{2}(?::\\d{2})?)`;
   if(f.type==="STORE_ID")return `(?<${group("STORE_ID")}>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
-  if(f.type==="CUSTOMER_VALUE")return `(?<${group("CUSTOMER_VALUE")}>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+  if(f.type==="CUSTOMER_VALUE")return `(?<${group("CUSTOMER_VALUE")}>\\d{1,18})(?!\\d)`;
   if(f.type==="YEAR_VALUE")return `(?<${group("YEAR_VALUE")}>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
   if(f.type==="MONTH_VALUE")return `(?<${group("MONTH_VALUE")}>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
   if(f.type==="DAY_VALUE")return `(?<${group("DAY_VALUE")}>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
@@ -291,7 +323,7 @@ function fieldRegex(f, occurrence){
 
   if(f.type==="POS_NUMBER"){
     const prefixes=String(f.posPrefixes||"").split(",").map(x=>x.trim()).filter(Boolean);
-    const digits=Math.max(1,Number(f.posDigits||2));
+    const digits=posDigitCount(f);
     if(prefixes.length){
       const p=prefixes.map(escapeRegex).join("|");
       return `(?<${group("POS_NUMBER")}>(?:${p})\\d{${digits}})`;
@@ -302,7 +334,7 @@ function fieldRegex(f, occurrence){
     if(m){
       return `(?<${group("POS_NUMBER")}>${escapeRegex(m[1])}\\d{${m[2].length}})`;
     }
-    return `(?<${group("POS_NUMBER")}>[A-Za-z]?\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+    return `(?<${group("POS_NUMBER")}>[A-Za-z]?\\d{${digits}})`;
   }
 
   if(f.type==="COMPOSITE_CODE"){
@@ -379,7 +411,7 @@ function runPatternTest(){
     return;
   }
   const lines=normalizeSpaces($("testInputText").value);
-  const result={matched:true,fields:{},checks:[],rows:[]};
+  const result={matched:true,validationPassed:true,fields:{},checks:[],rows:[]};
   const configuredRows=editing.rows||[];
 
   if(lines.length<configuredRows.length){
@@ -388,7 +420,6 @@ function runPatternTest(){
   }
 
   configuredRows.forEach((row,ri)=>{
-    const text=lines[ri]||"";
     const counts={};
     const parts=row.map(f=>{
       counts[f.type]=(counts[f.type]||0)+1;
@@ -401,8 +432,22 @@ function runPatternTest(){
     try{regex=new RegExp(parts.join(gap),"i")}catch(e){
       result.matched=false;result.checks.push({ok:false,text:`แถว ${ri+1}: รูปแบบไม่ถูกต้อง`});return;
     }
-    const m=text.match(regex);
-    result.rows.push({row:ri+1,text,regex:regex.source,ok:!!m});
+    const candidates=[];
+    if(configuredRows.length===1){
+      for(let start=0;start<lines.length;start++){
+        for(let count=1;count<=4&&start+count<=lines.length;count++){
+          candidates.push(lines.slice(start,start+count).join(" "));
+        }
+      }
+    }else{
+      candidates.push(lines[ri]||"");
+    }
+    let m=null,matchedText="";
+    for(const candidate of candidates){
+      const found=candidate.match(regex);
+      if(found){m=found;matchedText=candidate;break}
+    }
+    result.rows.push({row:ri+1,text:matchedText||candidates[0]||"",regex:regex.source,ok:!!m});
     if(!m){
       result.matched=false;result.checks.push({ok:false,text:`แถว ${ri+1}: ไม่ตรงกับรูปแบบที่สร้าง`});return;
     }
@@ -414,7 +459,7 @@ function runPatternTest(){
   if(expectedStore && result.fields.STORE_ID){
     const ok=String(result.fields.STORE_ID).padStart(expectedStore.length,"0")===expectedStore;
     result.checks.push({ok,text:ok?`รหัสร้านตรง (${expectedStore})`:`รหัสร้านไม่ตรง: อ่านได้ ${result.fields.STORE_ID} แต่ควรเป็น ${expectedStore}`});
-    if(!ok)result.matched=false;
+    if(!ok)result.validationPassed=false;
   }
 
   const posCount=Number($("testPosCount").value||0);
@@ -422,7 +467,7 @@ function runPatternTest(){
     const n=posNumberValue(result.fields.POS_NUMBER);
     const ok=n!==null && n>=1 && n<=posCount;
     result.checks.push({ok,text:ok?`หมายเลขเครื่องอยู่ในช่วง (${result.fields.POS_NUMBER})`:`หมายเลขเครื่อง ${result.fields.POS_NUMBER} ไม่อยู่ในช่วง 1-${posCount}`});
-    if(!ok)result.matched=false;
+    if(!ok)result.validationPassed=false;
   }
 
   const bill=parseDateParts(result.fields.BILL_DATE);
@@ -434,22 +479,34 @@ function runPatternTest(){
         ? `ปีตรงกับวันที่ (${result.fields.YEAR_VALUE})`
         : `ปีไม่ตรง: วันที่เป็น ${bill.year} แต่พบ ${result.fields.YEAR_VALUE}`
     });
-    if(!ok)result.matched=false;
+    if(!ok)result.validationPassed=false;
   }
   if(bill && result.fields.MONTH_VALUE){
     const ok=bill.month===Number(result.fields.MONTH_VALUE);
     result.checks.push({ok,text:ok?`เดือนตรงกับวันที่ (${result.fields.MONTH_VALUE})`:`เดือนไม่ตรง: วันที่เป็นเดือน ${bill.month} แต่พบ ${result.fields.MONTH_VALUE}`});
-    if(!ok)result.matched=false;
+    if(!ok)result.validationPassed=false;
+  }
+
+  const customerField=configuredRows.flat().find(f=>f.type==="CUSTOMER_VALUE");
+  if(customerField&&result.fields.CUSTOMER_VALUE){
+    const length=String(result.fields.CUSTOMER_VALUE).length;
+    const min=Math.max(1,Number(customerField.minLength||1));
+    const max=Math.max(min,Number(customerField.maxLength||18));
+    const ok=length>=min&&length<=max;
+    result.checks.push({ok,text:ok?`จำนวนหลักยอด/เลขลูกค้าถูกต้อง (${length} หลัก)`:`ยอด/เลขลูกค้ามี ${length} หลัก แต่กำหนดไว้ ${min}-${max} หลัก`});
+    if(!ok)result.validationPassed=false;
   }
 
   renderTestResult(result);
 }
 function renderTestResult(r){
-  const box=$("testResult");box.classList.remove("hidden","pass","fail");box.classList.add(r.matched?"pass":"fail");
+  const accepted=r.matched;
+  const clean=accepted&&r.validationPassed;
+  const box=$("testResult");box.classList.remove("hidden","pass","fail");box.classList.add(clean?"pass":"fail");
   const labels={BILL_DATE:"วันที่",BILL_TIME:"เวลา",STORE_ID:"รหัสร้าน",POS_NUMBER:"หมายเลขเครื่อง",CUSTOMER_VALUE:"ยอด/เลขลูกค้า",YEAR_VALUE:"ปี",MONTH_VALUE:"เดือน",DAY_VALUE:"วัน",EMPLOYEE_CODE:"รหัสพนักงาน",COMPOSITE_CODE:"รหัสประกอบ"};
   const fields=Object.entries(r.fields).map(([k,v])=>`<div class="testField"><span>${labels[k]||k}</span><strong>${esc(v)}</strong></div>`).join("");
   box.innerHTML=`
-    <div class="testResultHead"><strong>${r.matched?"ผ่านรูปแบบ":"ยังไม่ผ่านรูปแบบ"}</strong><span>${r.matched?"ข้อมูลที่อ่านได้สอดคล้องกับเงื่อนไข":"มีบางจุดไม่ตรงกับที่กำหนด"}</span></div>
+    <div class="testResultHead"><strong>${clean?"อ่านรูปแบบได้":accepted?"อ่านรูปแบบได้ แต่มีคำเตือน":"ยังอ่านรูปแบบไม่ได้"}</strong><span>${clean?"แยกข้อมูลได้และตรงตามเงื่อนไข":accepted?"ข้อมูลยังนำไปแสดงได้ กรุณาตรวจคำเตือน":"ข้อความยังไม่ตรงกับลำดับข้อมูลที่สร้าง"}</span></div>
     ${fields?`<div class="testFieldGrid">${fields}</div>`:""}
     <div class="testChecks">${r.checks.map(c=>`<div class="${c.ok?"ok":"bad"}">${c.ok?"ผ่าน":"ไม่ผ่าน"} — ${esc(c.text)}</div>`).join("")}</div>`;
 }
