@@ -217,6 +217,20 @@ button:active,a.secondary:active,a.primary:active{transform:translateY(1px)}
   .patternRowLabel{flex-direction:row}
   .patternRowsHead{align-items:flex-start;flex-direction:column}
 }
+.noteSettingsPage{max-width:1050px;margin:0 auto}
+.noteSettingsHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.noteCategoryTabs{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 12px}
+.noteCategoryTabs button{border:1px solid #d0d5dd;background:#fff;color:#475467;border-radius:9px;padding:8px 12px;font-weight:700;cursor:pointer}
+.noteCategoryTabs button.active{border-color:#2f6fed;background:#eef4ff;color:#1849a9}
+.noteOptionList{display:grid;gap:8px;margin-top:12px}
+.noteOptionRow{display:grid;grid-template-columns:54px 1fr auto;gap:10px;align-items:center;border:1px solid #e4e7ec;background:#fff;border-radius:11px;padding:9px 10px}
+.noteOptionOrder{width:38px;height:30px;border-radius:8px;background:#f2f4f7;display:grid;place-items:center;font-size:10px;font-weight:700;color:#667085}
+.noteOptionLabel{font-weight:700;color:#101828}
+.noteOptionActions{display:flex;gap:6px}
+.swalForm{display:grid;gap:10px;text-align:left}
+.swalForm label{display:grid;gap:4px;font-size:12px;font-weight:700;color:#344054}
+.swalForm .swal2-input,.swalForm .swal2-select{width:100%;margin:0;box-sizing:border-box}
+@media(max-width:600px){.noteOptionRow{grid-template-columns:42px 1fr}.noteOptionActions{grid-column:1/-1;justify-content:flex-end}.noteSettingsHead{align-items:flex-start}}
 
 /* Round29 - Simple Admin */
 .simplePage{padding:14px;max-width:1250px;margin:0 auto}
