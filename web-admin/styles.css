@@ -178,3 +178,42 @@ button:active,a.secondary:active,a.primary:active{transform:translateY(1px)}
 .hidden{display:none!important}
 @media(max-width:1300px){.ocrBuilderGrid{grid-template-columns:290px minmax(460px,1fr)}.ocrRight{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr 1fr}}
 @media(max-width:900px){.ocrBuilderGrid{grid-template-columns:1fr}.ocrRight{grid-column:auto;display:flex}.imageStage{min-height:420px}.fieldRow{grid-template-columns:30px 1fr 1fr}.fieldExtra{grid-column:1/-1}}
+
+/* Round28 Drag & Drop Pattern Designer */
+.designerHelp{background:#f8fafc;border:1px solid #e4e7ec;border-radius:10px;padding:9px 10px;font-size:10px;color:#475467;line-height:1.55;margin-bottom:10px}
+.fieldPalette{border:1px solid #e4e7ec;border-radius:12px;padding:10px;background:#fff;margin-bottom:12px}
+.paletteTitle{font-size:11px;font-weight:700;margin-bottom:7px}
+.paletteItems{display:flex;flex-wrap:wrap;gap:7px}
+.paletteItem{border:1px solid #cfd8e6;background:#f8fafc;color:#344054;border-radius:9px;padding:8px 10px;font-size:10px;font-weight:650;cursor:grab;min-height:36px}
+.paletteItem:hover{border-color:#98a2b3;background:#f1f5f9}
+.paletteItem:active{cursor:grabbing}
+.patternRowsHead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 0 8px}
+.patternRowActions{display:flex;gap:6px;flex-wrap:wrap}
+.patternRows{display:flex;flex-direction:column;gap:9px}
+.patternRowWrap{display:grid;grid-template-columns:88px minmax(0,1fr);gap:8px;border:1px solid #e4e7ec;border-radius:12px;padding:8px;background:#fbfcfe}
+.patternRowWrap.selected{border-color:#84adff;background:#f7faff}
+.patternRowLabel{display:flex;flex-direction:column;gap:5px}
+.rowSelectBtn,.rowRemoveBtn{border:0;border-radius:8px;padding:7px 5px;font-size:10px;cursor:pointer}
+.rowSelectBtn{background:#eef4ff;color:#175cd3;font-weight:700}
+.rowRemoveBtn{background:#fff;color:#b42318;border:1px solid #fecdca}
+.patternDropZone{min-height:64px;border:1px dashed #b8c4d5;border-radius:10px;padding:7px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;background:#fff;transition:.12s}
+.patternDropZone.dragOver{border-color:#2f6fed;background:#eef4ff}
+.dropEmpty{width:100%;text-align:center;color:#98a2b3;font-size:10px;padding:12px}
+.patternFieldChip{display:flex;align-items:center;gap:5px;min-height:40px;border:1px solid #d0d5dd;background:#fff;color:#344054;border-radius:9px;padding:6px 8px;cursor:grab;text-align:left}
+.patternFieldChip.active{border-color:#2f6fed;background:#eef4ff;color:#1849a9}
+.patternFieldChip small{font-size:9px;color:#667085;border-left:1px solid #e4e7ec;padding-left:5px}
+.chipOrder{width:20px;height:20px;border-radius:6px;background:#f2f4f7;display:grid;place-items:center;font-size:9px;font-weight:700}
+.dropInsert{width:5px;height:34px;border-radius:999px}
+.dropInsert:hover{background:#84adff}
+.patternExampleBox{margin-top:12px;background:#f8fafc;border:1px solid #e4e7ec;border-radius:11px;padding:10px}
+.patternExampleTitle{font-size:11px;font-weight:700;margin-bottom:6px}
+.patternExampleBox textarea{width:100%;resize:vertical;min-height:88px}
+.selectedFieldEditor{border:1px solid #e4e7ec;border-radius:12px;padding:10px;background:#fbfcfe}
+.selectedFieldHeader{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.subSectionTitle{font-size:11px;font-weight:700;margin:12px 0 7px;padding-top:10px;border-top:1px solid #e4e7ec}
+.compositeVisualEditor{margin-top:8px}
+@media(max-width:700px){
+  .patternRowWrap{grid-template-columns:1fr}
+  .patternRowLabel{flex-direction:row}
+  .patternRowsHead{align-items:flex-start;flex-direction:column}
+}

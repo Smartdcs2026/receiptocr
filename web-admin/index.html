@@ -85,23 +85,129 @@
         </div>
       </section>
 
-      <section class="panel">
-        <div class="stepTitle"><span>4</span><div><h3>โครงสร้างข้อมูลในแถว</h3><p>เรียงตามลำดับที่มักปรากฏจริงบนบิล</p></div></div>
-        <div class="patternHelp">ตัวอย่าง L-go fresh: <strong>วันที่ → เวลา → รหัสร้าน → POS → รหัสประกอบ → ยอดลูกค้า</strong></div>
-        <div id="fieldRows" class="fieldRows"></div>
-        <button id="addFieldBtn" class="secondary full">เพิ่มข้อมูลในลำดับ</button>
+      <section class="panel patternDesignerPanel">
+        <div class="stepTitle"><span>4</span><div><h3>ออกแบบแถวข้อมูล</h3><p>ลากกล่องข้อมูลมาต่อกันตามลำดับที่ปรากฏจริงบนบิล</p></div></div>
+
+        <div class="designerHelp">
+          แม่แบบหนึ่งชุดมีได้ 1–3 แถว และยังถือเป็น “ข้อมูลชุดเดียวกัน”
+          เช่น วันที่อยู่แถวแรก แต่รหัสร้าน/POS/ยอดลูกค้าอยู่แถวถัดไป
+        </div>
+
+        <div class="fieldPalette">
+          <div class="paletteTitle">กล่องข้อมูล</div>
+          <div id="paletteItems" class="paletteItems">
+            <button type="button" class="paletteItem" draggable="true" data-type="BILL_DATE">วันที่</button>
+            <button type="button" class="paletteItem" draggable="true" data-type="BILL_TIME">เวลา</button>
+            <button type="button" class="paletteItem" draggable="true" data-type="STORE_ID">รหัสร้าน</button>
+            <button type="button" class="paletteItem" draggable="true" data-type="POS_NUMBER">หมายเลข POS</button>
+            <button type="button" class="paletteItem" draggable="true" data-type="COMPOSITE_CODE">รหัสประกอบ</button>
+            <button type="button" class="paletteItem" draggable="true" data-type="CUSTOMER_VALUE">ยอด/เลขลูกค้า</button>
+            <button type="button" class="paletteItem" draggable="true" data-type="LITERAL">ข้อความจำเพาะ</button>
+            <button type="button" class="paletteItem" draggable="true" data-type="IGNORE">ข้อมูลที่ข้ามได้</button>
+          </div>
+          <div class="small helpText">แตะกล่องเพื่อเพิ่มลงแถวที่กำลังเลือกได้เช่นกัน ไม่จำเป็นต้องลาก</div>
+        </div>
+
+        <div class="patternRowsHead">
+          <div>
+            <strong>รูปแบบข้อมูลที่ต้องอ่าน</strong>
+            <div class="small">เรียงซ้าย → ขวา ตามตำแหน่งข้อความจริง</div>
+          </div>
+          <div class="patternRowActions">
+            <button id="addPatternRowBtn" type="button" class="secondary smallBtn">เพิ่มแถว</button>
+            <button id="clearPatternBtn" type="button" class="ghost smallBtn">ล้างรูปแบบ</button>
+          </div>
+        </div>
+
+        <div id="patternRows" class="patternRows"></div>
+
+        <div class="patternExampleBox">
+          <div class="patternExampleTitle">ตัวอย่างข้อความจริงของแม่แบบ</div>
+          <textarea id="patternExampleText" rows="4" placeholder="เช่น
+22/08/2026 21:54 1705 002 17053001 6766
+
+หรือหลายแถว:
+22/08/2026 21:54
+1705 002 17053001 6766"></textarea>
+          <div class="small">
+            ใช้เป็นตัวอย่างอ้างอิงให้ Admin เห็นรูปแบบจริง และเก็บไปกับ Template เพื่อใช้เป็น Training/Validation metadata
+          </div>
+        </div>
       </section>
 
       <section class="panel">
-        <div class="stepTitle"><span>5</span><div><h3>รหัสรวม / รหัสประกอบ</h3><p>ใช้เมื่อข้อมูลหลายค่าอยู่ติดกันในรหัสเดียว เช่น BNO ของ CJ</p></div></div>
-        <label class="checkRow"><input id="compositeEnabled" type="checkbox"><span>แม่แบบนี้มีรหัสรวมที่ต้องแยกส่วน</span></label>
-        <div id="compositeArea" class="compositeArea disabledBlock">
-          <div class="grid2">
-            <label>คำขึ้นต้นของรหัส<input id="compositePrefix" placeholder="เช่น BNO:"></label>
-            <label>ตัวคั่นก่อนยอดลูกค้า<input id="compositeSeparator" placeholder="เช่น -"></label>
+        <div class="stepTitle"><span>5</span><div><h3>กำหนดลักษณะจำเพาะของกล่อง</h3><p>เลือกกล่องในแถว แล้วกำหนดตัวอย่าง/รูปแบบเฉพาะของข้อมูลนั้น</p></div></div>
+
+        <div id="selectedFieldEmpty" class="emptyList">เลือกกล่องข้อมูลจากแถวด้านบนเพื่อกำหนดรายละเอียด</div>
+
+        <div id="selectedFieldEditor" class="selectedFieldEditor hidden">
+          <div class="selectedFieldHeader">
+            <div>
+              <div class="small">กล่องที่กำลังแก้ไข</div>
+              <strong id="selectedFieldTitle">-</strong>
+            </div>
+            <button id="removeSelectedFieldBtn" type="button" class="ghost smallBtn">ลบกล่อง</button>
           </div>
-          <div id="segmentRows" class="segmentRows"></div>
-          <button id="addSegmentBtn" class="secondary full">เพิ่มส่วนของรหัส</button>
+
+          <div class="grid2">
+            <label>ตัวอย่างข้อมูลจริง
+              <input id="fieldExample" placeholder="เช่น 1705 หรือ 002">
+            </label>
+            <label>จำนวนตัวอักษร/ตัวเลข
+              <div class="miniPair">
+                <input id="fieldMinLength" type="number" min="0" value="1">
+                <span>ถึง</span>
+                <input id="fieldMaxLength" type="number" min="1" value="12">
+              </div>
+            </label>
+          </div>
+
+          <div class="grid2">
+            <label>รูปแบบข้อมูล
+              <select id="fieldFormat">
+                <option value="DATE">วันที่</option>
+                <option value="TIME">เวลา</option>
+                <option value="DIGITS">ตัวเลขเท่านั้น</option>
+                <option value="ALNUM">ตัวอักษรและตัวเลข</option>
+                <option value="TEXT">ข้อความ</option>
+                <option value="ANY">รูปแบบใดก็ได้</option>
+              </select>
+            </label>
+            <label>ยอมให้มีข้อมูลอื่นคั่นก่อนกล่องถัดไป
+              <select id="fieldTokenGap">
+                <option value="0">ต้องต่อกัน</option>
+                <option value="1">ข้ามได้ 1 คำ</option>
+                <option value="2">ข้ามได้ 2 คำ</option>
+                <option value="3">ข้ามได้ 3 คำ</option>
+                <option value="5">ข้ามได้ไม่เกิน 5 คำ</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="checkRow">
+            <input id="fieldRequired" type="checkbox" checked>
+            <span>ข้อมูลนี้จำเป็นต้องพบ</span>
+          </label>
+
+          <div id="literalEditor" class="hidden">
+            <label>ข้อความ/คำที่ต้องพบ
+              <input id="fieldLiteral" placeholder="เช่น BNO: หรือ POS">
+            </label>
+          </div>
+
+          <div id="compositeEditor" class="hidden compositeVisualEditor">
+            <div class="subSectionTitle">แยกรหัสประกอบ</div>
+            <div class="grid2">
+              <label>คำขึ้นต้น
+                <input id="compositePrefix" placeholder="เช่น BNO:">
+              </label>
+              <label>ตัวคั่น
+                <input id="compositeSeparator" placeholder="เช่น -">
+              </label>
+            </div>
+            <div id="segmentRows" class="segmentRows"></div>
+            <button id="addSegmentBtn" type="button" class="secondary full">เพิ่มส่วนของรหัส</button>
+          </div>
         </div>
       </section>
     </main>
