@@ -325,7 +325,7 @@ $("uploadBtn").onclick=async()=>{
 
     const result=await AdminAuth.json("/api/work-plans/import",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
     await SwalSmall.ok("นำเข้าแผนงานแล้ว",`${result.imported} งาน`);
-    $("uploadResult").textContent=`นำเข้าสำเร็จ ${result.imported} งาน`;
+    $("uploadResult").textContent=`นำเข้าสำเร็จ ${result.imported} งาน${result.sourceFileDeleted?" · ลบ Excel ต้นฉบับจาก R2 แล้ว":" · เก็บข้อมูลใช้งานไว้ใน D1"}`;
     await refreshUserSummary();
   }catch(e){
     SwalSmall.error("นำเข้าไม่สำเร็จ",e.message);

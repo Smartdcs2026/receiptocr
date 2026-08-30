@@ -87,7 +87,7 @@
     </div>
 
     <div class="importFooter">
-      <div class="small">ระบบจะปิดเฉพาะงานเดิมของผู้ใช้นี้ใน “วันที่ที่มีอยู่ในไฟล์ใหม่” แล้วแทนด้วยรอบล่าสุด</div>
+      <div class="small">หลังนำเข้าสำเร็จ ระบบใช้ D1 เป็นข้อมูลหลัก และลบไฟล์ Excel ต้นฉบับออกจาก R2 อัตโนมัติเพื่อลดพื้นที่</div>
       <button id="uploadBtn" class="primary">นำเข้าแผนงาน</button>
     </div>
     <div id="uploadResult" class="small"></div>
@@ -97,10 +97,24 @@
   </div>
 
   <section id="manageArea" class="simplePanel hidden">
-    <div class="sectionHead"><div><h3>จัดการแผนงานที่อัปแล้ว</h3><div class="small">เพิ่ม แก้ไข ย้ายวัน หรือลบงานรายร้านได้</div></div><button id="addPlanItemBtn" class="primary">เพิ่มงาน</button></div>
-    <div class="manageFilters"><label>ผู้ใช้งาน<select id="manageUser"></select></label><label>จากวันที่<input id="manageFrom" type="date"></label><label>ถึงวันที่<input id="manageTo" type="date"></label><button id="loadPlanItemsBtn" class="secondary">แสดงข้อมูล</button></div>
-    <div id="manageSummary" class="small"></div>
-    <div class="tableWrap"><table class="storageTable"><thead><tr><th>วันที่</th><th>แบรนด์</th><th>รหัสร้าน</th><th>ชื่อร้าน</th><th>POS</th><th></th></tr></thead><tbody id="manageRows"></tbody></table></div>
+    <div class="sectionHead manageHead">
+      <div><h3>จัดการแผนงาน</h3><div class="small">ดูเป็นรายวัน ย้ายทั้งวันหรือเลือกบางร้าน และเก็บประวัติทุกครั้ง</div></div>
+      <div class="manageTopButtons"><button id="historyBtn" class="ghost">ประวัติการเปลี่ยนแปลง</button><button id="addPlanItemBtn" class="primary">เพิ่มงาน</button></div>
+    </div>
+
+    <div class="manageFilters simpleManageFilters">
+      <label>ผู้ใช้งาน<select id="manageUser"></select></label>
+      <label>จากวันที่<input id="manageFrom" type="date"></label>
+      <label>ถึงวันที่<input id="manageTo" type="date"></label>
+      <button id="loadPlanItemsBtn" class="secondary">แสดงข้อมูล</button>
+    </div>
+
+    <div class="manageSummaryBar">
+      <div><strong id="manageSummary">0 งาน</strong><span>รวมรายการในช่วงที่เลือก</span></div>
+      <button id="moveSelectedBtn" class="secondary" disabled>ย้ายร้านที่เลือก</button>
+    </div>
+
+    <div id="manageDayGroups" class="manageDayGroups"></div>
   </section>
 
   <section id="reviewArea" class="simplePanel hidden">
