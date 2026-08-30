@@ -17,6 +17,13 @@
     </div>
   </section>
 
+  <div class="workPlanTabs">
+    <button id="tabImport" class="active">นำเข้า Excel</button>
+    <button id="tabManage">จัดการแผนงาน</button>
+    <button id="tabReview">งานที่ส่งมา</button>
+  </div>
+
+  <div id="importArea">
   <section class="simplePanel">
     <div class="stepTitle"><span>1</span><div><h3>เลือกผู้ใช้งาน</h3><p>งานที่นำเข้าจะผูกกับผู้ใช้งานคนนี้</p></div></div>
     <div class="smartUserRow">
@@ -87,9 +94,25 @@
   </section>
 </div>
 
+  </div>
+
+  <section id="manageArea" class="simplePanel hidden">
+    <div class="sectionHead"><div><h3>จัดการแผนงานที่อัปแล้ว</h3><div class="small">เพิ่ม แก้ไข ย้ายวัน หรือลบงานรายร้านได้</div></div><button id="addPlanItemBtn" class="primary">เพิ่มงาน</button></div>
+    <div class="manageFilters"><label>ผู้ใช้งาน<select id="manageUser"></select></label><label>จากวันที่<input id="manageFrom" type="date"></label><label>ถึงวันที่<input id="manageTo" type="date"></label><button id="loadPlanItemsBtn" class="secondary">แสดงข้อมูล</button></div>
+    <div id="manageSummary" class="small"></div>
+    <div class="tableWrap"><table class="storageTable"><thead><tr><th>วันที่</th><th>แบรนด์</th><th>รหัสร้าน</th><th>ชื่อร้าน</th><th>POS</th><th></th></tr></thead><tbody id="manageRows"></tbody></table></div>
+  </section>
+
+  <section id="reviewArea" class="simplePanel hidden">
+    <div class="sectionHead"><div><h3>งานที่ผู้ใช้งานส่งมา</h3><div class="small">ตรวจข้อมูล แล้วอนุมัติหรือส่งกลับให้แก้ไขที่ร้านเดิม</div></div><button id="refreshReviewBtn" class="secondary">อัปเดต</button></div>
+    <div class="reviewFilters"><label>สถานะ<select id="reviewStatus"><option value="SUBMITTED">รอตรวจ</option><option value="RETURNED">ส่งกลับแก้ไข</option><option value="APPROVED">ผ่านแล้ว</option><option value="">ทั้งหมด</option></select></label></div>
+    <div id="reviewList" class="reviewList"></div>
+  </section>
+
 <script src="config.js"></script>
 <script src="admin-auth.js"></script>
 <script src="content-page.js"></script>
 <script src="workplans-smart.js"></script>
+<script src="workplan-manage.js"></script>
 </body>
 </html>
