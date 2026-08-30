@@ -104,10 +104,31 @@
 
     <div class="manageFilters simpleManageFilters">
       <label>ผู้ใช้งาน<select id="manageUser"></select></label>
+      <label>ค้นหารหัสร้าน<input id="manageStoreSearch" type="search" inputmode="search" autocomplete="off" placeholder="เช่น 0652"></label>
       <label>จากวันที่<input id="manageFrom" type="date"></label>
       <label>ถึงวันที่<input id="manageTo" type="date"></label>
       <button id="loadPlanItemsBtn" class="secondary">แสดงข้อมูล</button>
     </div>
+
+    <section class="workCalendarPanel" aria-labelledby="workCalendarTitle">
+      <div class="workCalendarHead">
+        <div>
+          <strong id="workCalendarTitle">ปฏิทินแผนงาน</strong>
+          <span>เลือกวันที่เพื่อแสดงงานของวันนั้น</span>
+        </div>
+        <div class="workCalendarActions">
+          <button id="calendarPrevBtn" type="button" class="ghost">เดือนก่อน</button>
+          <button id="calendarTodayBtn" type="button" class="ghost">เดือนนี้</button>
+          <button id="calendarNextBtn" type="button" class="ghost">เดือนถัดไป</button>
+        </div>
+      </div>
+      <div id="calendarMonthLabel" class="calendarMonthLabel"></div>
+      <div class="workCalendarWeekdays" aria-hidden="true">
+        <span>อา.</span><span>จ.</span><span>อ.</span><span>พ.</span><span>พฤ.</span><span>ศ.</span><span>ส.</span>
+      </div>
+      <div id="manageCalendarGrid" class="workCalendarGrid"></div>
+      <div class="calendarHelp">จำนวนร้านนับเฉพาะงานที่ยังใช้งานของผู้ใช้งานที่เลือก</div>
+    </section>
 
     <div class="manageSummaryBar">
       <div><strong id="manageSummary">0 งาน</strong><span>รวมรายการในช่วงที่เลือก</span></div>
