@@ -68,8 +68,38 @@ assert.equal(lgo.records.length,3);
 assert.deepEqual(lgo.records.map(record=>record.fields.POS_NUMBER),["001","002","003"]);
 assert.deepEqual(lgo.records.map(record=>record.fields.CUSTOMER_VALUE),["6766","0911","8997"]);
 
+// ข้อความจากภาพ L-go จริงอาจมีขีด/จุดรบกวนระหว่างช่อง แต่ต้องยังพบทุก POS
+const lgoNoisy=engine.findRecords([lgoRow],[
+  "21/08/2026 | 21:54 - 1705 001 17052001 6766",
+  "22/08/2026 ; 14:57 1705-002 17053001 0911",
+  "24/08/2026 20:21 1705 003 17051002 8997"
+].join("\n"));
+assert.equal(lgoNoisy.records.length,3);
+assert.deepEqual(lgoNoisy.records.map(record=>record.fields.POS_NUMBER),["001","002","003"]);
+
+// อีกแบรนด์/อีกรูปแบบจาก Admin: ภาพเดียวมี N01-N04 และ OCR อาจอ่าน S เป็น $ หรือ 5
+const cj2125Row=[
+  field("BILL_DATE",{example:"24/08/2026",minLength:10,maxLength:10}),
+  field("BILL_TIME",{example:"11:17",minLength:5,maxLength:5}),
+  field("LITERAL",{example:"BNO:S",literal:"BNO:S"}),
+  field("YEAR_VALUE",{example:"26",minLength:2,maxLength:2,compareTo:"BILL_DATE"}),
+  field("MONTH_VALUE",{example:"08",minLength:2,maxLength:2,compareTo:"BILL_DATE"}),
+  field("STORE_ID",{example:"2125",minLength:4,maxLength:4}),
+  field("POS_NUMBER",{example:"N01",posPrefixes:"N",posDigits:2,minLength:3,maxLength:3}),
+  field("SEPARATOR",{example:"-",separatorValue:"-"}),
+  field("CUSTOMER_VALUE",{example:"003163",minLength:6,maxLength:6})
+];
+const cjFour=engine.findRecords([cj2125Row],[
+  "24/08/2026 11:17 BNO:S26082125N01-003163",
+  "24/08/2026 17:04 BNO:$26082125N02-005203",
+  "24/08/2026 18:11 BNO:526082125N03-004175",
+  "22/08/2026 22:22 BNO:S26082125N04-000486"
+].join("\n"));
+assert.equal(cjFour.records.length,4);
+assert.deepEqual(cjFour.records.map(record=>record.fields.POS_NUMBER),["N01","N02","N03","N04"]);
+
 const dateWarning=engine.findRecords([cjRow],"19/07/2025 22:41 BNO:S26080652N02-004184");
 assert.equal(dateWarning.records.length,1);
 assert.equal(dateWarning.records[0].fields.BILL_DATE,"19/07/2025");
 
-console.log("OCR pattern engine: CJ, composite, split text, multi-POS L-go and warning-value tests passed");
+console.log("OCR pattern engine: Admin-driven CJ/L-go, noisy text, four POS and warning-value tests passed");
