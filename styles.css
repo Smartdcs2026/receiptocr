@@ -371,6 +371,35 @@ button:active,a.secondary:active,a.primary:active{transform:translateY(1px)}
 @media(max-width:780px){.enterpriseManage{padding:12px}.manageCommandHead{flex-direction:column}.manageTopButtons{width:100%}.manageTopButtons button{flex:1}.manageControlBar{grid-template-columns:1fr 1fr}.controlUser{grid-column:1/-1}.manageKpiStrip{grid-template-columns:1fr 1fr}.manageKpiStrip article:nth-child(2){border-right:0}.manageKpiStrip article:nth-child(-n+2){border-bottom:1px solid #e4e7ec}.manageWorkspace{grid-template-columns:1fr}.workCalendarPanel{position:static}.manageListPanel{min-width:0}}
 @media(max-width:520px){.workPlanPage{padding:10px}.workPlanTabs{display:grid;grid-template-columns:repeat(3,1fr);width:100%}.workPlanTabs button{padding:8px 5px}.manageControlBar{grid-template-columns:1fr}.controlUser{grid-column:auto}.manageKpiStrip article{padding:11px}.manageKpiStrip strong{font-size:20px}.manageListHead{align-items:stretch;flex-direction:column}.manageListHead button{width:100%}.dayStoreRow{grid-template-columns:24px 54px 1fr;padding:8px}.rowActions{display:grid;grid-template-columns:repeat(3,1fr)}.rowActions button{width:100%;padding:7px 4px}.workCalendarDay,.workCalendarBlank{min-height:38px}}
 
+/* Round48 - practical compact admin workspace */
+.adminHeader{min-height:48px;padding:7px 14px}
+.adminHeader>div:first-child{display:flex;align-items:baseline;gap:10px;min-width:0}
+.adminHeaderTitle{font-size:16px;white-space:nowrap}.adminHeaderSub{margin:0;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adminUserName{font-size:10px;line-height:1.25}.adminUserName br,.adminUserName .small{display:none}.compactBtn{padding:6px 10px}
+body.embedPage>.simplePage,body.embedPage>.storagePage,body.embedPage>.workPlanPage,body.embedPage>.brandPage{padding:9px 12px!important}
+body.embedPage .simpleHero{min-height:0;margin:0 0 7px}
+body.embedPage .simpleHero>div:first-child{display:none}
+body.embedPage .simpleHero:not(:has(>button)){display:none}
+body.embedPage .workPlanHero{display:none}
+body.embedPage .dashboardGrid,body.embedPage .adminSectionGrid{margin:9px 12px}
+body.embedPage>section.panel{margin:9px 12px;padding:11px}
+body.embedPage>.noteSettingsPage{max-width:none}
+body.embedPage .noteSettingsHead{justify-content:flex-end;margin-bottom:8px}
+body.embedPage .noteSettingsHead>div:first-child{display:none}
+.simplePanel{padding:11px 12px;margin-bottom:9px;border-radius:10px}
+.workPlanPage{padding:10px 12px}.workPlanTabs{margin-bottom:8px}.workPlanTabs button{padding:7px 12px}
+.enterpriseManage{padding:11px;margin-bottom:10px}
+.manageCommandHead{justify-content:flex-end;margin-bottom:8px}.manageCommandHead>div:first-child{display:none}
+.manageTopButtons button{min-height:34px;padding:7px 10px}
+.manageControlBar{padding:9px;gap:8px}.manageControlBar input,.manageControlBar select,.manageApplyBtn{height:34px}
+.manageKpiStrip{margin:8px 0}.manageKpiStrip article{padding:9px 12px}.manageKpiStrip strong{font-size:20px}
+.manageWorkspace{gap:9px}.workCalendarPanel{padding:10px}.manageListHead{padding:10px 12px}
+.editScopeBox{margin:0 0 8px;padding:10px;border:1px solid #b2ccff;border-radius:9px;background:#f5f8ff;text-align:left}
+.editScopeBox legend{padding:0 5px;color:#1849a9;font-size:11px;font-weight:800}
+.editScopeBox label{display:flex!important;align-items:flex-start;gap:8px;margin:5px 0!important;padding:7px 8px;border:1px solid #d6e4ff;border-radius:7px;background:#fff;cursor:pointer}
+.editScopeBox input{width:16px;height:16px;margin:2px 0 0;flex:0 0 auto}.editScopeBox span{display:flex;flex-direction:column;gap:2px}.editScopeBox b{font-size:11px;color:#101828}.editScopeBox small{font-size:9px;color:#667085}
+@media(max-width:780px){.adminHeader>div:first-child{display:block}.adminHeaderSub{display:none}.adminHeader{min-height:46px}.manageCommandHead{align-items:stretch}.manageCommandHead>div:first-child{display:none}}
+
 /* Round47 - strict import and controlled plan clearing */
 .unmappedConfirm{display:flex;align-items:flex-start;gap:8px;margin:8px 0;padding:9px 10px;border:1px solid #fedf89;border-radius:8px;background:#fffaeb;color:#7a2e0e;font-size:10px;line-height:1.45}.unmappedConfirm input{width:16px;height:16px;margin-top:1px;flex:0 0 auto}.unmappedConfirm strong{font-weight:700;overflow-wrap:anywhere}
 .clearPlanForm{text-align:left}.clearPlanForm p{padding:9px 10px;border-radius:8px;background:#fef3f2;color:#b42318;font-size:11px;line-height:1.45}.clearPlanForm label{display:block;margin:10px 0 0;color:#344054;font-size:11px;font-weight:700}.clearPlanForm .swal2-select,.clearPlanForm .swal2-input,.clearPlanForm .swal2-textarea{box-sizing:border-box;width:100%;margin:5px 0 0;font-size:12px}.clearPlanForm .swal2-textarea{height:74px}

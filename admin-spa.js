@@ -1,7 +1,7 @@
 (async()=>{
   if(!await AdminAuth.guard()) return;
 
-  const VERSION="43";
+  const VERSION="48";
   const routes={
     home:{title:"หน้าหลัก",sub:"ภาพรวมและสถานะระบบ",url:"dashboard.html"},
     users:{title:"ผู้ใช้งาน",sub:"ผู้ใช้งานภาคสนามและรหัสสำหรับรับแผนงาน",url:"users.html"},
