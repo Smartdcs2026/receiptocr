@@ -9,11 +9,12 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-<div class="simplePage">
-  <section class="simpleHero">
+<div class="simplePage workPlanPage">
+  <section class="simpleHero workPlanHero">
     <div>
-      <h2>นำเข้าแผนงาน</h2>
-      <p>ระบบค้นหาหัวตาราง เดือน ปี และวันที่ 1–31 ให้โดยอัตโนมัติ</p>
+      <span class="pageEyebrow">การบริหารงานภาคสนาม</span>
+      <h2>ศูนย์จัดการแผนงาน</h2>
+      <p>นำเข้า ตรวจสอบ จัดตาราง และติดตามงานของผู้ใช้งานจากข้อมูลชุดเดียว</p>
     </div>
   </section>
 
@@ -96,25 +97,69 @@
 
   </div>
 
-  <section id="manageArea" class="simplePanel hidden">
-    <div class="sectionHead manageHead">
-      <div><h3>จัดการแผนงาน</h3><div class="small">ดูเป็นรายวัน ย้ายทั้งวันหรือเลือกบางร้าน และเก็บประวัติทุกครั้ง</div></div>
-      <div class="manageTopButtons"><button id="historyBtn" class="ghost">ประวัติการเปลี่ยนแปลง</button><button id="addPlanItemBtn" class="primary">เพิ่มงาน</button></div>
-    </div>
+  <section id="manageArea" class="enterpriseManage hidden">
+    <header class="manageCommandHead">
+      <div>
+        <span class="sectionEyebrow">ควบคุมแผนงาน</span>
+        <h3>จัดการแผนงาน</h3>
+        <p>ตรวจสอบงานรายวัน ย้ายงาน และเก็บประวัติการเปลี่ยนแปลงอย่างเป็นระบบ</p>
+      </div>
+      <div class="manageTopButtons">
+        <button id="historyBtn" class="ghost">ประวัติการเปลี่ยนแปลง</button>
+        <button id="addPlanItemBtn" class="primary">เพิ่มแผนงาน</button>
+      </div>
+    </header>
 
-    <div class="manageFilters simpleManageFilters">
-      <label>ผู้ใช้งาน<select id="manageUser"></select></label>
-      <label>จากวันที่<input id="manageFrom" type="date"></label>
+    <section class="manageControlBar" aria-label="ตัวกรองแผนงาน">
+      <label class="controlUser">ผู้ใช้งาน<select id="manageUser"></select></label>
+      <label>รหัสร้าน<input id="manageStoreSearch" type="search" inputmode="search" autocomplete="off" placeholder="ค้นหารหัสร้าน"></label>
+      <label>ตั้งแต่วันที่<input id="manageFrom" type="date"></label>
       <label>ถึงวันที่<input id="manageTo" type="date"></label>
-      <button id="loadPlanItemsBtn" class="secondary">แสดงข้อมูล</button>
-    </div>
+      <button id="loadPlanItemsBtn" class="primary manageApplyBtn">แสดงผล</button>
+    </section>
 
-    <div class="manageSummaryBar">
-      <div><strong id="manageSummary">0 งาน</strong><span>รวมรายการในช่วงที่เลือก</span></div>
-      <button id="moveSelectedBtn" class="secondary" disabled>ย้ายร้านที่เลือก</button>
-    </div>
+    <section class="manageKpiStrip" aria-label="สรุปแผนงาน">
+      <article><span>งานที่ใช้งาน</span><strong id="manageActiveKpi">0</strong><small>รายการในช่วงที่เลือก</small></article>
+      <article><span>วันที่มีงาน</span><strong id="manageDaysKpi">0</strong><small>วันทำงาน</small></article>
+      <article><span>จำนวน POS</span><strong id="managePosKpi">0</strong><small>รวมทุกสาขา</small></article>
+      <article><span>รายการที่ย้าย</span><strong id="manageMovedKpi">0</strong><small>เก็บไว้ตรวจสอบย้อนหลัง</small></article>
+    </section>
 
-    <div id="manageDayGroups" class="manageDayGroups"></div>
+    <div class="manageWorkspace">
+      <aside class="workCalendarPanel" aria-labelledby="workCalendarTitle">
+        <div class="workCalendarHead">
+          <div>
+            <strong id="workCalendarTitle">ปฏิทินแผนงาน</strong>
+            <span>จำนวนร้านของผู้ใช้งานที่เลือก</span>
+          </div>
+        </div>
+        <div class="calendarNavigator">
+          <button id="calendarPrevBtn" type="button" class="calendarNavBtn" aria-label="เดือนก่อน">ก่อนหน้า</button>
+          <div id="calendarMonthLabel" class="calendarMonthLabel"></div>
+          <button id="calendarNextBtn" type="button" class="calendarNavBtn" aria-label="เดือนถัดไป">ถัดไป</button>
+        </div>
+        <button id="calendarTodayBtn" type="button" class="calendarCurrentBtn">กลับเดือนปัจจุบัน</button>
+        <div class="workCalendarWeekdays" aria-hidden="true">
+          <span>อา.</span><span>จ.</span><span>อ.</span><span>พ.</span><span>พฤ.</span><span>ศ.</span><span>ส.</span>
+        </div>
+        <div id="manageCalendarGrid" class="workCalendarGrid"></div>
+        <div class="calendarLegend"><span></span> วันที่มีแผนงาน</div>
+      </aside>
+
+      <section class="manageListPanel" aria-labelledby="manageListTitle">
+        <header class="manageListHead">
+          <div>
+            <h4 id="manageListTitle">รายการแผนงาน</h4>
+            <span id="manageSummary">0 งาน</span>
+          </div>
+          <button id="moveSelectedBtn" class="secondary" disabled>ย้ายร้านที่เลือก</button>
+        </header>
+        <div class="workListColumnHead" aria-hidden="true">
+          <span></span><span>แบรนด์</span><span>ร้าน / รหัสร้าน</span><span>สถานะ</span><span>จัดการ</span>
+        </div>
+        <div id="manageDayGroups" class="manageDayGroups"></div>
+      </section>
+    </div>
   </section>
 
   <section id="reviewArea" class="simplePanel hidden">
