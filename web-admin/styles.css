@@ -289,6 +289,8 @@ button:active,a.secondary:active,a.primary:active{transform:translateY(1px)}
 .testResult{margin-top:10px;border-radius:11px;padding:11px;border:1px solid}
 .testResult.pass{background:#ecfdf3;border-color:#abefc6}.testResult.fail{background:#fef3f2;border-color:#fecdca}
 .testResultHead{display:flex;justify-content:space-between;gap:10px;align-items:center}.testResultHead strong{font-size:12px}.testResultHead span{font-size:10px;color:#667085}
+.readerVersion{display:inline-block;margin-left:6px;padding:3px 7px;border-radius:999px;background:#eaf2ff;color:#175cd3;font-size:10px;font-weight:700}
+.testRecord{margin-top:9px;padding:9px;border:1px solid #d0d5dd;border-radius:9px;background:#fff}.testRecord.warning{border-color:#f04438;background:#fff7f6}.testRecord>strong{font-size:11px;color:#344054}
 .testFieldGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:9px}
 .testField{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:8px;padding:7px;display:flex;flex-direction:column;gap:2px}
 .testField span{font-size:9px;color:#667085}.testField strong{font-size:11px;color:#101828;word-break:break-all}
