@@ -45,7 +45,7 @@
 
   function literalPattern(value){
     const text=String(value||"").trim();
-    if(/^BNO\s*:\s*S$/i.test(text))return "[B8]N[O0]\\s*[:;]\\s*S";
+    if(/^BNO\s*:\s*S$/i.test(text))return "[B8]N[O0]\\s*[:;]\\s*[S$5]";
     if(/^BNO\s*:$/i.test(text))return "[B8]N[O0]\\s*[:;]";
     return escapeRegex(text).replace(/\\ /g,"\\s+");
   }
@@ -129,7 +129,7 @@
       return field.required===false?`(?:${part})?`:part;
     }).filter(Boolean);
     if(!parts.length)return null;
-    try{return new RegExp(parts.join("\\s*"),"ig")}catch(_){return null}
+    try{return new RegExp(parts.join("[\\s|,;:_-]*"),"ig")}catch(_){return null}
   }
 
   function extractAll(regex,text){

@@ -418,6 +418,13 @@ function runPatternTest(){
     if(!checked.validationPassed)result.validationPassed=false;
     result.checks.push(...checked.checks);
   });
+  if(editing.validation.noDuplicatePos&&parsed.records.length){
+    const values=parsed.records.map(record=>posNumberValue(record.fields.POS_NUMBER)).filter(value=>value!==null);
+    const unique=new Set(values);
+    const ok=unique.size===values.length;
+    result.checks.push({ok,text:ok?"หมายเลขเครื่องไม่ซ้ำกัน":"พบหมายเลขเครื่องซ้ำในข้อความทดสอบ"});
+    if(!ok)result.validationPassed=false;
+  }
   renderTestResult(result);
 }
 
@@ -426,14 +433,14 @@ function validateParsedRecord(fields,configuredRows,recordNumber){
   let validationPassed=true;
   const label=`ชุดที่ ${recordNumber}`;
   const expectedStore=$("testStoreCode").value.trim();
-  if(expectedStore&&fields.STORE_ID){
+  if(editing.validation.mustMatchStore&&expectedStore&&fields.STORE_ID){
     const ok=String(fields.STORE_ID).padStart(expectedStore.length,"0")===expectedStore;
     checks.push({ok,text:ok?`${label}: รหัสร้านตรง (${expectedStore})`:`${label}: รหัสร้านไม่ตรง อ่านได้ ${fields.STORE_ID} แต่ควรเป็น ${expectedStore}`});
     if(!ok)validationPassed=false;
   }
 
   const posCount=Number($("testPosCount").value||0);
-  if(posCount&&fields.POS_NUMBER){
+  if(editing.validation.mustMatchPos&&posCount&&fields.POS_NUMBER){
     const n=posNumberValue(fields.POS_NUMBER);
     const ok=n!==null && n>=1 && n<=posCount;
     checks.push({ok,text:ok?`${label}: หมายเลขเครื่องอยู่ในช่วง (${fields.POS_NUMBER})`:`${label}: หมายเลขเครื่อง ${fields.POS_NUMBER} ไม่อยู่ในช่วง 1-${posCount}`});
@@ -441,7 +448,9 @@ function validateParsedRecord(fields,configuredRows,recordNumber){
   }
 
   const bill=parseDateParts(fields.BILL_DATE);
-  if(bill&&fields.YEAR_VALUE){
+  const compareYear=configuredRows.flat().some(field=>field.type==="YEAR_VALUE"&&field.compareTo==="BILL_DATE");
+  const compareMonth=configuredRows.flat().some(field=>field.type==="MONTH_VALUE"&&field.compareTo==="BILL_DATE");
+  if(compareYear&&bill&&fields.YEAR_VALUE){
     const ok=yearMatchesBillDate(fields.YEAR_VALUE,bill.year);
     checks.push({
       ok,
@@ -451,7 +460,7 @@ function validateParsedRecord(fields,configuredRows,recordNumber){
     });
     if(!ok)validationPassed=false;
   }
-  if(bill&&fields.MONTH_VALUE){
+  if(compareMonth&&bill&&fields.MONTH_VALUE){
     const ok=bill.month===Number(fields.MONTH_VALUE);
     checks.push({ok,text:ok?`${label}: เดือนตรงกับวันที่ (${fields.MONTH_VALUE})`:`${label}: เดือนไม่ตรง วันที่เป็นเดือน ${bill.month} แต่พบ ${fields.MONTH_VALUE}`});
     if(!ok)validationPassed=false;
