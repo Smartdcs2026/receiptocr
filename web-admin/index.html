@@ -184,21 +184,61 @@
     </section>
 
     <section class="simpleCheckPanel">
-      <h4>ตรวจสอบก่อนรับข้อมูล</h4>
-      <label class="checkRow"><input id="mustMatchStore" type="checkbox" checked><span>รหัสร้านต้องตรงกับร้านในแผนงาน</span></label>
-      <label class="checkRow"><input id="mustMatchPos" type="checkbox" checked><span>หมายเลข POS ต้องตรงกับเครื่องของร้าน</span></label>
-      <label class="checkRow"><input id="noDuplicatePos" type="checkbox" checked><span>ห้ามใช้ POS ซ้ำในงานเดียวกัน</span></label>
-      <label class="checkRow"><input id="mustHaveDate" type="checkbox" checked><span>ต้องอ่านวันที่ได้</span></label>
-      <label class="checkRow"><input id="mustHaveTime" type="checkbox" checked><span>ต้องอ่านเวลาได้</span></label>
-      <label class="checkRow"><input id="mustHaveCustomer" type="checkbox" checked><span>ต้องอ่านยอด/เลขลูกค้าได้</span></label>
-      <label>รอบยอด/เลขลูกค้า
-        <select id="counterCycle">
-          <option value="CONTINUOUS">นับต่อเนื่อง</option>
-          <option value="MONTHLY">เริ่มใหม่ทุกเดือน</option>
-          <option value="DAILY">เริ่มใหม่ทุกวัน</option>
-          <option value="YEARLY">เริ่มใหม่ทุกปี</option>
-        </select>
-      </label>
+      <div class="sectionHead">
+        <div>
+          <h4>ตรวจสอบก่อนรับข้อมูล</h4>
+          <div class="small">เลือกเฉพาะสิ่งที่ต้องตรวจ ระบบจะใช้ร่วมกับข้อมูลร้านและแผนงานใน APK</div>
+        </div>
+      </div>
+
+      <div class="validationGrid">
+        <label class="validationItem"><input id="mustMatchStore" type="checkbox" checked><span><strong>ร้านต้องตรง</strong><small>รหัสร้านต้องตรงกับแผนงาน</small></span></label>
+        <label class="validationItem"><input id="mustMatchPos" type="checkbox" checked><span><strong>เครื่องต้องตรง</strong><small>หมายเลขเครื่องต้องมีในร้าน</small></span></label>
+        <label class="validationItem"><input id="noDuplicatePos" type="checkbox" checked><span><strong>เครื่องห้ามซ้ำ</strong><small>ห้ามใช้ POS เดิมซ้ำในงานเดียวกัน</small></span></label>
+        <label class="validationItem"><input id="mustHaveDate" type="checkbox" checked><span><strong>ต้องมีวันที่</strong><small>ต้องอ่านวันที่ในบิลได้</small></span></label>
+        <label class="validationItem"><input id="mustHaveTime" type="checkbox" checked><span><strong>ต้องมีเวลา</strong><small>ต้องอ่านเวลาในบิลได้</small></span></label>
+        <label class="validationItem"><input id="mustHaveCustomer" type="checkbox" checked><span><strong>ต้องมียอดลูกค้า</strong><small>ต้องอ่านยอด/เลขลูกค้าได้</small></span></label>
+      </div>
+
+      <div class="counterCycleRow">
+        <label>รอบยอด/เลขลูกค้า
+          <select id="counterCycle">
+            <option value="CONTINUOUS">นับต่อเนื่อง</option>
+            <option value="MONTHLY">เริ่มใหม่ทุกเดือน</option>
+            <option value="DAILY">เริ่มใหม่ทุกวัน</option>
+            <option value="YEARLY">เริ่มใหม่ทุกปี</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="simpleTestPanel">
+      <div class="testPanelHead">
+        <div>
+          <h4>ทดสอบรูปแบบที่สร้าง</h4>
+          <div class="small">วางข้อความที่อ่านจากบิล แล้วตรวจว่ารูปแบบนี้แยกข้อมูลได้ถูกต้องหรือไม่</div>
+        </div>
+        <button id="runPatternTestBtn" class="primary">ทดสอบ</button>
+      </div>
+
+      <div class="simpleFormGrid testInputs">
+        <label>ข้อความจากบิล
+          <textarea id="testInputText" rows="4" placeholder="เช่น 20/08/2026 22:41 BNO:S26080652N02-004184"></textarea>
+        </label>
+        <div class="testContextGrid">
+          <label>รหัสร้านที่ควรเป็น
+            <input id="testStoreCode" placeholder="เช่น 0652">
+          </label>
+          <label>จำนวนเครื่องของร้าน
+            <input id="testPosCount" type="number" min="1" max="99" value="5">
+          </label>
+          <label>วันที่ทำงาน
+            <input id="testWorkDate" type="date">
+          </label>
+        </div>
+      </div>
+
+      <div id="testResult" class="testResult hidden"></div>
     </section>
   </section>
 </div>

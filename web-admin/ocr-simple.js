@@ -230,5 +230,146 @@ $("brandId").onchange=()=>{editing=null;$("editorPanel").classList.add("hidden")
 $("addPatternBtn").onclick=openNew;
 $("savePatternBtn").onclick=save;
 $("deletePatternBtn").onclick=()=>deletePattern(null);
+
+function normalizeSpaces(v){
+  return String(v||"").replace(/\r/g,"").split("\n").map(x=>x.trim().replace(/\s+/g," ")).filter(Boolean);
+}
+function escapeRegex(v){return String(v||"").replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}
+function fieldRegex(f){
+  const min=Math.max(0,Number(f.minLength||0)), max=Math.max(min||1,Number(f.maxLength||1));
+  if(f.type==="BILL_DATE")return "(?<BILL_DATE>\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})";
+  if(f.type==="BILL_TIME")return "(?<BILL_TIME>\\d{1,2}:\\d{2}(?::\\d{2})?)";
+  if(f.type==="STORE_ID")return `(?<STORE_ID>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+  if(f.type==="CUSTOMER_VALUE")return `(?<CUSTOMER_VALUE>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+  if(f.type==="YEAR_VALUE")return `(?<YEAR_VALUE>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+  if(f.type==="MONTH_VALUE")return `(?<MONTH_VALUE>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+  if(f.type==="DAY_VALUE")return `(?<DAY_VALUE>\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+  if(f.type==="EMPLOYEE_CODE")return `(?<EMPLOYEE_CODE>[A-Za-z0-9]{${Math.max(1,min)},${Math.max(1,max)}})`;
+  if(f.type==="NUMBER_TEXT")return `\\d{${Math.max(1,min)},${Math.max(1,max)}}`;
+  if(f.type==="ALNUM_TEXT")return `[A-Za-z0-9]{${Math.max(1,min)},${Math.max(1,max)}}`;
+  if(f.type==="LITERAL")return escapeRegex(f.literal||f.example||"");
+  if(f.type==="SEPARATOR")return escapeRegex(f.separatorValue||f.example||"-");
+  if(f.type==="IGNORE")return ".{0,40}?";
+  if(f.type==="POS_NUMBER"){
+    const prefixes=String(f.posPrefixes||"").split(",").map(x=>x.trim()).filter(Boolean);
+    if(prefixes.length){
+      const p=prefixes.map(escapeRegex).join("|");
+      return `(?<POS_NUMBER>(?:${p})\\d{${Number(f.posDigits||2)}})`;
+    }
+    return `(?<POS_NUMBER>[A-Za-z]?\\d{${Math.max(1,min)},${Math.max(1,max)}})`;
+  }
+  if(f.type==="COMPOSITE_CODE"){
+    if(f.segments?.length){
+      let parts="";
+      if(f.prefix)parts+=escapeRegex(f.prefix);
+      for(const s of f.segments){
+        const len=Math.max(0,Number(s.length||0));
+        if(s.type==="YEAR_VALUE")parts+=`(?<YEAR_VALUE>\\d{${len}})`;
+        else if(s.type==="MONTH_VALUE")parts+=`(?<MONTH_VALUE>\\d{${len}})`;
+        else if(s.type==="DAY_VALUE")parts+=`(?<DAY_VALUE>\\d{${len}})`;
+        else if(s.type==="STORE_ID")parts+=`(?<STORE_ID>\\d{${len}})`;
+        else if(s.type==="POS_NUMBER")parts+=`(?<POS_NUMBER>[A-Za-z]?\\d{${Math.max(1,len-1)},${Math.max(1,len)}})`;
+        else if(s.type==="CUSTOMER_VALUE")parts+=`(?<CUSTOMER_VALUE>\\d{${len}})`;
+        else if(s.type==="EMPLOYEE_CODE")parts+=`(?<EMPLOYEE_CODE>[A-Za-z0-9]{${len}})`;
+        else if(s.type==="LITERAL")parts+=escapeRegex(s.example||"");
+        else if(s.type==="SEPARATOR")parts+=escapeRegex(s.example||"-");
+        else if(s.type==="NUMBER_TEXT")parts+=`\\d{${len}}`;
+        else if(s.type==="ALNUM_TEXT")parts+=`[A-Za-z0-9]{${len}}`;
+        else parts+=`.{${len}}`;
+      }
+      return parts;
+    }
+    return `(?<COMPOSITE_CODE>[A-Za-z0-9:_-]{${Math.max(1,min)},${Math.max(1,max)}})`;
+  }
+  return "\\S+";
+}
+function parseDateParts(v){
+  const m=String(v||"").match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if(!m)return null;
+  let d=+m[1],mo=+m[2],y=+m[3];if(y<100)y+=2000;
+  return {day:d,month:mo,year:y};
+}
+function posNumberValue(v){
+  const m=String(v||"").match(/(\d+)$/);return m?Number(m[1]):null;
+}
+function runPatternTest(){
+  if(!editing){
+    SwalSmall.error("ยังไม่ได้เลือกรูปแบบ","เปิดหรือสร้างรูปแบบบิลก่อนทดสอบ");
+    return;
+  }
+  const lines=normalizeSpaces($("testInputText").value);
+  const result={matched:true,fields:{},checks:[],rows:[]};
+  const configuredRows=editing.rows||[];
+
+  if(lines.length<configuredRows.length){
+    result.matched=false;
+    result.checks.push({ok:false,text:`พบข้อความ ${lines.length} แถว แต่รูปแบบกำหนด ${configuredRows.length} แถว`});
+  }
+
+  configuredRows.forEach((row,ri)=>{
+    const text=lines[ri]||"";
+    const parts=row.map(fieldRegex).filter(Boolean);
+    const gap="\\s*";
+    let regex;
+    try{regex=new RegExp(parts.join(gap),"i")}catch(e){
+      result.matched=false;result.checks.push({ok:false,text:`แถว ${ri+1}: รูปแบบไม่ถูกต้อง`});return;
+    }
+    const m=text.match(regex);
+    result.rows.push({row:ri+1,text,regex:regex.source,ok:!!m});
+    if(!m){
+      result.matched=false;result.checks.push({ok:false,text:`แถว ${ri+1}: ไม่ตรงกับรูปแบบที่สร้าง`});return;
+    }
+    Object.entries(m.groups||{}).forEach(([k,v])=>{if(v!==undefined)result.fields[k]=v});
+    result.checks.push({ok:true,text:`แถว ${ri+1}: อ่านรูปแบบได้`});
+  });
+
+  const expectedStore=$("testStoreCode").value.trim();
+  if(expectedStore && result.fields.STORE_ID){
+    const ok=String(result.fields.STORE_ID).padStart(expectedStore.length,"0")===expectedStore;
+    result.checks.push({ok,text:ok?`รหัสร้านตรง (${expectedStore})`:`รหัสร้านไม่ตรง: อ่านได้ ${result.fields.STORE_ID} แต่ควรเป็น ${expectedStore}`});
+    if(!ok)result.matched=false;
+  }
+
+  const posCount=Number($("testPosCount").value||0);
+  if(posCount && result.fields.POS_NUMBER){
+    const n=posNumberValue(result.fields.POS_NUMBER);
+    const ok=n!==null && n>=1 && n<=posCount;
+    result.checks.push({ok,text:ok?`หมายเลขเครื่องอยู่ในช่วง (${result.fields.POS_NUMBER})`:`หมายเลขเครื่อง ${result.fields.POS_NUMBER} ไม่อยู่ในช่วง 1-${posCount}`});
+    if(!ok)result.matched=false;
+  }
+
+  const bill=parseDateParts(result.fields.BILL_DATE);
+  if(bill && result.fields.YEAR_VALUE){
+    const y=Number(result.fields.YEAR_VALUE.length===2?2000+Number(result.fields.YEAR_VALUE):result.fields.YEAR_VALUE);
+    const ok=bill.year===y;
+    result.checks.push({ok,text:ok?`ปีตรงกับวันที่ (${result.fields.YEAR_VALUE})`:`ปีไม่ตรง: วันที่เป็น ${bill.year} แต่พบ ${result.fields.YEAR_VALUE}`});
+    if(!ok)result.matched=false;
+  }
+  if(bill && result.fields.MONTH_VALUE){
+    const ok=bill.month===Number(result.fields.MONTH_VALUE);
+    result.checks.push({ok,text:ok?`เดือนตรงกับวันที่ (${result.fields.MONTH_VALUE})`:`เดือนไม่ตรง: วันที่เป็นเดือน ${bill.month} แต่พบ ${result.fields.MONTH_VALUE}`});
+    if(!ok)result.matched=false;
+  }
+
+  renderTestResult(result);
+}
+function renderTestResult(r){
+  const box=$("testResult");box.classList.remove("hidden","pass","fail");box.classList.add(r.matched?"pass":"fail");
+  const labels={BILL_DATE:"วันที่",BILL_TIME:"เวลา",STORE_ID:"รหัสร้าน",POS_NUMBER:"หมายเลขเครื่อง",CUSTOMER_VALUE:"ยอด/เลขลูกค้า",YEAR_VALUE:"ปี",MONTH_VALUE:"เดือน",DAY_VALUE:"วัน",EMPLOYEE_CODE:"รหัสพนักงาน",COMPOSITE_CODE:"รหัสประกอบ"};
+  const fields=Object.entries(r.fields).map(([k,v])=>`<div class="testField"><span>${labels[k]||k}</span><strong>${esc(v)}</strong></div>`).join("");
+  box.innerHTML=`
+    <div class="testResultHead"><strong>${r.matched?"ผ่านรูปแบบ":"ยังไม่ผ่านรูปแบบ"}</strong><span>${r.matched?"ข้อมูลที่อ่านได้สอดคล้องกับเงื่อนไข":"มีบางจุดไม่ตรงกับที่กำหนด"}</span></div>
+    ${fields?`<div class="testFieldGrid">${fields}</div>`:""}
+    <div class="testChecks">${r.checks.map(c=>`<div class="${c.ok?"ok":"bad"}">${c.ok?"ผ่าน":"ไม่ผ่าน"} — ${esc(c.text)}</div>`).join("")}</div>`;
+}
+$("runPatternTestBtn").onclick=runPatternTest;
+
+// เติมข้อความทดสอบจากตัวอย่างอัตโนมัติเมื่อเปิด editor
+const oldShowEditor=showEditor;
+showEditor=function(){
+  oldShowEditor();
+  $("testInputText").value=editing.sampleText||"";
+};
+
 await loadBrands();
 })();
