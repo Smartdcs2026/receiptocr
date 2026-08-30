@@ -1,7 +1,7 @@
 (async()=>{
   if(!await AdminAuth.guard()) return;
 
-  const VERSION="26";
+  const VERSION="43";
   const routes={
     home:{title:"หน้าหลัก",sub:"ภาพรวมและสถานะระบบ",url:"dashboard.html"},
     users:{title:"ผู้ใช้งาน",sub:"ผู้ใช้งานภาคสนามและรหัสสำหรับรับแผนงาน",url:"users.html"},
@@ -10,7 +10,7 @@
     ocr:{title:"รูปแบบบิล",sub:"กำหนดรูปแบบข้อมูลของแต่ละแบรนด์",url:"index.html"},
     storage:{title:"พื้นที่จัดเก็บ R2",sub:"ติดตามพื้นที่ แจ้งเตือน สำรอง และลบข้อมูลตามอายุ",url:"storage.html"},
     reports:{title:"รายงาน",sub:"รายงานการทำงานและคุณภาพการอ่านข้อมูล",url:"reports.html"},
-    settings:{title:"ตั้งค่า",sub:"ตั้งค่าระบบส่วนกลาง",url:"settings.html"}
+    settings:{title:"รายการหมายเหตุ",sub:"เพิ่ม แก้ไข และลบตัวเลือกที่ผู้ใช้งานเห็นในแอป",url:"settings.html"}
   };
 
   const nav=[
@@ -21,7 +21,7 @@
     ["ocr","รูปแบบบิล",""],
     ["storage","พื้นที่จัดเก็บ R2",""],
     ["reports","รายงาน",""],
-    ["settings","ตั้งค่า",""]
+    ["settings","รายการหมายเหตุ",""]
   ];
 
   const root=document.getElementById("spaRoot");
