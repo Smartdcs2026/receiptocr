@@ -5,141 +5,155 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ReceiptOCR Admin - โปรไฟล์ OCR</title>
   <link rel="stylesheet" href="styles.css">
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-  <div class="layout">
-    <section class="panel settings">
-      <div class="sectionHead profileHead">
-        <div>
-          <h2 style="margin-bottom:3px">ข้อมูลโปรไฟล์</h2>
-          <div class="small">เลือกแบรนด์ กำหนดกฎการอ่าน แล้วบันทึกใช้งานกับ APK</div>
+<div class="ocrBuilderPage">
+  <section class="panel ocrIntro">
+    <div>
+      <h2>แม่แบบการอ่านข้อมูลบิล</h2>
+      <p>กำหนดวิธีอ่านของแต่ละแบรนด์โดยไม่ยึดตำแหน่งตายตัว รองรับข้อมูลแถวเดียว หลายแถว บิลเอียง บิลพับ และหลาย POS ในภาพเดียว</p>
+    </div>
+    <div class="ocrIntroStatus"><span class="statusDot"></span><span>กฎจาก Admin ใช้กับ APK</span></div>
+  </section>
+
+  <div class="ocrBuilderGrid">
+    <aside class="ocrLeft">
+      <section class="panel">
+        <div class="stepTitle"><span>1</span><div><h3>แบรนด์และแม่แบบ</h3><p>หนึ่งแบรนด์มีหลายรูปแบบบิลได้</p></div></div>
+        <label>แบรนด์<select id="brandId"></select></label>
+        <div class="grid2">
+          <label>รหัสแม่แบบ<input id="templateId" value="lgo-fresh-row-v1"></label>
+          <label>เวอร์ชัน<input id="templateVersion" type="number" value="1" min="1"></label>
         </div>
-      </div>
-      <div class="profileActions">
-        <button id="newProfileBtn" class="ghost">สร้างโปรไฟล์ใหม่</button>
-        <button id="exportBtn" class="secondary">ส่งออกไฟล์ตั้งค่า</button>
-        <button id="saveCloudBtn" class="primary">บันทึกโปรไฟล์</button>
-      </div>
-      <div class="grid2">
-        <label>รหัสแบรนด์<input id="brandId" list="brandOptions" value="CJ MORE"><datalist id="brandOptions"></datalist></label>
-        <label>รหัสโปรไฟล์<input id="profileId" value="cj-more-v1"></label>
-      </div>
-      <label>ชื่อโปรไฟล์<input id="profileName" value="CJ MORE Receipt Profile"></label>
-      <div class="grid2">
-        <label>เวอร์ชัน<input id="version" type="number" min="1" value="1"></label>
-        <label>สถานะ
-          <select id="active">
-            <option value="true">ใช้งาน</option>
-            <option value="false">ปิดใช้งาน</option>
-          </select>
-        </label>
-      </div>
-
-      <hr>
-
-      <h2>ตัวอย่างบิล</h2>
-      <label class="uploadBox">
-        <input id="imageInput" type="file" accept="image/*">
-        <span>เลือกภาพตัวอย่างบิล</span>
-      </label>
-      <div id="selectedImageInfo" class="cloudInfo">ยังไม่ได้เลือกภาพ</div>
-      <p class="hint">ลากเมาส์บนภาพเพื่อสร้าง ROI แล้วเลือกข้อมูลที่ต้องอ่าน</p>
-
-      <div class="fieldPicker">
-        <label>ข้อมูลที่ต้องอ่าน
-          <select id="fieldType">
-            <option value="STORE_ID">รหัสร้าน</option>
-            <option value="POS_NUMBER">หมายเลข POS</option>
-            <option value="BILL_DATE">วันที่ในบิล</option>
-            <option value="BILL_TIME">เวลาในบิล</option>
-            <option value="CUSTOMER_VALUE">ยอด/เลขลูกค้า</option>
-            <option value="RECEIPT_UNIQUE_KEY">จุดจำเพาะป้องกันข้อมูลซ้ำ</option>
-          </select>
-        </label>
-        <label>วิธีจับคู่
-          <select id="matchMode">
-            <option value="INSIDE_REGION">อยู่ภายในพื้นที่ที่กำหนด</option>
-            <option value="NEAR_LABEL" selected>อยู่ใกล้คำกำกับ</option>
-            <option value="REGEX">ตรงตามรูปแบบข้อความ</option>
-            <option value="EXACT_TOKEN">ตรงกับข้อความที่กำหนด</option>
-            <option value="PREFIX">ขึ้นต้นด้วย</option>
-            <option value="SUFFIX">ลงท้ายด้วย</option>
-          </select>
-        </label>
-      </div>
-
-      <label>คำใบ้ข้อความ
-        <input id="labelHints" placeholder="เช่น DATE, วันที่, POS">
-      </label>
-      <label>รูปแบบข้อความ (Regex)
-        <input id="regexPattern" placeholder="เช่น \\b\\d{1,2}/\\d{1,2}/\\d{4}\\b">
-      </label>
-      <div class="grid2">
-        <label>ลำดับความสำคัญ<input id="priority" type="number" value="100"></label>
-        <label class="check"><input id="required" type="checkbox"> จำเป็นต้องพบ</label>
-      </div>
-
-      <button id="addRuleBtn" class="secondary full">เพิ่มกฎจากพื้นที่ที่วาด</button>
-    </section>
-
-    <section class="panel canvasPanel">
-      <div class="canvasHeader">
-        <div>
-          <h2>พื้นที่กำหนดตำแหน่ง OCR</h2>
-          <p>ลากกรอบครอบเฉพาะบริเวณที่ต้องการให้ระบบอ่าน</p>
+        <label>ชื่อแม่แบบ<input id="templateName" value="ข้อมูลหลักเรียงในแถวเดียวกัน"></label>
+        <div class="grid2">
+          <label>ลำดับความสำคัญ<input id="templatePriority" type="number" value="100" min="1"></label>
+          <label>สถานะ<select id="templateActive"><option value="true">ใช้งาน</option><option value="false">พักการใช้งาน</option></select></label>
         </div>
-        <button id="clearDraftBtn" class="ghost">ยกเลิกกรอบที่กำลังวาด</button>
-      </div>
+        <div class="templatePresetRow">
+          <button id="presetCjBtn" class="secondary smallBtn">ตัวอย่าง CJ</button>
+          <button id="presetLgoBtn" class="secondary smallBtn">ตัวอย่าง L-go fresh</button>
+          <button id="newTemplateBtn" class="ghost smallBtn">เริ่มใหม่</button>
+        </div>
+      </section>
 
-      <div id="canvasWrap" class="canvasWrap">
-        <canvas id="imageCanvas"></canvas>
-        <div id="emptyState">กรุณาเลือกภาพตัวอย่างบิล</div>
-      </div>
+      <section class="panel">
+        <div class="stepTitle"><span>2</span><div><h3>ภาพตัวอย่างบิล</h3><p>ใช้ดูตำแหน่งจริงและทดสอบเงื่อนไข</p></div></div>
+        <label class="uploadBox"><input id="imageInput" type="file" accept="image/jpeg,image/png,image/webp,image/*"><span>เลือกภาพตัวอย่างบิล</span></label>
+        <div id="selectedImageInfo" class="cloudInfo">ยังไม่ได้เลือกภาพ</div>
+        <div class="imageTools">
+          <button id="rotateLeftBtn" class="ghost smallBtn" disabled>หมุนซ้าย</button>
+          <button id="rotateRightBtn" class="ghost smallBtn" disabled>หมุนขวา</button>
+          <button id="fitImageBtn" class="ghost smallBtn" disabled>พอดีหน้าจอ</button>
+        </div>
+        <div class="small helpText">พื้นที่ค้นหาเป็นตัวช่วยเสริมเท่านั้น หากบิลเอียงหรือพับ ระบบยังใช้ลำดับและความสัมพันธ์ของข้อความเป็นหลัก</div>
+      </section>
 
-      <div id="draftInfo" class="draftInfo">ยังไม่ได้กำหนดพื้นที่</div>
-    </section>
+      <section class="panel">
+        <div class="stepTitle"><span>3</span><div><h3>ลักษณะการจัดวางข้อมูล</h3><p>กำหนดว่าข้อมูลสัมพันธ์กันแบบใด</p></div></div>
+        <label>รูปแบบหลัก
+          <select id="layoutMode">
+            <option value="SAME_LINE">ข้อมูลหลักอยู่แถวเดียวกัน</option>
+            <option value="NEARBY_LINES">ข้อมูลอยู่ใกล้กันหลายแถว</option>
+            <option value="COMPOSITE_TOKEN">ข้อมูลหลายค่าอยู่ในรหัสชุดเดียว</option>
+            <option value="MIXED">ผสมหลายรูปแบบ</option>
+          </select>
+        </label>
+        <div class="grid2">
+          <label>ยอมให้ห่างกันกี่แถว<select id="lineTolerance"><option value="0">ต้องเป็นแถวเดียวกัน</option><option value="1" selected>ไม่เกิน 1 แถว</option><option value="2">ไม่เกิน 2 แถว</option><option value="3">ไม่เกิน 3 แถว</option></select></label>
+          <label>หลาย POS<select id="multiPosMode"><option value="ALL_MATCHES">อ่านทุกชุดที่พบ</option><option value="BEST_MATCH">เลือกชุดที่มั่นใจที่สุด</option></select></label>
+        </div>
+        <label class="checkRow"><input id="deskewEnabled" type="checkbox" checked><span>ปรับแนวข้อความเอียงก่อนจัดกลุ่มบรรทัด</span></label>
+        <label class="checkRow"><input id="wholeImageEnabled" type="checkbox" checked><span>ค้นหาทั้งภาพหากไม่ได้กำหนดพื้นที่</span></label>
+      </section>
+    </aside>
 
-    <section class="panel rules">
-      <div class="sectionHead">
-        <h2>กฎการอ่าน</h2>
-        <span id="ruleCount" class="badge">0</span>
-      </div>
-      <div id="rulesList" class="rulesList"></div>
+    <main class="ocrCenter">
+      <section class="panel imagePanel">
+        <div class="sectionHead">
+          <div><h3>ภาพตัวอย่าง</h3><div id="imageStatus" class="small">ยังไม่ได้เลือกภาพ</div></div>
+          <button id="clearRegionBtn" class="ghost smallBtn">ล้างพื้นที่ค้นหา</button>
+        </div>
+        <div id="imageStage" class="imageStage">
+          <div id="emptyState" class="imageEmpty"><div class="imageEmptyIcon">+</div><strong>เลือกภาพตัวอย่างบิล</strong><span>รองรับ JPG, PNG และ WebP</span></div>
+          <canvas id="imageCanvas"></canvas>
+        </div>
+        <div class="regionBar">
+          <div><strong>พื้นที่ค้นหาแบบเสริม</strong><span id="regionInfo">ยังไม่ได้กำหนด — ระบบจะค้นหาทั้งภาพ</span></div>
+          <div class="small">ลากเมาส์บนภาพเพื่อกำหนดบริเวณ</div>
+        </div>
+      </section>
 
-      <hr>
-      <h2>ตัวอย่างสำหรับเรียนรู้</h2>
-      <p class="hint">ผู้ดูแลระบบใช้ตัวอย่างบิลเพื่อกำหนดให้ระบบว่าแต่ละแบรนด์มีข้อความจำเพาะและตำแหน่งใด เพื่อให้ APK อ่านตามเงื่อนไขเดียวกัน</p>
-      <label>ชื่อชุดตัวอย่าง<input id="sampleName" placeholder="เช่น CJ แบบเก่า 2026"></label>
-      <label>ข้อความจำเพาะ / หมายเหตุ
-        <textarea id="sampleNotes" rows="3" placeholder="เช่น ต้องพบ CJ1078, คำว่า POS NO, DATE อยู่ขวาบน"></textarea>
-      </label>
-      <button id="saveExampleBtn" class="secondary full">อัปโหลดภาพ + บันทึกตัวอย่าง</button>
+      <section class="panel">
+        <div class="stepTitle"><span>4</span><div><h3>โครงสร้างข้อมูลในแถว</h3><p>เรียงตามลำดับที่มักปรากฏจริงบนบิล</p></div></div>
+        <div class="patternHelp">ตัวอย่าง L-go fresh: <strong>วันที่ → เวลา → รหัสร้าน → POS → รหัสประกอบ → ยอดลูกค้า</strong></div>
+        <div id="fieldRows" class="fieldRows"></div>
+        <button id="addFieldBtn" class="secondary full">เพิ่มข้อมูลในลำดับ</button>
+      </section>
 
-      <hr>
-      <h2>เงื่อนไขตรวจสอบ</h2>
-      <div class="grid2">
-        <label>ก่อนวันงาน (วัน)<input id="beforeDays" type="number" min="0" value="2"></label>
-        <label>หลังวันงาน (วัน)<input id="afterDays" type="number" min="0" value="2"></label>
-      </div>
-      <label>ระดับเมื่อวันที่ไม่ผ่าน
-        <select id="dateSeverity">
-          <option value="WARNING">เตือน แต่ยังให้ทำงานต่อ</option>
-          <option value="BLOCK">ไม่อนุญาตให้ผ่าน</option>
-        </select>
-      </label>
-      <label>ข้อความเตือน
-        <input id="dateMessage" value="วันที่ไม่ตรงเงื่อนไข">
-      </label>
-      <label class="check"><input id="uniquenessEnabled" type="checkbox" checked> เปิดป้องกันข้อมูลซ้ำ</label>
+      <section class="panel">
+        <div class="stepTitle"><span>5</span><div><h3>รหัสรวม / รหัสประกอบ</h3><p>ใช้เมื่อข้อมูลหลายค่าอยู่ติดกันในรหัสเดียว เช่น BNO ของ CJ</p></div></div>
+        <label class="checkRow"><input id="compositeEnabled" type="checkbox"><span>แม่แบบนี้มีรหัสรวมที่ต้องแยกส่วน</span></label>
+        <div id="compositeArea" class="compositeArea disabledBlock">
+          <div class="grid2">
+            <label>คำขึ้นต้นของรหัส<input id="compositePrefix" placeholder="เช่น BNO:"></label>
+            <label>ตัวคั่นก่อนยอดลูกค้า<input id="compositeSeparator" placeholder="เช่น -"></label>
+          </div>
+          <div id="segmentRows" class="segmentRows"></div>
+          <button id="addSegmentBtn" class="secondary full">เพิ่มส่วนของรหัส</button>
+        </div>
+      </section>
+    </main>
 
-      <details class="technicalDetails"><summary>ดูข้อมูลเทคนิคของโปรไฟล์</summary><div class="previewBox"><pre id="jsonPreview"></pre></div></details>
-    </section>
+    <aside class="ocrRight">
+      <section class="panel">
+        <div class="stepTitle"><span>6</span><div><h3>เงื่อนไขความถูกต้อง</h3><p>ข้อมูลหลักต้องถูก พร้อมยืนยันร้านและ POS</p></div></div>
+        <div class="ruleGroup"><h4>ข้อมูลหลัก</h4>
+          <label class="checkRow"><input id="requireDate" type="checkbox" checked><span>ต้องอ่านวันที่ได้</span></label>
+          <label class="checkRow"><input id="requireTime" type="checkbox" checked><span>ต้องอ่านเวลาได้</span></label>
+          <label class="checkRow"><input id="requireCustomer" type="checkbox" checked><span>ต้องอ่านยอด/เลขลูกค้าได้</span></label>
+        </div>
+        <div class="ruleGroup"><h4>ยืนยันร้าน</h4>
+          <label class="checkRow"><input id="storeMustMatchPlan" type="checkbox" checked><span>รหัสร้านต้องตรงกับแผนงาน</span></label>
+          <label class="checkRow"><input id="sameStoreAllPos" type="checkbox" checked><span>ทุก POS ในภาพต้องเป็นร้านเดียวกัน</span></label>
+        </div>
+        <div class="ruleGroup"><h4>ยืนยัน POS</h4>
+          <label class="checkRow"><input id="posMustExist" type="checkbox" checked><span>POS ต้องอยู่ในจำนวนเครื่องของร้าน</span></label>
+          <label class="checkRow"><input id="posMustUnique" type="checkbox" checked><span>POS ห้ามซ้ำกันในภาพ/งานเดียวกัน</span></label>
+          <label>ความสัมพันธ์ของ POS<select id="posRelation"><option value="ANY">ไม่บังคับตำแหน่ง</option><option value="AFTER_STORE">ต้องอยู่หลังรหัสร้าน</option><option value="IMMEDIATELY_AFTER_STORE" selected>ต้องอยู่ถัดจากรหัสร้านทันที</option><option value="IN_COMPOSITE">อยู่ในรหัสรวม</option></select></label>
+        </div>
+        <div class="ruleGroup"><h4>วันที่</h4>
+          <div class="grid2"><label>ก่อนวันงานได้<input id="beforeDays" type="number" value="2" min="0"></label><label>หลังวันงานได้<input id="afterDays" type="number" value="2" min="0"></label></div>
+          <label>ถ้าไม่ผ่าน<select id="dateAction"><option value="WARNING">เตือน แต่ยังทำงานต่อได้</option><option value="BLOCK">ไม่อนุญาตให้ผ่าน</option></select></label>
+        </div>
+        <div class="ruleGroup"><h4>ตรวจไขว้ข้อมูล</h4>
+          <label class="checkRow"><input id="crossCheckYear" type="checkbox"><span>ปีในรหัสรวมต้องตรงกับวันที่</span></label>
+          <label class="checkRow"><input id="crossCheckMonth" type="checkbox"><span>เดือนในรหัสรวมต้องตรงกับวันที่</span></label>
+          <label class="checkRow"><input id="compositeStoreMatch" type="checkbox"><span>รหัสร้านในรหัสรวมต้องตรงกับร้าน</span></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="stepTitle"><span>7</span><div><h3>การตรวจข้อมูลซ้ำ</h3><p>กำหนดรอบการนับของแต่ละแบรนด์</p></div></div>
+        <label>รอบยอด/เลขลูกค้า<select id="counterCycle"><option value="CONTINUOUS">นับต่อเนื่อง</option><option value="MONTHLY">เริ่มใหม่ทุกเดือน</option><option value="DAILY">เริ่มใหม่ทุกวัน</option><option value="YEARLY">เริ่มใหม่ทุกปี</option><option value="CUSTOM">กำหนดเอง</option></select></label>
+        <label class="checkRow"><input id="duplicateImageHash" type="checkbox" checked><span>ป้องกันการใช้รูปเดิมซ้ำ</span></label>
+        <label class="checkRow"><input id="duplicateReceiptKey" type="checkbox" checked><span>ป้องกันข้อมูลบิลเดิมซ้ำ</span></label>
+        <div class="small helpText">ระบบจะสร้างกุญแจตรวจซ้ำจาก แบรนด์ + ร้าน + POS + รอบเวลา + ยอด/เลขลูกค้า ตามกฎของแบรนด์</div>
+      </section>
+
+      <section class="panel">
+        <div class="stepTitle"><span>8</span><div><h3>บันทึกและทดสอบ</h3><p>แม่แบบใหม่มีผลโดยไม่ต้องออก APK ใหม่</p></div></div>
+        <button id="saveTemplateBtn" class="primary full">บันทึกแม่แบบ</button>
+        <button id="saveTrainingBtn" class="secondary full">บันทึกภาพตัวอย่างสำหรับเรียนรู้</button>
+        <details class="technicalDetails"><summary>ดูข้อมูลเทคนิคของแม่แบบ</summary><pre id="templateJson" class="jsonTechnical"></pre></details>
+      </section>
+    </aside>
   </div>
-
-  <script src="config.js"></script>
+</div>
+<script src="config.js"></script>
 <script src="admin-auth.js"></script>
 <script src="content-page.js"></script>
-<script src="app.js"></script>
+<script src="ocr-template.js"></script>
 </body>
 </html>
