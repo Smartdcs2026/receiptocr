@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ReceiptOCR Admin - รูปแบบบิล</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<div class="simplePage">
+  <section class="simpleHero">
+    <div>
+      <h2>รูปแบบบิล</h2>
+      <p>เลือกแบรนด์ แล้วกำหนดว่าข้อมูลบนบิลเรียงอย่างไร</p>
+    </div>
+  </section>
+
+  <section class="simplePanel">
+    <div class="simpleBrandSelect">
+      <label>แบรนด์
+        <select id="brandId"></select>
+      </label>
+      <div class="simpleTopActions"><button id="addCjExampleBtn" class="secondary">ตัวอย่าง CJ</button><button id="addPatternBtn" class="primary">เพิ่มรูปแบบบิล</button></div>
+    </div>
+
+    <div id="patternList" class="patternListSimple"></div>
+  </section>
+
+  <section id="editorPanel" class="simplePanel hidden">
+    <div class="editorSimpleHead">
+      <div>
+        <h3 id="editorTitle">รูปแบบบิล</h3>
+        <div class="small">จัดกล่องให้เหมือนข้อความจริงที่ผู้ใช้งานจะถ่าย</div>
+      </div>
+      <div class="editorHeadActions">
+        <button id="deletePatternBtn" class="ghost dangerBtn">ลบรูปแบบนี้</button>
+        <button id="savePatternBtn" class="primary">บันทึก</button>
+      </div>
+    </div>
+
+    <div class="simpleFormGrid">
+      <label>ชื่อรูปแบบ
+        <input id="patternName" placeholder="เช่น ข้อมูลอยู่แถวเดียว">
+      </label>
+      <label>ตัวอย่างข้อความจริง
+        <textarea id="sampleText" rows="3" placeholder="เช่น 20/08/2026 22:41 BNO:S26080652N02-004184"></textarea>
+        <span class="small">พิมพ์เหมือนข้อความจริงบนบิล ระบบจะใช้ช่วยกำหนดความยาวของแต่ละกล่อง</span>
+      </label>
+    </div>
+
+    <div class="rowChoice">
+      <span>ข้อมูลอยู่กี่แถว</span>
+      <div class="segmented">
+        <button type="button" data-rows="1" class="rowCountBtn active">1 แถว</button>
+        <button type="button" data-rows="2" class="rowCountBtn">2 แถว</button>
+        <button type="button" data-rows="3" class="rowCountBtn">3 แถว</button>
+      </div>
+      <div class="small">ทุกแถวถือเป็นข้อมูลชุดเดียวกัน</div>
+    </div>
+
+    <div class="simplePalette">
+      <div class="simplePaletteTitle">เลือกข้อมูลที่จะใช้</div>
+
+      <div class="paletteGroup">
+        <div class="paletteGroupTitle">ข้อมูลหลัก</div>
+        <div id="paletteItems" class="simplePaletteItems">
+          <button type="button" data-type="BILL_DATE">วันที่ในบิล</button>
+          <button type="button" data-type="BILL_TIME">เวลาในบิล</button>
+          <button type="button" data-type="CUSTOMER_VALUE">ยอด/เลขลูกค้า</button>
+          <button type="button" data-type="STORE_ID">รหัสร้าน</button>
+          <button type="button" data-type="POS_NUMBER">หมายเลขเครื่อง</button>
+        </div>
+      </div>
+
+      <div class="paletteGroup">
+        <div class="paletteGroupTitle">ข้อมูลสำหรับตรวจสอบ</div>
+        <div class="simplePaletteItems">
+          <button type="button" data-type="YEAR_VALUE">ปี</button>
+          <button type="button" data-type="MONTH_VALUE">เดือน</button>
+          <button type="button" data-type="DAY_VALUE">วัน</button>
+          <button type="button" data-type="EMPLOYEE_CODE">รหัสพนักงาน</button>
+          <button type="button" data-type="COMPOSITE_CODE">รหัสประกอบ</button>
+        </div>
+      </div>
+
+      <div class="paletteGroup">
+        <div class="paletteGroupTitle">ข้อความและตัวคั่น</div>
+        <div class="simplePaletteItems">
+          <button type="button" data-type="LITERAL">ข้อความคงที่</button>
+          <button type="button" data-type="SEPARATOR">ตัวคั่น</button>
+          <button type="button" data-type="NUMBER_TEXT">ตัวเลขทั่วไป</button>
+          <button type="button" data-type="ALNUM_TEXT">ตัวอักษร+ตัวเลข</button>
+          <button type="button" data-type="IGNORE">ข้อมูลที่ข้ามได้</button>
+        </div>
+      </div>
+
+      <div class="small">
+        แตะกล่องเพื่อเพิ่มลงแถวที่เลือก แล้วลากย้ายตำแหน่งได้
+      </div>
+    </div>
+
+    <div id="rowsArea" class="simpleRowsArea"></div>
+
+    <section id="fieldSettings" class="fieldSettingsSimple hidden">
+      <div class="fieldSettingsHead">
+        <strong id="fieldTitle">รายละเอียดข้อมูล</strong>
+        <button id="removeFieldBtn" class="ghost dangerBtn">ลบกล่อง</button>
+      </div>
+
+      <div class="simpleFormGrid two">
+        <label>ตัวอย่าง
+          <input id="fieldExample" placeholder="เช่น 1705">
+        </label>
+        <label>ลักษณะข้อมูล
+          <select id="fieldFormat">
+            <option value="DATE">วันที่</option>
+            <option value="TIME">เวลา</option>
+            <option value="DIGITS">ตัวเลข</option>
+            <option value="ALNUM">ตัวอักษรและตัวเลข</option>
+            <option value="TEXT">ข้อความ</option>
+            <option value="ANY">ไม่จำกัด</option>
+          </select>
+        </label>
+        <label>จำนวนอย่างน้อย
+          <input id="fieldMinLength" type="number" min="0" value="1">
+        </label>
+        <label>จำนวนไม่เกิน
+          <input id="fieldMaxLength" type="number" min="1" value="12">
+        </label>
+      </div>
+
+      <label class="checkRow">
+        <input id="fieldRequired" type="checkbox" checked>
+        <span>ต้องพบข้อมูลนี้</span>
+      </label>
+
+      <div id="literalBox" class="hidden">
+        <label>คำที่ต้องพบ
+          <input id="fieldLiteral" placeholder="เช่น BNO:">
+        </label>
+      </div>
+
+      <div id="yearMonthBox" class="hidden fieldSpecialBox">
+        <label>ต้องตรวจให้ตรงกับ
+          <select id="fieldCompareTo">
+            <option value="NONE">ไม่ตรวจเพิ่ม</option>
+            <option value="BILL_DATE">วันที่ในบิล</option>
+            <option value="WORK_DATE">วันที่ทำงาน</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="posBox" class="hidden fieldSpecialBox">
+        <div class="simpleFormGrid two">
+          <label>ตัวอักษรนำหน้าที่อนุญาต
+            <input id="posPrefixes" placeholder="เช่น N,B">
+          </label>
+          <label>จำนวนตัวเลขหลังตัวอักษร
+            <input id="posDigits" type="number" min="1" max="6" value="2">
+          </label>
+        </div>
+        <div class="small">ตัวอย่าง: N02 หรือ B01 ให้กรอก N,B และจำนวนตัวเลข 2</div>
+      </div>
+
+      <div id="separatorBox" class="hidden fieldSpecialBox">
+        <label>ตัวคั่นที่ต้องพบ
+          <input id="separatorValue" placeholder="เช่น - หรือ /">
+        </label>
+      </div>
+
+      <div id="compositeBox" class="hidden">
+        <div class="subSectionTitle">แบ่งรหัสประกอบ</div>
+        <div class="simpleFormGrid two">
+          <label>คำขึ้นต้น
+            <input id="compositePrefix" placeholder="เช่น BNO:">
+          </label>
+          <label>ตัวคั่น
+            <input id="compositeSeparator" placeholder="เช่น -">
+          </label>
+        </div>
+        <div id="segmentRows" class="segmentRows"></div>
+        <button id="addSegmentBtn" class="secondary full">เพิ่มส่วนของรหัส</button>
+      </div>
+    </section>
+
+    <section class="simpleCheckPanel">
+      <div class="sectionHead">
+        <div>
+          <h4>ตรวจสอบก่อนรับข้อมูล</h4>
+          <div class="small">เลือกเฉพาะสิ่งที่ต้องตรวจ ระบบจะใช้ร่วมกับข้อมูลร้านและแผนงานใน APK</div>
+        </div>
+      </div>
+
+      <div class="validationGrid">
+        <label class="validationItem"><input id="mustMatchStore" type="checkbox" checked><span><strong>ร้านต้องตรง</strong><small>รหัสร้านต้องตรงกับแผนงาน</small></span></label>
+        <label class="validationItem"><input id="mustMatchPos" type="checkbox" checked><span><strong>เครื่องต้องตรง</strong><small>หมายเลขเครื่องต้องมีในร้าน</small></span></label>
+        <label class="validationItem"><input id="noDuplicatePos" type="checkbox" checked><span><strong>เครื่องห้ามซ้ำ</strong><small>ห้ามใช้ POS เดิมซ้ำในงานเดียวกัน</small></span></label>
+        <label class="validationItem"><input id="mustHaveDate" type="checkbox" checked><span><strong>ต้องมีวันที่</strong><small>ต้องอ่านวันที่ในบิลได้</small></span></label>
+        <label class="validationItem"><input id="mustHaveTime" type="checkbox" checked><span><strong>ต้องมีเวลา</strong><small>ต้องอ่านเวลาในบิลได้</small></span></label>
+        <label class="validationItem"><input id="mustHaveCustomer" type="checkbox" checked><span><strong>ต้องมียอดลูกค้า</strong><small>ต้องอ่านยอด/เลขลูกค้าได้</small></span></label>
+      </div>
+
+      <div class="counterCycleRow">
+        <label>รอบยอด/เลขลูกค้า
+          <select id="counterCycle">
+            <option value="CONTINUOUS">นับต่อเนื่อง</option>
+            <option value="MONTHLY">เริ่มใหม่ทุกเดือน</option>
+            <option value="DAILY">เริ่มใหม่ทุกวัน</option>
+            <option value="YEARLY">เริ่มใหม่ทุกปี</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="simpleTestPanel">
+      <div class="testPanelHead">
+        <div>
+          <h4>ทดสอบรูปแบบที่สร้าง</h4>
+          <div class="small">วางข้อความที่อ่านจากบิล แล้วตรวจว่ารูปแบบนี้แยกข้อมูลได้ถูกต้องหรือไม่</div>
+        </div>
+        <button id="runPatternTestBtn" class="primary">ทดสอบ</button>
+      </div>
+
+      <div class="simpleFormGrid testInputs">
+        <label>ข้อความจากบิล
+          <textarea id="testInputText" rows="4" placeholder="เช่น 20/08/2026 22:41 BNO:S26080652N02-004184"></textarea>
+        </label>
+        <div class="testContextGrid">
+          <label>รหัสร้านที่ควรเป็น
+            <input id="testStoreCode" placeholder="เช่น 0652">
+          </label>
+          <label>จำนวนเครื่องของร้าน
+            <input id="testPosCount" type="number" min="1" max="99" value="5">
+          </label>
+          <label>วันที่ทำงาน
+            <input id="testWorkDate" type="date">
+          </label>
+        </div>
+      </div>
+
+      <div id="testResult" class="testResult hidden"></div>
+    </section>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script src="admin-auth.js"></script>
+<script src="content-page.js"></script>
+<script src="ocr-simple.js"></script>
+</body>
+</html>

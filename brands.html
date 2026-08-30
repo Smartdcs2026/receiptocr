@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ReceiptOCR Admin - แบรนด์</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<div class="simplePage">
+  <section class="simpleHero">
+    <div>
+      <h2>แบรนด์</h2>
+      <p>เพิ่ม แก้ไข หรือลบแบรนด์ที่ใช้งานในระบบ</p>
+    </div>
+    <button id="addBrandBtn" class="primary">เพิ่มแบรนด์</button>
+  </section>
+
+  <section class="simplePanel">
+    <div class="simpleToolbar">
+      <input id="brandSearch" placeholder="ค้นหาชื่อแบรนด์หรือตัวย่อ">
+      <div id="brandCount" class="small">0 แบรนด์</div>
+    </div>
+
+    <div id="brandList" class="brandCardList"></div>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script src="admin-auth.js"></script>
+<script src="content-page.js"></script>
+<script src="brands-simple.js"></script>
+</body>
+</html>

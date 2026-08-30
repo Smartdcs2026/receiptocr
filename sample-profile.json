@@ -1,0 +1,30 @@
+{
+  "ocrProfile": {
+    "profileId": "cj-more-v1",
+    "brandId": "CJ MORE",
+    "profileName": "CJ MORE Receipt Profile",
+    "version": 1,
+    "active": true,
+    "processingScope": "WHOLE_IMAGE_ALL_POS",
+    "regions": [],
+    "uniquenessRule": {
+      "enabled": true,
+      "fields": [
+        "STORE_ID",
+        "POS_NUMBER",
+        "BILL_DATE",
+        "BILL_TIME",
+        "CUSTOMER_VALUE"
+      ]
+    }
+  },
+  "receiptRule": {
+    "dateWindowRule": {
+      "enabled": true,
+      "beforeDays": 2,
+      "afterDays": 2,
+      "severity": "WARNING",
+      "message": "วันที่ไม่ตรงเงื่อนไข"
+    }
+  }
+}

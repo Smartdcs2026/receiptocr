@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ReceiptOCR Admin - Work Plans</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<div class="workPlanPage">
+  <section class="panel">
+    <h2>1. ผู้ใช้งาน</h2>
+    <div class="grid2">
+      <label>รหัสผู้ใช้งาน
+        <input id="employeeCode" value="0111" placeholder="เช่น 0111">
+      </label>
+      <label>ชื่อ-สกุล
+        <input id="fullName" value="จุราภรณ์" placeholder="ชื่อผู้ใช้งาน">
+      </label>
+    </div>
+    <div class="small">ไฟล์งานจะผูกกับรหัสนี้ APK จะโหลดเฉพาะงานของผู้ที่ Login อยู่</div>
+  </section>
+
+  <section class="panel" style="margin-top:14px">
+    <h2>2. เลือก Excel</h2>
+    <label class="uploadBox">
+      <input id="excelInput" type="file" accept=".xlsx,.xls">
+      <span>เลือกไฟล์งาน .xlsx / .xls</span>
+    </label>
+    <div id="fileInfo" class="cloudInfo">ยังไม่ได้เลือกไฟล์</div>
+    <div class="grid2">
+      <label>แผ่นงาน
+        <select id="sheetSelect"></select>
+      </label>
+      <label>จำนวนแถว
+        <input id="rowCount" readonly>
+      </label>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:14px">
+    <div class="sectionHead">
+      <div>
+        <h2>3. จับคู่คอลัมน์</h2>
+        <div class="small">ชื่อหัว Excel เปลี่ยนได้ ระบบพยายามจับ ชื่อที่ใกล้เคียง ให้อัตโนมัติ และ ผู้ดูแลระบบสามารถแก้ได้</div>
+      </div>
+      <button id="autoMapBtn" class="secondary">จับคู่อัตโนมัติ</button>
+    </div>
+    <div id="mappingGrid" class="mappingGrid"></div>
+  </section>
+
+  <section class="panel" style="margin-top:14px">
+    <div class="sectionHead">
+      <div>
+        <h2>4. ตัวอย่างข้อมูล</h2>
+        <div id="validationSummary" class="small">ยังไม่มีข้อมูล</div>
+      </div>
+      <button id="refreshPreviewBtn" class="secondary">อัปเดตตัวอย่าง</button>
+    </div>
+    <div class="tableWrap">
+      <table class="storageTable">
+        <thead>
+          <tr>
+            <th>#</th><th>วันที่งาน</th><th>แบรนด์</th><th>รหัสร้าน</th>
+            <th>ชื่อร้าน</th><th>จำนวน POS</th><th>พิกัด</th>
+          </tr>
+        </thead>
+        <tbody id="previewRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:14px;margin-bottom:30px">
+    <h2>5. อัปโหลด</h2>
+    <div class="notice warn">
+      การนำเข้ารอบใหม่จะปิดงานเดิมของ "ผู้ใช้นี้ + วันที่ที่มีอยู่ในไฟล์ใหม่" แล้วใช้ข้อมูลรอบล่าสุดแทน
+      วันที่อื่นที่ไม่อยู่ในไฟล์จะไม่ถูกลบ
+    </div>
+    <button id="uploadBtn" class="primary full">อัปโหลดไฟล์งานให้ผู้ใช้งาน</button>
+    <div id="uploadResult" class="small" style="margin-top:8px"></div>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script src="admin-auth.js"></script>
+<script src="content-page.js"></script>
+<script src="workplans.js"></script>
+</body>
+</html>

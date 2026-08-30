@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ReceiptOCR Admin Login</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<div class="loginPage">
+  <div class="loginCard">
+    <div class="loginLogo">RO</div>
+    <h1>ReceiptOCR Admin</h1>
+    <p id="loginSub">เข้าสู่ระบบเพื่อจัดการแผนงาน เงื่อนไข OCR และ R2 Storage</p>
+
+    <div id="setupFields" style="display:none">
+      <label>ชื่อผู้ดูแล<input id="fullName" placeholder="ชื่อ-สกุล"></label>
+    </div>
+    <label>Username<input id="username" autocomplete="username" placeholder="admin"></label>
+    <label>Password<input id="password" type="password" autocomplete="current-password" placeholder="อย่างน้อย 8 ตัวอักษร"></label>
+    <button id="loginBtn" class="primary full">เข้าสู่ระบบ</button>
+    <div id="loginHint" class="small" style="margin-top:10px"></div>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="admin-auth.js"></script>
+<script src="login.js"></script>
+</body>
+</html>

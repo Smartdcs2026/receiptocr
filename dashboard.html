@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ReceiptOCR Admin</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<div class="dashboardGrid">
+  <div class="dashboardCard"><div id="dUsers" class="big">-</div><div class="smallLabel">ผู้ใช้งาน</div></div>
+  <div class="dashboardCard"><div id="dStorage" class="big">-</div><div class="smallLabel">การใช้พื้นที่ R2</div></div>
+  <div class="dashboardCard"><div id="dObjects" class="big">-</div><div class="smallLabel">จำนวนไฟล์ R2</div></div>
+  <div class="dashboardCard"><div id="dLevel" class="big">-</div><div class="smallLabel">ระดับพื้นที่</div></div>
+</div>
+<div class="adminSectionGrid">
+  <section class="panel">
+    <h2>งานหลัก</h2>
+    <div class="rulesList">
+      <a class="ruleItem" href="admin.html#workplans" target="_top"><div class="ruleTitle">อัปโหลดแผนงานรายบุคคล</div><div class="ruleMeta">ไฟล์ Excel → ตรวจข้อมูล → ส่งแผนงานเข้า APK</div></a>
+      <a class="ruleItem" href="admin.html#ocr" target="_top"><div class="ruleTitle">กำหนดโปรไฟล์ OCR</div><div class="ruleMeta">วันที่ เวลา ยอดลูกค้า POS รหัสร้าน และจุดจำเพาะ</div></a>
+      <a class="ruleItem" href="admin.html#storage" target="_top"><div class="ruleTitle">จัดการพื้นที่ R2</div><div class="ruleMeta">เตือนพื้นที่ 70% / 85% / 95% และสำรองข้อมูลเก่า</div></a>
+    </div>
+  </section>
+  <section class="panel">
+    <h2>สถานะระบบ</h2>
+    <div id="systemStatus" class="notice ok">กำลังตรวจสอบ...</div>
+  </section>
+</div>
+<script src="config.js"></script><script src="admin-auth.js"></script>
+<script src="content-page.js"></script><script src="dashboard.js"></script>
+</body></html>
