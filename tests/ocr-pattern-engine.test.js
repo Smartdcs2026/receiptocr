@@ -1,1 +1,75 @@
+"use strict";
 
+const assert=require("node:assert/strict");
+const engine=require("../web-admin/ocr-pattern-engine.js");
+
+const field=(type,extra={})=>({type,required:true,minLength:1,maxLength:18,...extra});
+
+const cjRow=[
+  field("BILL_DATE",{example:"20/08/2026",minLength:10,maxLength:10}),
+  field("BILL_TIME",{example:"22:41",minLength:5,maxLength:5}),
+  field("LITERAL",{example:"BNO:S",literal:"BNO:S"}),
+  field("YEAR_VALUE",{example:"26",minLength:2,maxLength:2}),
+  field("MONTH_VALUE",{example:"08",minLength:2,maxLength:2}),
+  field("STORE_ID",{example:"0652",minLength:4,maxLength:4}),
+  field("POS_NUMBER",{example:"N02",posPrefixes:"N,B",posDigits:2,minLength:3,maxLength:3}),
+  field("SEPARATOR",{example:"-",separatorValue:"-"}),
+  // ตั้งใจตั้งเงื่อนไขไว้ 5 หลัก แต่ข้อความจริงมี 6 หลัก ต้องอ่านครบแล้วค่อยเตือน
+  field("CUSTOMER_VALUE",{example:"00184",minLength:5,maxLength:5})
+];
+
+const cj=engine.findRecords([cjRow],"20/08/2026 22:41 BNO:S26080652N02-004184");
+assert.equal(cj.records.length,1);
+assert.deepEqual(cj.records[0].fields,{
+  BILL_DATE:"20/08/2026",BILL_TIME:"22:41",YEAR_VALUE:"26",MONTH_VALUE:"08",
+  STORE_ID:"0652",POS_NUMBER:"N02",CUSTOMER_VALUE:"004184"
+});
+
+const cjSplit=engine.findRecords([cjRow],"20/08/2026 22:41\nBNO : S26080652N02-004184");
+assert.equal(cjSplit.records.length,1);
+assert.equal(cjSplit.records[0].fields.CUSTOMER_VALUE,"004184");
+
+const cjOcrConfusable=engine.findRecords([cjRow],"2O/O8/2O26 22:4I 8N0 ; S26O8O652N0I-OO4I84");
+assert.equal(cjOcrConfusable.records.length,1);
+assert.equal(cjOcrConfusable.records[0].fields.BILL_DATE,"20/08/2026");
+assert.equal(cjOcrConfusable.records[0].fields.POS_NUMBER,"N01");
+assert.equal(cjOcrConfusable.records[0].fields.CUSTOMER_VALUE,"004184");
+
+const cjCompositeRow=[
+  cjRow[0],cjRow[1],
+  field("COMPOSITE_CODE",{
+    prefix:"BNO:S",separator:"-",
+    segments:[
+      {type:"YEAR_VALUE",length:2,example:"26"},{type:"MONTH_VALUE",length:2,example:"08"},
+      {type:"STORE_ID",length:4,example:"0652"},{type:"POS_NUMBER",length:3,example:"N02"},
+      {type:"CUSTOMER_VALUE",length:5,example:"00184"}
+    ]
+  })
+];
+const cjComposite=engine.findRecords([cjCompositeRow],"20/08/2026 22:41 BNO:S26080652N02-004184");
+assert.equal(cjComposite.records.length,1);
+assert.equal(cjComposite.records[0].fields.CUSTOMER_VALUE,"004184");
+
+const lgoRow=[
+  field("BILL_DATE",{example:"22/08/2026",minLength:10,maxLength:10}),
+  field("BILL_TIME",{example:"21:54",minLength:5,maxLength:5}),
+  field("STORE_ID",{example:"1705",minLength:4,maxLength:4}),
+  field("POS_NUMBER",{example:"001",posDigits:3,minLength:3,maxLength:3}),
+  field("COMPOSITE_CODE",{example:"17052001",minLength:8,maxLength:8}),
+  field("CUSTOMER_VALUE",{example:"6766",minLength:1,maxLength:12})
+];
+const lgoText=[
+  "22/08/2026 21:54 1705 001 17052001 6766",
+  "22/08/2026 14:57 1705 002 17053001 0911",
+  "24/08/2026 20:21 1705 003 17051002 8997"
+].join("\n");
+const lgo=engine.findRecords([lgoRow],lgoText);
+assert.equal(lgo.records.length,3);
+assert.deepEqual(lgo.records.map(record=>record.fields.POS_NUMBER),["001","002","003"]);
+assert.deepEqual(lgo.records.map(record=>record.fields.CUSTOMER_VALUE),["6766","0911","8997"]);
+
+const dateWarning=engine.findRecords([cjRow],"19/07/2025 22:41 BNO:S26080652N02-004184");
+assert.equal(dateWarning.records.length,1);
+assert.equal(dateWarning.records[0].fields.BILL_DATE,"19/07/2025");
+
+console.log("OCR pattern engine: CJ, composite, split text, multi-POS L-go and warning-value tests passed");
