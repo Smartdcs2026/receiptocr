@@ -297,3 +297,31 @@ button:active,a.secondary:active,a.primary:active{transform:translateY(1px)}
 @media(max-width:520px){.validationGrid{grid-template-columns:1fr}.testFieldGrid{grid-template-columns:1fr}.testPanelHead{align-items:stretch;flex-direction:column}}
 
 .simpleTopActions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+
+/* Round35 - User Management + Smart Work Plan */
+.userCardList{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.userSimpleCard{display:grid;grid-template-columns:auto minmax(180px,1fr) minmax(170px,.8fr) auto auto;gap:10px;align-items:center;border:1px solid #e4e7ec;border-radius:12px;padding:10px 12px}
+.userAvatar{width:40px;height:40px;border-radius:10px;background:#eef4ff;color:#175cd3;display:grid;place-items:center;font-weight:800}
+.userMain,.userPlan{display:flex;flex-direction:column;gap:2px}.userMain strong,.userPlan strong{font-size:11px}.userMain span,.userPlan span{font-size:9px;color:#667085}
+.userActions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.smartUserRow{display:grid;grid-template-columns:minmax(260px,420px) 1fr;gap:12px;align-items:end}
+.planSummaryBox{border:1px solid #e4e7ec;background:#f8fafc;border-radius:10px;padding:9px 11px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.planSummaryBox strong{font-size:11px}.planSummaryBox span{font-size:9px;color:#667085}
+.detectCards{display:grid;grid-template-columns:1.2fr .7fr 1fr .8fr;gap:8px}
+.detectStatus{margin:10px 0;border-radius:10px;padding:9px 10px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:10px;border:1px solid}
+.detectStatus.ok{background:#ecfdf3;border-color:#abefc6;color:#027a48}.detectStatus.warn{background:#fffaeb;border-color:#fedf89;color:#93370d}
+.detectStatus strong{width:100%;font-size:11px}.mappingDetails{margin:10px 0}.mappingDetails summary{cursor:pointer;font-size:10px;color:#475467}
+.simpleMapping{margin-top:8px;grid-template-columns:repeat(4,minmax(0,1fr))}
+.importKpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+.importKpis>div{border:1px solid #e4e7ec;border-radius:10px;padding:9px;text-align:center;background:#fbfcfe}.importKpis strong{display:block;font-size:18px}.importKpis span{font-size:9px;color:#667085}
+.importWarnings{display:flex;flex-direction:column;gap:5px;margin-bottom:8px}.importWarning{background:#fffaeb;border:1px solid #fedf89;color:#93370d;border-radius:8px;padding:6px 8px;font-size:9px}
+.rowError{background:#fef3f2}.badText{color:#b42318}.goodText{color:#027a48}
+.importFooter{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;border-top:1px solid #eaecf0;padding-top:10px}
+@media(max-width:1000px){
+  .userSimpleCard{grid-template-columns:auto 1fr auto}.userPlan{grid-column:2}.userActions{grid-column:1/-1}
+  .detectCards{grid-template-columns:1fr 1fr}.simpleMapping{grid-template-columns:1fr 1fr}
+}
+@media(max-width:650px){
+  .smartUserRow,.detectCards{grid-template-columns:1fr}.importKpis{grid-template-columns:1fr 1fr}.simpleMapping{grid-template-columns:1fr}
+  .importFooter{align-items:stretch;flex-direction:column}.importFooter button{width:100%}
+}

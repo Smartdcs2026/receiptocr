@@ -1,6 +1,34 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Users</title><link rel="stylesheet" href="styles.css"><script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script></head><body>
-<section class="panel"><div class="sectionHead"><div><h2>ผู้ใช้งาน</h2><div class="small">รายชื่อพนักงานที่ผูกกับแผนงาน</div></div></div><div class="tableWrap"><table class="storageTable"><thead><tr><th>Employee Code</th><th>ชื่อ</th><th>สถานะ</th></tr></thead><tbody id="userRows"></tbody></table></div></section>
-<script src="config.js"></script><script src="admin-auth.js"></script>
-<script src="content-page.js"></script><script>
-(async()=>{if(!await ContentPage.init())return;try{const d=await AdminAuth.json("/api/users");document.getElementById("userRows").innerHTML=(d.items||[]).map(x=>`<tr><td>${x.employee_code}</td><td>${x.full_name}</td><td>${x.active?"ใช้งาน":"ปิด"}</td></tr>`).join("")}catch(e){SwalSmall.error("โหลดข้อมูลไม่สำเร็จ",e.message)}})();
-</script></body></html>
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ReceiptOCR Admin - ผู้ใช้งาน</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+<div class="simplePage">
+  <section class="simpleHero">
+    <div>
+      <h2>ผู้ใช้งาน</h2>
+      <p>สร้างบัญชีพนักงาน และดูสถานะแผนงานของแต่ละคน</p>
+    </div>
+    <button id="addUserBtn" class="primary">เพิ่มผู้ใช้งาน</button>
+  </section>
+
+  <section class="simplePanel">
+    <div class="simpleToolbar">
+      <input id="userSearch" placeholder="ค้นหารหัส ชื่อ หรือชื่อเข้าระบบ">
+      <div id="userCount" class="small">0 คน</div>
+    </div>
+    <div id="userList" class="userCardList"></div>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script src="admin-auth.js"></script>
+<script src="content-page.js"></script>
+<script src="users.js"></script>
+</body>
+</html>

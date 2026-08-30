@@ -1,91 +1,95 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>ReceiptOCR Admin - Work Plans</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ReceiptOCR Admin - แผนงาน</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-<div class="workPlanPage">
-  <section class="panel">
-    <h2>1. ผู้ใช้งาน</h2>
-    <div class="grid2">
-      <label>รหัสผู้ใช้งาน
-        <input id="employeeCode" value="0111" placeholder="เช่น 0111">
-      </label>
-      <label>ชื่อ-สกุล
-        <input id="fullName" value="จุราภรณ์" placeholder="ชื่อผู้ใช้งาน">
-      </label>
+<div class="simplePage">
+  <section class="simpleHero">
+    <div>
+      <h2>นำเข้าแผนงาน</h2>
+      <p>ระบบค้นหาหัวตาราง เดือน ปี และวันที่ 1–31 ให้โดยอัตโนมัติ</p>
     </div>
-    <div class="small">ไฟล์งานจะผูกกับรหัสนี้ APK จะโหลดเฉพาะงานของผู้ที่ Login อยู่</div>
   </section>
 
-  <section class="panel" style="margin-top:14px">
-    <h2>2. เลือก Excel</h2>
+  <section class="simplePanel">
+    <div class="stepTitle"><span>1</span><div><h3>เลือกผู้ใช้งาน</h3><p>งานที่นำเข้าจะผูกกับผู้ใช้งานคนนี้</p></div></div>
+    <div class="smartUserRow">
+      <label>ผู้ใช้งาน<select id="userSelect"></select></label>
+      <div id="userPlanSummary" class="planSummaryBox">ยังไม่ได้เลือก</div>
+    </div>
+  </section>
+
+  <section class="simplePanel">
+    <div class="stepTitle"><span>2</span><div><h3>เลือกไฟล์ Excel</h3><p>ตำแหน่งคอลัมน์เปลี่ยนได้ ระบบจะวิเคราะห์จากชื่อและโครงสร้าง</p></div></div>
     <label class="uploadBox">
       <input id="excelInput" type="file" accept=".xlsx,.xls">
-      <span>เลือกไฟล์งาน .xlsx / .xls</span>
+      <span>เลือกไฟล์แผนงาน .xlsx / .xls</span>
     </label>
     <div id="fileInfo" class="cloudInfo">ยังไม่ได้เลือกไฟล์</div>
-    <div class="grid2">
-      <label>แผ่นงาน
-        <select id="sheetSelect"></select>
-      </label>
-      <label>จำนวนแถว
-        <input id="rowCount" readonly>
-      </label>
-    </div>
   </section>
 
-  <section class="panel" style="margin-top:14px">
-    <div class="sectionHead">
-      <div>
-        <h2>3. จับคู่คอลัมน์</h2>
-        <div class="small">ชื่อหัว Excel เปลี่ยนได้ ระบบพยายามจับ ชื่อที่ใกล้เคียง ให้อัตโนมัติ และ ผู้ดูแลระบบสามารถแก้ได้</div>
-      </div>
-      <button id="autoMapBtn" class="secondary">จับคู่อัตโนมัติ</button>
+  <section id="detectPanel" class="simplePanel hidden">
+    <div class="stepTitle"><span>3</span><div><h3>ตรวจสิ่งที่ระบบพบ</h3><p>ถ้าระบบอ่านผิด Admin สามารถแก้ก่อนนำเข้าได้</p></div></div>
+
+    <div class="detectCards">
+      <label>แผ่นงาน<select id="sheetSelect"></select></label>
+      <label>แถวหัวตาราง<input id="headerRowInput" type="number" min="1"></label>
+      <label>เดือน<select id="monthSelect"></select></label>
+      <label>ปี<input id="yearInput" type="number" min="2000" max="3000"></label>
     </div>
-    <div id="mappingGrid" class="mappingGrid"></div>
+
+    <div id="detectStatus" class="detectStatus"></div>
+
+    <details class="mappingDetails">
+      <summary>แก้ไขคอลัมน์ที่ระบบจับคู่</summary>
+      <div id="mappingGrid" class="mappingGrid simpleMapping"></div>
+    </details>
+
+    <button id="reAnalyzeBtn" class="secondary">วิเคราะห์ใหม่</button>
   </section>
 
-  <section class="panel" style="margin-top:14px">
+  <section id="previewPanel" class="simplePanel hidden">
     <div class="sectionHead">
       <div>
-        <h2>4. ตัวอย่างข้อมูล</h2>
-        <div id="validationSummary" class="small">ยังไม่มีข้อมูล</div>
+        <h3>ตัวอย่างงานที่จะนำเข้า</h3>
+        <div id="validationSummary" class="small"></div>
       </div>
-      <button id="refreshPreviewBtn" class="secondary">อัปเดตตัวอย่าง</button>
+      <button id="refreshPreviewBtn" class="secondary">ตรวจใหม่</button>
     </div>
+
+    <div class="importKpis">
+      <div><strong id="kpiDays">0</strong><span>วันมีงาน</span></div>
+      <div><strong id="kpiJobs">0</strong><span>งานร้าน</span></div>
+      <div><strong id="kpiBrands">0</strong><span>แบรนด์</span></div>
+      <div><strong id="kpiErrors">0</strong><span>ต้องแก้ไข</span></div>
+    </div>
+
+    <div id="warningList" class="importWarnings"></div>
+
     <div class="tableWrap">
       <table class="storageTable">
-        <thead>
-          <tr>
-            <th>#</th><th>วันที่งาน</th><th>แบรนด์</th><th>รหัสร้าน</th>
-            <th>ชื่อร้าน</th><th>จำนวน POS</th><th>พิกัด</th>
-          </tr>
-        </thead>
+        <thead><tr><th>วันที่</th><th>แบรนด์</th><th>รหัสร้าน</th><th>ชื่อร้าน</th><th>POS</th><th>สถานะ</th></tr></thead>
         <tbody id="previewRows"></tbody>
       </table>
     </div>
-  </section>
 
-  <section class="panel" style="margin-top:14px;margin-bottom:30px">
-    <h2>5. อัปโหลด</h2>
-    <div class="notice warn">
-      การนำเข้ารอบใหม่จะปิดงานเดิมของ "ผู้ใช้นี้ + วันที่ที่มีอยู่ในไฟล์ใหม่" แล้วใช้ข้อมูลรอบล่าสุดแทน
-      วันที่อื่นที่ไม่อยู่ในไฟล์จะไม่ถูกลบ
+    <div class="importFooter">
+      <div class="small">ระบบจะปิดเฉพาะงานเดิมของผู้ใช้นี้ใน “วันที่ที่มีอยู่ในไฟล์ใหม่” แล้วแทนด้วยรอบล่าสุด</div>
+      <button id="uploadBtn" class="primary">นำเข้าแผนงาน</button>
     </div>
-    <button id="uploadBtn" class="primary full">อัปโหลดไฟล์งานให้ผู้ใช้งาน</button>
-    <div id="uploadResult" class="small" style="margin-top:8px"></div>
+    <div id="uploadResult" class="small"></div>
   </section>
 </div>
 
 <script src="config.js"></script>
 <script src="admin-auth.js"></script>
 <script src="content-page.js"></script>
-<script src="workplans.js"></script>
+<script src="workplans-smart.js"></script>
 </body>
 </html>
