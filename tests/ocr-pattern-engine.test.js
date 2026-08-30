@@ -98,6 +98,30 @@ const cjFour=engine.findRecords([cj2125Row],[
 assert.equal(cjFour.records.length,4);
 assert.deepEqual(cjFour.records.map(record=>record.fields.POS_NUMBER),["N01","N02","N03","N04"]);
 
+// ML Kit บนโทรศัพท์มักแยกหนึ่งแถวจริงเป็น 3 บรรทัดเมื่อบิลเอียงหรือซ้อนกัน
+// ต้องยังอ่านครบทุก POS โดยไม่ยึดว่าหนึ่งชุดข้อมูลต้องอยู่ใน Text.Line เดียว
+const cjFourFragmented=engine.findRecords([cj2125Row],[
+  "24/08/2026", "11:17", "BNO:S26082125N01-003163",
+  "24/08/2026", "17:04", "BNO:$26082125N02-005203",
+  "24/08/2026", "18:11", "BNO:526082125N03-004175",
+  "22/08/2026", "22:22", "BNO:S26082125N04-000486"
+].join("\n"),{maxJoin:4});
+assert.equal(cjFourFragmented.records.length,4);
+assert.deepEqual(cjFourFragmented.records.map(record=>record.fields.POS_NUMBER),["N01","N02","N03","N04"]);
+
+// รูปแบบหลายแถวที่ Admin กำหนด: วันที่/เวลาอยู่แถวแรก รหัสรวมอยู่แถวถัดไป
+const cjTwoRows=engine.findRecords([
+  [cj2125Row[0],cj2125Row[1]],
+  [cj2125Row[2],cj2125Row[3],cj2125Row[4],cj2125Row[5],cj2125Row[6],cj2125Row[7],cj2125Row[8]]
+],[
+  "24/08/2026 11:17", "BNO:S26082125N01-003163",
+  "24/08/2026 17:04", "BNO:$26082125N02-005203",
+  "24/08/2026 18:11", "BNO:526082125N03-004175",
+  "22/08/2026 22:22", "BNO:S26082125N04-000486"
+].join("\n"),{lineTolerance:1});
+assert.equal(cjTwoRows.records.length,4);
+assert.deepEqual(cjTwoRows.records.map(record=>record.fields.POS_NUMBER),["N01","N02","N03","N04"]);
+
 const dateWarning=engine.findRecords([cjRow],"19/07/2025 22:41 BNO:S26080652N02-004184");
 assert.equal(dateWarning.records.length,1);
 assert.equal(dateWarning.records[0].fields.BILL_DATE,"19/07/2025");
