@@ -50,7 +50,7 @@ async function brandDialog(existing=null){
     html:`
       <div class="swalForm">
         <label>ชื่อแบรนด์<input id="swBrandName" class="swal2-input" value="${escAttr(existing?.brand_name||"")}" placeholder="เช่น L-go fresh"></label>
-        <label>ตัวย่อ<input id="swBrandAbbr" class="swal2-input" maxlength="8" value="${escAttr(existing?.brand_abbr||"")}" placeholder="เช่น LG"></label>
+        <label>ตัวย่อ<input id="swBrandAbbr" class="swal2-input" maxlength="30" value="${escAttr(existing?.brand_abbr||"")}" placeholder="เช่น L-go fresh"></label>
         <label class="swalCheck"><input id="swBrandActive" type="checkbox" ${existing?.active===0?"":"checked"}> ใช้งานแบรนด์นี้</label>
       </div>`,
     showCancelButton:true,

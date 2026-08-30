@@ -2,23 +2,30 @@
 if(!await ContentPage.init())return;
 const $=id=>document.getElementById(id);
 const META={
-  BILL_DATE:{label:"วันที่",min:8,max:10,format:"DATE"},
-  BILL_TIME:{label:"เวลา",min:4,max:5,format:"TIME"},
-  STORE_ID:{label:"รหัสร้าน",min:2,max:10,format:"DIGITS"},
-  POS_NUMBER:{label:"หมายเลข POS",min:1,max:5,format:"ALNUM"},
-  COMPOSITE_CODE:{label:"รหัสประกอบ",min:2,max:30,format:"ALNUM"},
+  BILL_DATE:{label:"วันที่ในบิล",min:8,max:10,format:"DATE"},
+  BILL_TIME:{label:"เวลาในบิล",min:4,max:5,format:"TIME"},
   CUSTOMER_VALUE:{label:"ยอด/เลขลูกค้า",min:1,max:12,format:"DIGITS"},
-  LITERAL:{label:"ข้อความจำเพาะ",min:1,max:30,format:"TEXT"},
-  IGNORE:{label:"ข้อมูลที่ข้ามได้",min:0,max:30,format:"ANY"}
+  STORE_ID:{label:"รหัสร้าน",min:1,max:12,format:"DIGITS"},
+  POS_NUMBER:{label:"หมายเลขเครื่อง",min:1,max:6,format:"ALNUM"},
+  YEAR_VALUE:{label:"ปี",min:2,max:4,format:"DIGITS"},
+  MONTH_VALUE:{label:"เดือน",min:2,max:2,format:"DIGITS"},
+  DAY_VALUE:{label:"วัน",min:2,max:2,format:"DIGITS"},
+  EMPLOYEE_CODE:{label:"รหัสพนักงาน",min:1,max:20,format:"ALNUM"},
+  COMPOSITE_CODE:{label:"รหัสประกอบ",min:2,max:40,format:"ALNUM"},
+  LITERAL:{label:"ข้อความคงที่",min:1,max:40,format:"TEXT"},
+  SEPARATOR:{label:"ตัวคั่น",min:1,max:5,format:"TEXT"},
+  NUMBER_TEXT:{label:"ตัวเลขทั่วไป",min:1,max:30,format:"DIGITS"},
+  ALNUM_TEXT:{label:"ตัวอักษร+ตัวเลข",min:1,max:40,format:"ALNUM"},
+  IGNORE:{label:"ข้อมูลที่ข้ามได้",min:0,max:40,format:"ANY"}
 };
-const SEGMENTS=[["YEAR","ปี"],["MONTH","เดือน"],["STORE_ID","รหัสร้าน"],["POS_NUMBER","หมายเลข POS"],["EMPLOYEE_CODE","รหัสพนักงาน"],["CUSTOMER_VALUE","ยอด/เลขลูกค้า"],["IGNORE","ไม่ต้องใช้"]];
+const SEGMENTS=[["LITERAL","ข้อความคงที่"],["YEAR_VALUE","ปี"],["MONTH_VALUE","เดือน"],["DAY_VALUE","วัน"],["STORE_ID","รหัสร้าน"],["POS_NUMBER","หมายเลขเครื่อง"],["EMPLOYEE_CODE","รหัสพนักงาน"],["CUSTOMER_VALUE","ยอด/เลขลูกค้า"],["SEPARATOR","ตัวคั่น"],["NUMBER_TEXT","ตัวเลขทั่วไป"],["ALNUM_TEXT","ตัวอักษร+ตัวเลข"],["IGNORE","ไม่ต้องใช้"]];
 
 let brands=[],patterns=[],editing=null,selectedRow=0,selectedFieldId=null,dragFieldId=null;
 
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 function makeField(type){
   const m=META[type]||META.IGNORE;
-  return {id:crypto.randomUUID(),type,example:"",minLength:m.min,maxLength:m.max,format:m.format,required:type!=="IGNORE",literal:"",prefix:"",separator:"",segments:[]};
+  return {id:crypto.randomUUID(),type,example:"",minLength:m.min,maxLength:m.max,format:m.format,required:type!=="IGNORE",literal:"",prefix:"",separator:"",segments:[],compareTo:"NONE",posPrefixes:"",posDigits:2,separatorValue:""};
 }
 function makePattern(rowCount=1){
   return {templateId:"",templateName:"",version:1,priority:100,active:true,sampleText:"",rows:Array.from({length:rowCount},()=>[]),validation:{mustMatchStore:true,mustMatchPos:true,noDuplicatePos:true,mustHaveDate:true,mustHaveTime:true,mustHaveCustomer:true,counterCycle:"CONTINUOUS"}};
@@ -62,7 +69,7 @@ function normalize(p){
   if(p.recognition?.rows){
     return {
       templateId:p.templateId||"",templateName:p.templateName||"",version:p.version||1,priority:p.priority||100,active:p.active!==false,sampleText:p.sampleText||"",
-      rows:p.recognition.rows.map(r=>(r.fields||[]).map(f=>({id:crypto.randomUUID(),type:f.type,example:f.example||"",minLength:f.minLength??META[f.type]?.min??1,maxLength:f.maxLength??META[f.type]?.max??12,format:f.format||META[f.type]?.format||"ANY",required:f.required!==false,literal:f.literal||"",prefix:f.composite?.prefix||"",separator:f.composite?.separator||"",segments:(f.composite?.segments||[]).map(s=>({...s}))}))),
+      rows:p.recognition.rows.map(r=>(r.fields||[]).map(f=>({id:crypto.randomUUID(),type:f.type,example:f.example||"",minLength:f.minLength??META[f.type]?.min??1,maxLength:f.maxLength??META[f.type]?.max??12,format:f.format||META[f.type]?.format||"ANY",required:f.required!==false,literal:f.literal||"",prefix:f.composite?.prefix||"",separator:f.composite?.separator||"",segments:(f.composite?.segments||[]).map(s=>({...s})),compareTo:f.compareTo||"NONE",posPrefixes:f.posPrefixes||"",posDigits:f.posDigits||2,separatorValue:f.separatorValue||""}))),
       validation:{mustMatchStore:p.validation?.store?.mustMatchWorkPlan!==false,mustMatchPos:p.validation?.pos?.mustExistInStorePlan!==false,noDuplicatePos:p.validation?.pos?.mustBeUnique!==false,mustHaveDate:p.validation?.requiredCore?.date!==false,mustHaveTime:p.validation?.requiredCore?.time!==false,mustHaveCustomer:p.validation?.requiredCore?.customerValue!==false,counterCycle:p.duplicatePolicy?.customerCounterCycle||"CONTINUOUS"}
     };
   }
@@ -132,7 +139,7 @@ function moveField(id,targetRow){
   if(f)editing.rows[targetRow].push(f);
   selectedRow=targetRow;selectedFieldId=id;renderRows();renderFieldEditor();
 }
-document.querySelectorAll("#paletteItems button").forEach(b=>b.onclick=()=>{
+document.querySelectorAll(".simplePaletteItems button").forEach(b=>b.onclick=()=>{
   const f=makeField(b.dataset.type);editing.rows[selectedRow].push(f);selectedFieldId=f.id;renderRows();renderFieldEditor();
 });
 function currentField(){
@@ -144,16 +151,24 @@ function renderFieldEditor(){
   $("fieldTitle").textContent=META[f.type]?.label||f.type;
   $("fieldExample").value=f.example||"";$("fieldFormat").value=f.format;$("fieldMinLength").value=f.minLength;$("fieldMaxLength").value=f.maxLength;$("fieldRequired").checked=f.required;
   $("literalBox").classList.toggle("hidden",f.type!=="LITERAL");$("fieldLiteral").value=f.literal||"";
+  $("yearMonthBox").classList.toggle("hidden",!["YEAR_VALUE","MONTH_VALUE","DAY_VALUE"].includes(f.type));
+  $("fieldCompareTo").value=f.compareTo||"NONE";
+  $("posBox").classList.toggle("hidden",f.type!=="POS_NUMBER");
+  $("posPrefixes").value=f.posPrefixes||"";
+  $("posDigits").value=f.posDigits||2;
+  $("separatorBox").classList.toggle("hidden",f.type!=="SEPARATOR");
+  $("separatorValue").value=f.separatorValue||"";
+
   $("compositeBox").classList.toggle("hidden",f.type!=="COMPOSITE_CODE");
   if(f.type==="COMPOSITE_CODE"){$("compositePrefix").value=f.prefix||"";$("compositeSeparator").value=f.separator||"";renderSegments(f)}
 }
 function updateField(){
   const f=currentField();if(!f)return;
-  f.example=$("fieldExample").value.trim();f.format=$("fieldFormat").value;f.minLength=+$("fieldMinLength").value||0;f.maxLength=+$("fieldMaxLength").value||1;f.required=$("fieldRequired").checked;f.literal=$("fieldLiteral").value;
+  f.example=$("fieldExample").value.trim();f.format=$("fieldFormat").value;f.minLength=+$("fieldMinLength").value||0;f.maxLength=+$("fieldMaxLength").value||1;f.required=$("fieldRequired").checked;f.literal=$("fieldLiteral").value;f.compareTo=$("fieldCompareTo").value;f.posPrefixes=$("posPrefixes").value.trim();f.posDigits=+$("posDigits").value||2;f.separatorValue=$("separatorValue").value;
   if(f.type==="COMPOSITE_CODE"){f.prefix=$("compositePrefix").value;f.separator=$("compositeSeparator").value}
   renderRows();
 }
-["fieldExample","fieldFormat","fieldMinLength","fieldMaxLength","fieldRequired","fieldLiteral","compositePrefix","compositeSeparator"].forEach(id=>{$(id).oninput=updateField;$(id).onchange=updateField});
+["fieldExample","fieldFormat","fieldMinLength","fieldMaxLength","fieldRequired","fieldLiteral","fieldCompareTo","posPrefixes","posDigits","separatorValue","compositePrefix","compositeSeparator"].forEach(id=>{$(id).oninput=updateField;$(id).onchange=updateField});
 $("removeFieldBtn").onclick=()=>{editing.rows=editing.rows.map(r=>r.filter(x=>x.id!==selectedFieldId));selectedFieldId=null;renderRows();renderFieldEditor()};
 
 function renderSegments(f){
@@ -177,7 +192,7 @@ function build(){
   editing.validation={mustMatchStore:$("mustMatchStore").checked,mustMatchPos:$("mustMatchPos").checked,noDuplicatePos:$("noDuplicatePos").checked,mustHaveDate:$("mustHaveDate").checked,mustHaveTime:$("mustHaveTime").checked,mustHaveCustomer:$("mustHaveCustomer").checked,counterCycle:$("counterCycle").value};
   return {
     schemaVersion:3,templateId:editing.templateId,brandId:$("brandId").value,templateName:editing.templateName,version:editing.version||1,priority:editing.priority||100,active:true,sampleText:editing.sampleText,
-    recognition:{rowCount:editing.rows.length,groupAsSingleRecord:true,rows:editing.rows.map((r,ri)=>({row:ri+1,fields:r.map((f,fi)=>({order:fi+1,type:f.type,example:f.example||null,required:f.required,minLength:f.minLength,maxLength:f.maxLength,format:f.format,literal:f.literal||null,composite:f.type==="COMPOSITE_CODE"?{prefix:f.prefix||null,separator:f.separator||null,segments:f.segments.map((s,i)=>({order:i+1,...s}))}:null}))}))},
+    recognition:{rowCount:editing.rows.length,groupAsSingleRecord:true,rows:editing.rows.map((r,ri)=>({row:ri+1,fields:r.map((f,fi)=>({order:fi+1,type:f.type,example:f.example||null,required:f.required,minLength:f.minLength,maxLength:f.maxLength,format:f.format,literal:f.literal||null,compareTo:f.compareTo||"NONE",posPrefixes:f.posPrefixes||null,posDigits:f.posDigits||null,separatorValue:f.separatorValue||null,composite:f.type==="COMPOSITE_CODE"?{prefix:f.prefix||null,separator:f.separator||null,segments:f.segments.map((s,i)=>({order:i+1,...s}))}:null}))}))},
     validation:{requiredCore:{date:editing.validation.mustHaveDate,time:editing.validation.mustHaveTime,customerValue:editing.validation.mustHaveCustomer},store:{mustMatchWorkPlan:editing.validation.mustMatchStore,sameStoreAcrossAllMatches:true},pos:{mustExistInStorePlan:editing.validation.mustMatchPos,mustBeUnique:editing.validation.noDuplicatePos}},
     duplicatePolicy:{customerCounterCycle:editing.validation.counterCycle,preventSameImageHash:true,preventSameReceiptKey:true}
   };
