@@ -29,16 +29,21 @@ const FIELD_DEFS=[
   {key:"storeCode",label:"รหัสร้าน",required:true,aliases:["รหัสร้าน","store code","store id","branch code"]},
   {key:"storeName",label:"ชื่อร้าน",required:true,aliases:["ชื่อร้าน","store name","branch name"]},
   {key:"posCount",label:"จำนวน POS",required:true,aliases:["pos","จำนวน pos","จำนวนเครื่อง","เครื่อง"]},
+  {key:"businessType",label:"ประเภทร้าน",required:false,aliases:["business type","business_type","store type","ประเภทร้าน","ประเภทกิจการ","ประเภทธุรกิจ"]},
+  {key:"openClose",label:"เวลาเปิด-ปิด",required:false,aliases:["open close","open-close","open/close","open time","business hours","เวลาเปิดปิด","เวลาเปิด-ปิด","เวลาทำการ"]},
+  {key:"address",label:"ที่อยู่ร้าน",required:false,aliases:["address","store address","branch address","address 1","ที่อยู่","ที่อยู่ร้าน","ที่อยู่สาขา"]},
+  {key:"storeFormat",label:"รูปแบบร้าน",required:false,aliases:["format","store format","store_format","รูปแบบร้าน","รูปแบบสาขา"]},
   {key:"latitude",label:"ละติจูด",required:false,aliases:["lat","latitude","ละติจูด"]},
   {key:"longitude",label:"ลองจิจูด",required:false,aliases:["lng","long","longitude","ลองจิจูด"]},
   {key:"rank",label:"อันดับ",required:false,aliases:["rank","อันดับ"]},
-  {key:"zone",label:"โซน",required:false,aliases:["zone","โซน"]}
+  {key:"storeNote",label:"หมายเหตุ/โซน",required:false,aliases:["note","store note","remark","remarks","zone","หมายเหตุ","หมายเหตุร้าน","โซน"]}
 ];
 
-let users=[],brands=[],file=null,wb=null,sheetRows=[],analysis=null,normalized=[],problems=[];
+let users=[],brands=[],file=null,wb=null,sheetRows=[],analysis=null,normalized=[],problems=[],unmappedColumns=[];
 
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 function norm(v){return String(v??"").trim().toLowerCase().replace(/\s+/g," ")}
+function clean(v){const s=String(v??"").trim();return /^(null|undefined|n\/a)$/i.test(s)?"":s}
 function toGregorian(y){
   y=Number(y||0);
   if(y>=2400)y-=543;
@@ -53,7 +58,7 @@ function validDate(y,m,d){
 }
 function isWorkMark(v){
   const s=norm(v);
-  return v===1 || s==="1" || s==="x" || s==="✓" || s==="✔";
+  return v===1 || v===true || ["1","x","y","yes","true","ใช่","งาน","✓","✔"].includes(s);
 }
 
 async function loadBase(){
@@ -133,7 +138,8 @@ function analyzeCurrent(){
   if(!wb)return;
   const name=$("sheetSelect").value;
   const ws=wb.Sheets[name];
-  sheetRows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+  // Use the formatted cell value so codes with leading zeroes are not silently changed.
+  sheetRows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:null});
 
   const detectedHeader=detectHeader(sheetRows);
   const headerIndex=Math.max(0,Number($("headerRowInput").value||detectedHeader+1)-1);
@@ -160,7 +166,7 @@ function analyzeCurrent(){
 function renderMapping(){
   const options=(selected)=>`<option value="-1">ไม่พบ/ไม่ใช้</option>`+analysis.headers.map((h,i)=>`<option value="${i}" ${i===selected?"selected":""}>${esc(h||`คอลัมน์ ${i+1}`)}</option>`).join("");
   $("mappingGrid").innerHTML=FIELD_DEFS.map(f=>`<label>${f.label}${f.required?" *":""}<select data-map="${f.key}">${options(analysis.mapping[f.key])}</select></label>`).join("");
-  document.querySelectorAll("[data-map]").forEach(s=>s.onchange=()=>{analysis.mapping[s.dataset.map]=Number(s.value);buildPreview()});
+  document.querySelectorAll("[data-map]").forEach(s=>s.onchange=()=>{analysis.mapping[s.dataset.map]=Number(s.value);$("confirmUnmapped").checked=false;buildPreview()});
 }
 function buildPreview(){
   if(!analysis)return;
@@ -172,15 +178,22 @@ function buildPreview(){
 
   normalized=[];problems=[];
   const fileEmployeeCodes=new Set();
+  const requiredMissing=FIELD_DEFS.filter(f=>f.required&&analysis.mapping[f.key]<0).map(f=>f.label);
+  if(requiredMissing.length)problems.push(`ยังไม่ได้จับคู่คอลัมน์บังคับ: ${requiredMissing.join(", ")}`);
+  if(!Number.isInteger(year)||year<2000||year>2100)problems.push("ปีแผนงานไม่ถูกต้อง");
+  if(!Number.isInteger(month)||month<1||month>12)problems.push("เดือนแผนงานไม่ถูกต้อง");
+  const mappedByColumn=new Map();
+  FIELD_DEFS.forEach(f=>{const col=analysis.mapping[f.key];if(col<0)return;if(!mappedByColumn.has(col))mappedByColumn.set(col,[]);mappedByColumn.get(col).push(f.label)});
+  mappedByColumn.forEach(labels=>{if(labels.length>1)problems.push(`คอลัมน์เดียวถูกใช้ซ้ำ: ${labels.join(" / ")}`)});
 
   rows.forEach((row,idx)=>{
     const get=k=>{const c=analysis.mapping[k];return c>=0?row[c]:null};
-    const employeeCode=String(get("employeeCode")??"").trim();
-    const fullName=String(get("fullName")??"").trim();
-    const brand=String(get("brand")??"").trim();
-    const storeCode=String(get("storeCode")??"").trim();
-    const storeName=String(get("storeName")??"").trim();
-    const posCount=Number(get("posCount")||0);
+    const employeeCode=clean(get("employeeCode"));
+    const fullName=clean(get("fullName"));
+    const brand=clean(get("brand"));
+    const storeCode=clean(get("storeCode"));
+    const storeName=clean(get("storeName"));
+    const posCount=Number(clean(get("posCount"))||0);
     if(employeeCode)fileEmployeeCodes.add(employeeCode);
 
     const hasBase=brand||storeCode||storeName;
@@ -202,15 +215,23 @@ function buildPreview(){
       if(!storeName)p.push("ไม่มีชื่อร้าน");
       if(!Number.isFinite(posCount)||posCount<1)p.push("จำนวน POS ไม่ถูกต้อง");
 
+      const latitude=clean(get("latitude")),longitude=clean(get("longitude"));
+      if((latitude&&!longitude)||(!latitude&&longitude))p.push("พิกัดต้องมีทั้งละติจูดและลองจิจูด");
+      if(latitude&&(!Number.isFinite(Number(latitude))||Number(latitude)<-90||Number(latitude)>90))p.push("ละติจูดไม่ถูกต้อง");
+      if(longitude&&(!Number.isFinite(Number(longitude))||Number(longitude)<-180||Number(longitude)>180))p.push("ลองจิจูดไม่ถูกต้อง");
+
       normalized.push({
         workDate:isoDate(year,month,dc.day),
         brand:brandMaster?.brand_name||brand,
         storeCode,storeName,
         posCount:Number.isFinite(posCount)&&posCount>=1?Math.min(99,posCount):1,
-        latitude:String(get("latitude")??"").trim(),
-        longitude:String(get("longitude")??"").trim(),
-        rank:String(get("rank")??"").trim(),
-        storeNote:String(get("zone")??"").trim(),
+        businessType:clean(get("businessType")),
+        openClose:clean(get("openClose")),
+        address:clean(get("address")),
+        storeFormat:clean(get("storeFormat")),
+        latitude,longitude,
+        rank:clean(get("rank")),
+        storeNote:clean(get("storeNote")),
         _row:analysis.headerIndex+2+idx,
         _errors:p
       });
@@ -229,6 +250,14 @@ function buildPreview(){
   if(fileEmployeeCodes.size===1 && !fileEmployeeCodes.has(user))problems.push(`รหัสพนักงานในไฟล์ไม่ตรงกับผู้ใช้ที่เลือก`);
   if(!analysis.dayCols.length)problems.push("ไม่พบคอลัมน์วันที่ 1–31 ในแถวหัวตาราง");
 
+  const used=new Set([...Object.values(analysis.mapping).filter(i=>i>=0),...analysis.dayCols.map(x=>x.col)]);
+  unmappedColumns=analysis.headers.map((header,col)=>({header,col})).filter(x=>x.header&& !used.has(x.col) && rows.some(row=>clean(row[x.col])));
+  const confirmWrap=$("confirmUnmappedWrap");
+  confirmWrap.classList.toggle("hidden",unmappedColumns.length===0);
+  if(unmappedColumns.length){
+    $("unmappedColumnNames").textContent=unmappedColumns.map(x=>x.header).join(", ");
+  }else $("confirmUnmapped").checked=false;
+
   renderDetect(year,month,fileEmployeeCodes,selectedUser);
   renderPreview();
 }
@@ -242,6 +271,11 @@ function renderDetect(year,month,fileCodes,user){
     <span>รหัสในไฟล์: ${[...fileCodes].join(", ")||"ไม่พบ"} ${user?`· ผู้ใช้ที่เลือก: ${esc(user.employee_code)}`:""}</span>
     ${requiredMissing.length?`<span class="badText">ยังไม่พบ: ${requiredMissing.join(", ")}</span>`:""}
   `;
+  const coverage=[
+    ["ประเภทร้าน","businessType"],["เวลาเปิด-ปิด","openClose"],["ที่อยู่ร้าน","address"],
+    ["รูปแบบร้าน","storeFormat"],["ระดับร้าน","rank"],["พิกัด","latitude"],["หมายเหตุ/โซน","storeNote"]
+  ];
+  $("fieldCoverage").innerHTML=`<strong>ข้อมูลร้านที่พบในงาน</strong><div>${coverage.map(([label,key])=>{const count=normalized.filter(x=>clean(x[key])).length;return `<span class="${count?'hasData':'noData'}">${label} ${count}/${normalized.length}</span>`}).join("")}</div>`;
 }
 function renderPreview(){
   const errors=normalized.reduce((n,x)=>n+x._errors.length,0)+problems.length;
@@ -253,7 +287,9 @@ function renderPreview(){
   $("kpiErrors").textContent=errors;
   $("validationSummary").textContent=`พบ ${normalized.length} งาน จาก ${days.size} วัน`;
 
-  $("warningList").innerHTML=problems.length?problems.map(x=>`<div class="importWarning">${esc(x)}</div>`).join(""):"";
+  const warnings=[...problems];
+  if(unmappedColumns.length)warnings.push(`พบคอลัมน์ที่ยังไม่ได้นำเข้า: ${unmappedColumns.map(x=>x.header).join(", ")}`);
+  $("warningList").innerHTML=warnings.length?warnings.map(x=>`<div class="importWarning">${esc(x)}</div>`).join(""):"";
 
   $("previewRows").innerHTML=normalized.slice(0,200).map(x=>`
     <tr class="${x._errors.length?"rowError":""}">
@@ -269,9 +305,11 @@ $("reAnalyzeBtn").onclick=()=>{analysis=null;analyzeCurrent()};
 $("headerRowInput").onchange=()=>{analysis=null;analyzeCurrent()};
 $("monthSelect").onchange=buildPreview;
 $("yearInput").onchange=buildPreview;
+$("confirmUnmapped").onchange=buildPreview;
 
 $("excelInput").onchange=async ev=>{
   file=ev.target.files?.[0];if(!file)return;
+  $("confirmUnmapped").checked=false;
   $("fileInfo").textContent=`${file.name} • ${(file.size/1024).toFixed(1)} KB`;
   $("fileInfo").className="cloudInfo ok";
   const buf=await file.arrayBuffer();
@@ -282,7 +320,7 @@ $("excelInput").onchange=async ev=>{
   $("yearInput").value="";
   analyzeCurrent();
 };
-$("sheetSelect").onchange=()=>{$("headerRowInput").value="";$("yearInput").value="";analysis=null;analyzeCurrent()};
+$("sheetSelect").onchange=()=>{$("headerRowInput").value="";$("yearInput").value="";$("confirmUnmapped").checked=false;analysis=null;analyzeCurrent()};
 
 $("uploadBtn").onclick=async()=>{
   const user=$("userSelect").value;
@@ -292,6 +330,7 @@ $("uploadBtn").onclick=async()=>{
   if(!file)return SwalSmall.error("กรุณาเลือกไฟล์");
   if(!normalized.length)return SwalSmall.error("ไม่พบงานที่จะนำเข้า");
   if(bad)return SwalSmall.error("ยังนำเข้าไม่ได้",`พบจุดที่ต้องแก้ไข ${bad} รายการ`);
+  if(unmappedColumns.length&&!$("confirmUnmapped").checked)return SwalSmall.error("กรุณาตรวจคอลัมน์ที่ยังไม่ได้นำเข้า","จับคู่คอลัมน์ให้ครบ หรือยืนยันว่าเป็นคอลัมน์ที่ไม่ต้องใช้");
 
   const confirm=await Swal.fire({
     title:"ยืนยันนำเข้าแผนงาน",
@@ -318,8 +357,11 @@ $("uploadBtn").onclick=async()=>{
         month:Number($("monthSelect").value),
         year:toGregorian($("yearInput").value),
         columns:analysis.mapping,
-        dayColumns:analysis.dayCols
+        dayColumns:analysis.dayCols,
+        unmappedColumns:unmappedColumns.map(x=>x.header),
+        unmappedReviewed:unmappedColumns.length===0||$("confirmUnmapped").checked
       },
+      strictValidation:true,
       rows:normalized.map(({_row,_errors,...x})=>x)
     };
 
