@@ -48,13 +48,13 @@
     map=L.map("storeMap",{zoomControl:false,preferCanvas:true,minZoom:3}).setView([13.7563,100.5018],10);
     baseLayers={
       "ถนนมาตรฐาน":L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}),
-      "แผนที่โทนสว่าง":L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:20,attribution:"© OpenStreetMap © CARTO"}),
+      "ถนนเพื่อการปฏิบัติงาน":L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors · HOT"}),
       "ภาพถ่ายดาวเทียม":L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Tiles © Esri"}),
       "แผนที่ภูมิประเทศ":L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",{maxZoom:17,attribution:"© OpenStreetMap · SRTM | OpenTopoMap"})
     };
-    labelLayer=L.tileLayer("https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",{maxZoom:20,pane:"overlayPane",attribution:"© CARTO"});
-    baseLayers["แผนที่โทนสว่าง"].addTo(map);
-    L.control.layers(baseLayers,{"ชื่อถนนและสถานที่":labelLayer},{position:"topright",collapsed:false}).addTo(map);
+    labelLayer=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,pane:"overlayPane",attribution:"Labels © Esri"});
+    baseLayers["ถนนมาตรฐาน"].addTo(map);
+    L.control.layers(baseLayers,{"ชื่อเมืองและสถานที่":labelLayer},{position:"topright",collapsed:true}).addTo(map);
     L.control.zoom({position:"bottomright"}).addTo(map);
     L.control.scale({position:"bottomleft",metric:true,imperial:false,maxWidth:140}).addTo(map);
     markerLayer=window.L.MarkerClusterGroup?L.markerClusterGroup({showCoverageOnHover:false,spiderfyOnMaxZoom:true,removeOutsideVisibleBounds:true,maxClusterRadius:48,disableClusteringAtZoom:16,iconCreateFunction:cluster=>L.divIcon({html:`<div><strong>${cluster.getChildCount()}</strong><span>ร้าน</span></div>`,className:"officeMapCluster",iconSize:L.point(48,48)})}):L.layerGroup();
@@ -65,7 +65,7 @@
   }
 
   function markerIcon(store){
-    const meta=brandMeta(store),color=brandColor(meta.name),face=meta.logo?`<img src="${attr(meta.logo)}" alt="${attr(meta.name)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden>${esc(meta.abbr)}</span>`:`<span>${esc(meta.abbr)}</span>`;
+    const meta=brandMeta(store),color=brandColor(meta.name),face=`<span>${esc(meta.abbr)}</span>${meta.logo?`<img src="${attr(meta.logo)}" alt="${attr(meta.name)}">`:""}`;
     return L.divIcon({className:"officeBrandMarkerHost",html:`<div class="officeBrandMarker ${meta.logo?"hasLogo":""}" style="--brand-color:${color}"><div>${face}</div><i></i></div>`,iconSize:[46,54],iconAnchor:[23,51],popupAnchor:[0,-48]});
   }
   function popup(store){
@@ -74,6 +74,7 @@
   }
   function makeMarker(store){
     const marker=L.marker([Number(store.latitude),Number(store.longitude)],{icon:markerIcon(store),title:store.store_name||store.store_code||"ร้าน"}).bindPopup(popup(store),{maxWidth:330,className:"officeStorePopup"});
+    marker.on("add",()=>{const image=marker.getElement()?.querySelector(".officeBrandMarker img");if(!image)return;const hide=()=>image.remove();image.addEventListener("error",hide,{once:true});if(image.complete&&!image.naturalWidth)hide();});
     marker.on("click",()=>selectStore(store,false));
     marker.on("popupopen",event=>{event.popup.getElement()?.querySelector("[data-copy-coord]")?.addEventListener("click",copyCoordinates);});
     return marker;
