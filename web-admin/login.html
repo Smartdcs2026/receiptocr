@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ReceiptOCR Admin Login</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=59">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
@@ -12,19 +12,20 @@
   <div class="loginCard">
     <div class="loginLogo">RO</div>
     <h1>ReceiptOCR Admin</h1>
-    <p id="loginSub">เข้าสู่ระบบเพื่อจัดการแผนงาน เงื่อนไข OCR และ R2 Storage</p>
+    <p id="loginSub">เข้าสู่ระบบจัดการงานตรวจสอบ แผนงาน และรายงาน</p>
 
     <div id="setupFields" style="display:none">
       <label>ชื่อผู้ดูแล<input id="fullName" placeholder="ชื่อ-สกุล"></label>
     </div>
-    <label>Username<input id="username" autocomplete="username" placeholder="admin"></label>
-    <label>Password<input id="password" type="password" autocomplete="current-password" placeholder="อย่างน้อย 8 ตัวอักษร"></label>
+    <label>ชื่อเข้าระบบ<input id="username" autocomplete="username" placeholder="ชื่อเข้าระบบ"></label>
+    <label>รหัสผ่าน<input id="password" type="password" autocomplete="current-password" placeholder="อย่างน้อย 10 ตัวอักษร"></label>
     <button id="loginBtn" class="primary full">เข้าสู่ระบบ</button>
+    <button id="recoverBtn" class="loginRecover" type="button">ใช้รหัสกู้คืนฉุกเฉิน</button>
     <div id="loginHint" class="small" style="margin-top:10px"></div>
   </div>
 </div>
 <script src="config.js"></script>
-<script src="admin-auth.js?v=58"></script>
-<script src="login.js"></script>
+<script src="admin-auth.js?v=59"></script>
+<script src="login.js?v=59"></script>
 </body>
 </html>

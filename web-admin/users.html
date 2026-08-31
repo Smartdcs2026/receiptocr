@@ -4,20 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ReceiptOCR Admin - ผู้ใช้งาน</title>
-  <link rel="stylesheet" href="styles.css?v=58">
+  <link rel="stylesheet" href="styles.css?v=59">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
 <div class="simplePage">
   <section class="simpleHero">
     <div>
-      <h2>ผู้ใช้งาน</h2>
-      <p>สร้างบัญชีพนักงาน และดูสถานะแผนงานของแต่ละคน</p>
+      <h2>ผู้ใช้และสิทธิ์</h2>
+      <p>จัดการผู้ปฏิบัติงานภาคสนาม หัวหน้างาน หัวหน้าฝ่าย และผู้ดูแลระบบ</p>
     </div>
-    <button id="addUserBtn" class="primary">เพิ่มผู้ใช้งาน</button>
+    <div class="userHeroActions"><button id="recoveryCodesBtn" class="secondary">รหัสกู้คืน</button><button id="addUserBtn" class="primary">เพิ่มผู้ใช้</button></div>
   </section>
 
   <section class="simplePanel">
+    <div class="userTypeTabs"><button class="active" data-view="FIELD">ผู้ปฏิบัติงานภาคสนาม</button><button data-view="OFFICE">ผู้ใช้สำนักงาน</button></div>
     <div class="simpleToolbar">
       <input id="userSearch" placeholder="ค้นหารหัส ชื่อ หรือชื่อเข้าระบบ">
       <div id="userCount" class="small">0 คน</div>
@@ -27,8 +28,8 @@
 </div>
 
 <script src="config.js"></script>
-<script src="admin-auth.js?v=58"></script>
+<script src="admin-auth.js?v=59"></script>
 <script src="content-page.js"></script>
-<script src="users.js?v=52"></script>
+<script src="users.js?v=59"></script>
 </body>
 </html>

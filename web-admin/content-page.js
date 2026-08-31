@@ -14,9 +14,9 @@ const ContentPage = (() => {
     "settings.html":"settings"
   };
   const routeRoles = {
-    home:["ADMIN","SUPERVISOR"], review:["ADMIN","SUPERVISOR"],
-    approvals:["ADMIN","SUPERVISOR"], map:["ADMIN","SUPERVISOR"],
-    reports:["ADMIN","SUPERVISOR"], users:["ADMIN"], brands:["ADMIN"],
+    home:["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"], review:["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"],
+    approvals:["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"], map:["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"],
+    reports:["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"], users:["ADMIN"], brands:["ADMIN"],
     workplans:["ADMIN"], ocr:["ADMIN"], storage:["ADMIN"],
     settings:["ADMIN"], audit:["ADMIN"]
   };
