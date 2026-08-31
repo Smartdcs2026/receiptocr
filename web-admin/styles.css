@@ -465,3 +465,18 @@ body.embedPage{min-height:100%;overflow:auto;background:var(--office-bg)!importa
 
 /* Round55 - map provider and marker fallback fixes */
 .officeBrandMarker>div>span{position:relative;z-index:1;max-width:34px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.officeBrandMarker>div>img{position:absolute;z-index:2;inset:0;width:100%;height:100%;object-fit:contain;background:#fff}
+
+/* Round56 - map action contrast and readability */
+.officeStorePopup .professionalMapPopup .popupActions a,
+.officeStorePopup .professionalMapPopup .popupActions a:link,
+.officeStorePopup .professionalMapPopup .popupActions a:visited,
+.officeStorePopup .professionalMapPopup .popupActions a:hover,
+.officeStorePopup .professionalMapPopup .popupActions a:active,
+.selectedStorePanel .selectedStoreActions a,
+.selectedStorePanel .selectedStoreActions a:link,
+.selectedStorePanel .selectedStoreActions a:visited,
+.selectedStorePanel .selectedStoreActions a:hover,
+.selectedStorePanel .selectedStoreActions a:active{background:#175cd3!important;color:#fff!important;opacity:1!important;text-decoration:none!important;text-shadow:none!important;-webkit-text-fill-color:#fff!important}
+.officeStorePopup .professionalMapPopup .popupActions a{min-width:0;padding-inline:10px;font-size:9px;white-space:nowrap}.officeStorePopup .professionalMapPopup .popupActions button{font-size:9px;white-space:nowrap}
+.professionalMapPopup dt{font-size:8px}.professionalMapPopup dd{font-size:9px}.popupBrandRow span{font-size:9px}
+.selectedStoreActions a,.selectedStoreActions button{font-size:8px}.selectedStoreHead strong{font-size:10px}.selectedStoreHead span,.selectedStorePanel p{font-size:8px}.selectedStoreFacts span{font-size:7px}.selectedStoreFacts b{font-size:9px}
