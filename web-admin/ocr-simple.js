@@ -209,7 +209,7 @@ async function save(){
 }
 async function deletePattern(i=null){
   const p=i===null?build():patterns[i];
-  const r=await Swal.fire({title:"ลบรูปแบบนี้?",text:p.templateName||"",icon:"warning",showCancelButton:true,confirmButtonText:"ลบ",cancelButtonText:"ยกเลิก",customClass:{popup:"swal-compact"}});
+  const r=await OfficeSwal.fire({title:"ลบรูปแบบการอ่านบิล",html:`<div class="officeDialogIntro officeDialogIntro--danger"><span aria-hidden="true">!</span><div><strong>${esc(p.templateName||"-")}</strong><p>รูปแบบนี้จะไม่สามารถนำไปอ่านบิลใหม่ได้</p></div></div>`,showCancelButton:true,confirmButtonText:"ลบรูปแบบ",cancelButtonText:"ยกเลิก",officeKind:"danger"});
   if(!r.isConfirmed)return;
   try{
     // API currently has no hard-delete endpoint for templates.

@@ -44,25 +44,37 @@ const AdminAuth = (() => {
   return {apiBase,token,user,saveSession,clear,request,json,guard,logout};
 })();
 
+const OfficeSwal = (()=>{
+  const classes=(kind="",extra={})=>({
+    popup:`officeSwal ${kind?`officeSwal--${kind}`:""} ${extra.popup||""}`.trim(),
+    title:`officeSwalTitle ${extra.title||""}`.trim(),
+    htmlContainer:`officeSwalBody ${extra.htmlContainer||""}`.trim(),
+    actions:`officeSwalActions ${extra.actions||""}`.trim(),
+    confirmButton:`officeSwalConfirm ${kind==="danger"?"officeSwalDanger":""} ${extra.confirmButton||""}`.trim(),
+    cancelButton:`officeSwalCancel ${extra.cancelButton||""}`.trim(),
+    validationMessage:`officeSwalValidation ${extra.validationMessage||""}`.trim(),
+    icon:`officeSwalIcon ${extra.icon||""}`.trim()
+  });
+  const fire=(opts={})=>{
+    const kind=opts.officeKind||"",customClass=classes(kind,opts.customClass||{});
+    const clean={...opts};delete clean.officeKind;
+    return Swal.fire({width:440,buttonsStyling:false,focusCancel:false,returnFocus:true,...clean,customClass});
+  };
+  return {classes,fire};
+})();
+window.OfficeSwal=OfficeSwal;
+
 const SwalSmall = {
-  fire: (opts) => Swal.fire({
-    width: 390,
-    buttonsStyling: true,
-    customClass: {popup:"swal-compact"},
-    confirmButtonColor:"#2f6fed",
-    ...opts
+  fire: opts => OfficeSwal.fire(opts),
+  ok: (title,text="") => OfficeSwal.fire({
+    toast:true,position:"top-end",icon:"success",title,text,timer:1900,
+    timerProgressBar:true,showConfirmButton:false,width:370,officeKind:"toast"
   }),
-  ok: (title,text="") => Swal.fire({
-    icon:"success",title,text,width:360,timer:1500,showConfirmButton:false,
-    customClass:{popup:"swal-compact"}
+  error: (title,text="") => OfficeSwal.fire({
+    icon:"error",title,text,width:420,confirmButtonText:"รับทราบ",officeKind:"error"
   }),
-  error: (title,text="") => Swal.fire({
-    icon:"error",title,text,width:380,confirmButtonColor:"#2f6fed",
-    customClass:{popup:"swal-compact"}
-  }),
-  confirm: (title,text="") => Swal.fire({
-    icon:"question",title,text,width:390,showCancelButton:true,
-    confirmButtonText:"ยืนยัน",cancelButtonText:"ยกเลิก",
-    confirmButtonColor:"#2f6fed",customClass:{popup:"swal-compact"}
+  confirm: (title,text="") => OfficeSwal.fire({
+    icon:"question",title,text,width:430,showCancelButton:true,
+    confirmButtonText:"ยืนยัน",cancelButtonText:"ยกเลิก",officeKind:"confirm"
   })
 };

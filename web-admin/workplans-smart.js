@@ -334,10 +334,10 @@ $("uploadBtn").onclick=async()=>{
   if(bad)return SwalSmall.error("ยังนำเข้าไม่ได้",`พบจุดที่ต้องแก้ไข ${bad} รายการ`);
   if(unmappedColumns.length&&!$("confirmUnmapped").checked)return SwalSmall.error("กรุณาตรวจคอลัมน์ที่ยังไม่ได้นำเข้า","จับคู่คอลัมน์ให้ครบ หรือยืนยันว่าเป็นคอลัมน์ที่ไม่ต้องใช้");
 
-  const confirm=await Swal.fire({
+  const confirm=await OfficeSwal.fire({
     title:"ยืนยันนำเข้าแผนงาน",
     html:`<b>${esc(u.full_name)}</b><br>${normalized.length} งาน · ${new Set(normalized.map(x=>x.workDate)).size} วัน`,
-    icon:"question",showCancelButton:true,confirmButtonText:"นำเข้า",cancelButtonText:"ยกเลิก",customClass:{popup:"swal-compact"}
+    showCancelButton:true,confirmButtonText:"นำเข้าแผนงาน",cancelButtonText:"ยกเลิก",officeKind:"confirm"
   });
   if(!confirm.isConfirmed)return;
 

@@ -26,8 +26,9 @@ function renderNoteOptions(){
 }
 
 async function openNoteDialog(item=null){
-  const result=await Swal.fire({
+  const result=await OfficeSwal.fire({
     title:item?"แก้ไขรายการ":"เพิ่มรายการหมายเหตุ",
+    officeKind:"form",
     html:`<div class="swalForm">
       <label>ใช้กับส่วนใด<select id="noteDialogCategory" class="swal2-select">${Object.entries(noteCategoryLabels).map(([value,label])=>`<option value="${value}" ${value===(item?.category||selectedNoteCategory)?"selected":""}>${label}</option>`).join("")}</select></label>
       <label>ข้อความที่ให้เลือก<input id="noteDialogLabel" class="swal2-input" value="${html(item?.label||"")}" maxlength="120"></label>
@@ -55,4 +56,3 @@ async function deleteNoteOption(id){
 document.querySelectorAll("#noteCategoryTabs button").forEach(button=>button.onclick=()=>{selectedNoteCategory=button.dataset.category;document.querySelectorAll("#noteCategoryTabs button").forEach(item=>item.classList.toggle("active",item===button));renderNoteOptions()});
 byId("addNoteOption").onclick=()=>openNoteDialog();
 (async()=>{if(await ContentPage.init())loadNoteOptions()})();
-

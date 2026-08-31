@@ -60,7 +60,7 @@ function render(){
 async function userDialog(existing=null){
   const r=await Swal.fire({
     title:existing?"แก้ไขผู้ใช้งาน":"เพิ่มผู้ใช้งาน",
-    customClass:{popup:"swal-compact"},
+    buttonsStyling:false,customClass:OfficeSwal.classes("form"),
     html:`<div class="swalForm">
       <label>รหัสพนักงาน<input id="swEmployee" class="swal2-input" value="${escAttr(existing?.employee_code||"")}" ${existing?"readonly":""} placeholder="เช่น 0111"></label>
       <label>ชื่อ-สกุล<input id="swFullName" class="swal2-input" value="${escAttr(existing?.full_name||"")}" placeholder="ชื่อพนักงาน"></label>
@@ -99,7 +99,7 @@ async function editUser(id){
   }catch(e){SwalSmall.error("แก้ไขไม่สำเร็จ",translate(e.message))}
 }
 async function resetPassword(id){
-  const r=await Swal.fire({title:"ตั้งรหัสผ่านใหม่",input:"password",inputLabel:"รหัสผ่านใหม่",inputPlaceholder:"อย่างน้อย 4 ตัว",showCancelButton:true,confirmButtonText:"บันทึก",cancelButtonText:"ยกเลิก",customClass:{popup:"swal-compact"},inputValidator:v=>String(v||"").length<4?"อย่างน้อย 4 ตัว":undefined});
+  const r=await OfficeSwal.fire({title:"ตั้งรหัสผ่านใหม่",input:"password",inputLabel:"รหัสผ่านใหม่",inputPlaceholder:"อย่างน้อย 4 ตัว",showCancelButton:true,confirmButtonText:"บันทึกรหัสผ่าน",cancelButtonText:"ยกเลิก",officeKind:"form",inputValidator:v=>String(v||"").length<4?"อย่างน้อย 4 ตัว":undefined});
   if(!r.isConfirmed)return;
   try{
     await AdminAuth.json(`/api/users/${encodeURIComponent(id)}/reset-password`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({password:r.value})});
@@ -108,7 +108,7 @@ async function resetPassword(id){
 }
 async function disableUser(id){
   const u=users.find(x=>x.employee_code===id);if(!u)return;
-  const r=await Swal.fire({title:"ปิดใช้งานผู้ใช้นี้?",text:u.full_name,icon:"warning",showCancelButton:true,confirmButtonText:"ปิดใช้งาน",cancelButtonText:"ยกเลิก",customClass:{popup:"swal-compact"}});
+  const r=await OfficeSwal.fire({title:"ปิดใช้งานผู้ใช้",html:`<div class="officeDialogIntro officeDialogIntro--danger"><span aria-hidden="true">!</span><div><strong>${esc(u.full_name)}</strong><p>${esc(u.employee_code)} · ผู้ใช้จะไม่สามารถเข้าสู่ APK ได้</p></div></div>`,showCancelButton:true,confirmButtonText:"ปิดใช้งาน",cancelButtonText:"ยกเลิก",officeKind:"danger"});
   if(!r.isConfirmed)return;
   try{
     await AdminAuth.json(`/api/users/${encodeURIComponent(id)}`,{method:"DELETE"});
