@@ -1,133 +1,34 @@
 (async()=>{
   if(!await AdminAuth.guard()) return;
-
-  const VERSION="51";
+  const VERSION="52",allRoles=["ADMIN","SUPERVISOR"];
   const routes={
-    home:{title:"หน้าหลัก",sub:"ภาพรวมและสถานะระบบ",url:"dashboard.html"},
-    users:{title:"ผู้ใช้งาน",sub:"ผู้ใช้งานภาคสนามและรหัสสำหรับรับแผนงาน",url:"users.html"},
-    brands:{title:"แบรนด์",sub:"กำหนดชื่อแบรนด์และตัวย่อที่ใช้ใน APK",url:"brands.html"},
-    workplans:{title:"แผนงาน",sub:"นำเข้า Excel และตรวจความถูกต้องก่อนส่งเข้า APK",url:"workplans.html"},
-    ocr:{title:"รูปแบบบิล",sub:"กำหนดรูปแบบข้อมูลของแต่ละแบรนด์",url:"index.html"},
-    storage:{title:"พื้นที่จัดเก็บ R2",sub:"ติดตามพื้นที่ แจ้งเตือน สำรอง และลบข้อมูลตามอายุ",url:"storage.html"},
-    reports:{title:"รายงาน",sub:"รายงานการทำงานและคุณภาพการอ่านข้อมูล",url:"reports.html"},
-    settings:{title:"รายการหมายเหตุ",sub:"เพิ่ม แก้ไข และลบตัวเลือกที่ผู้ใช้งานเห็นในแอป",url:"settings.html"}
+    home:{title:"ภาพรวมการปฏิบัติงาน",sub:"สถานะงาน การตรวจสอบ และรายการที่ต้องดำเนินการ",url:"dashboard.html",roles:allRoles,group:"งานประจำวัน",icon:"grid"},
+    review:{title:"ศูนย์ตรวจสอบงาน",sub:"ตรวจภาพบิล ภาพร้าน และข้อมูลยอดลูกค้าราย POS",url:"review.html",roles:allRoles,group:"งานประจำวัน",icon:"check"},
+    approvals:{title:"การอนุมัติเบิก",sub:"ติดตามงานที่ผ่านการตรวจและเตรียมดำเนินการเบิก",url:"approvals.html",roles:allRoles,group:"งานประจำวัน",icon:"approve"},
+    workplans:{title:"แผนงานภาคสนาม",sub:"นำเข้า จัดตาราง ย้ายงาน และควบคุมแผนงาน",url:"workplans.html",roles:["ADMIN"],group:"บริหารงาน",icon:"calendar"},
+    map:{title:"แผนที่ร้าน",sub:"แสดงตำแหน่งร้านและวัดระยะทางจากพิกัดประจำร้าน",url:"map.html",roles:allRoles,group:"บริหารงาน",icon:"map"},
+    reports:{title:"รายงานและสรุปผล",sub:"สรุปยอดลูกค้า ผลการตรวจ และประสิทธิภาพการทำงาน",url:"reports.html",roles:allRoles,group:"บริหารงาน",icon:"chart"},
+    brands:{title:"ร้านและแบรนด์",sub:"จัดการแบรนด์ โลโก้ และข้อมูลอ้างอิงของร้าน",url:"brands.html",roles:["ADMIN"],group:"ข้อมูลหลัก",icon:"store"},
+    ocr:{title:"รูปแบบการอ่านบิล",sub:"กำหนดและทดสอบเงื่อนไข OCR แยกตามแบรนด์",url:"index.html",roles:["ADMIN"],group:"ข้อมูลหลัก",icon:"scan"},
+    users:{title:"ผู้ใช้และสิทธิ์",sub:"จัดการผู้ปฏิบัติงาน หัวหน้างาน และผู้ดูแลระบบ",url:"users.html",roles:["ADMIN"],group:"ระบบ",icon:"users"},
+    storage:{title:"ไฟล์และพื้นที่ R2",sub:"ตรวจสอบ จัดเก็บ และบริหารไฟล์หลักฐาน",url:"storage.html",roles:["ADMIN"],group:"ระบบ",icon:"cloud"},
+    settings:{title:"ตัวเลือกและการตั้งค่า",sub:"จัดการรายการหมายเหตุและค่าที่ใช้ร่วมกัน",url:"settings.html",roles:["ADMIN"],group:"ระบบ",icon:"settings"},
+    audit:{title:"ประวัติระบบ",sub:"ตรวจสอบผู้ดำเนินการ เวลา และเหตุผลของการเปลี่ยนแปลง",url:"audit.html",roles:["ADMIN"],group:"ระบบ",icon:"history"}
   };
-
-  const nav=[
-    ["home","หน้าหลัก",""],
-    ["users","ผู้ใช้งาน",""],
-    ["brands","แบรนด์",""],
-    ["workplans","แผนงาน",""],
-    ["ocr","รูปแบบบิล",""],
-    ["storage","พื้นที่จัดเก็บ R2",""],
-    ["reports","รายงาน",""],
-    ["settings","รายการหมายเหตุ",""]
-  ];
-
-  const root=document.getElementById("spaRoot");
-  const u=AdminAuth.user()||{};
-
-  root.innerHTML=`
-    <div class="adminShell">
-      <aside class="adminSidebar">
-        <div class="adminBrand">
-          <div class="adminLogo">RO</div>
-          <div>
-            <div class="adminBrandTitle">ReceiptOCR Admin</div>
-            <div class="adminBrandSub">ระบบจัดการงานและการอ่านบิล</div>
-          </div>
-        </div>
-
-        <nav class="adminNav" id="spaNav">
-          ${nav.map(([key,label])=>`
-            <a href="#${key}" data-route="${key}">
-              <span class="navText">${label}</span>
-            </a>`).join("")}
-        </nav>
-
-        <div class="sidebarFooter">
-          <div>สถานะระบบออนไลน์</div>
-          <div class="footerTech">GitHub Pages · Cloudflare · D1 · R2</div>
-        </div>
-      </aside>
-
-      <section class="adminMain">
-        <header class="adminHeader">
-          <div>
-            <div id="spaTitle" class="adminHeaderTitle"></div>
-            <div id="spaSub" class="adminHeaderSub"></div>
-          </div>
-          <div class="adminUser">
-            <div class="adminUserName">
-              ${escapeHtml(u.fullName||u.username||"ผู้ดูแลระบบ")}
-              <br><span class="small">${u.role==="ADMIN"?"ผู้ดูแลระบบ":escapeHtml(u.role||"")}</span>
-            </div>
-            <button id="spaLogout" class="ghost compactBtn">ออกจากระบบ</button>
-          </div>
-        </header>
-
-        <div class="spaProgress" id="spaProgress"></div>
-        <div class="spaFrameWrap">
-          <iframe id="frameA" class="spaFrame active" title="พื้นที่ทำงาน"></iframe>
-          <iframe id="frameB" class="spaFrame" title="พื้นที่ทำงาน"></iframe>
-        </div>
-      </section>
-    </div>`;
-
-  function escapeHtml(v){
-    return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
-  }
-
-  const frames=[document.getElementById("frameA"),document.getElementById("frameB")];
-  let activeIndex=0;
-  let currentRoute="";
-  let navSerial=0;
-  const progress=document.getElementById("spaProgress");
-  const navHost=document.getElementById("spaNav");
-
-  function keyFromHash(){
-    const key=(location.hash||"#home").slice(1);
-    return routes[key]?key:"home";
-  }
-
-  function routeUrl(route){
-    const join=route.url.includes("?")?"&":"?";
-    return `${route.url}${join}embed=1&v=${VERSION}`;
-  }
-
-  function setHeader(key){
-    const r=routes[key];
-    document.getElementById("spaTitle").textContent=r.title;
-    document.getElementById("spaSub").textContent=r.sub;
-    navHost.querySelectorAll("a").forEach(a=>{
-      a.classList.toggle("active",a.dataset.route===key);
-    });
-  }
-
-  function navigate(force=false){
-    const key=keyFromHash();
-    setHeader(key);
-    if(!force && key===currentRoute) return;
-
-    const serial=++navSerial;
-    const nextIndex=1-activeIndex;
-    const next=frames[nextIndex];
-    progress.classList.add("show");
-
-    next.onload=()=>{
-      if(serial!==navSerial) return;
-      next.classList.add("active");
-      frames[activeIndex].classList.remove("active");
-      activeIndex=nextIndex;
-      currentRoute=key;
-      progress.classList.remove("show");
-    };
-
-    next.src=routeUrl(routes[key]);
-  }
-
-  window.addEventListener("hashchange",()=>navigate());
-  document.getElementById("spaLogout").onclick=AdminAuth.logout;
-
-  navigate(true);
+  const icons={grid:'<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>',check:'<path d="M9 11l2 2 4-4M4 5h16v14H4z"/>',approve:'<path d="M7 3h10v4H7zM5 5H3v16h18V5h-2M8 14l3 3 6-7"/>',calendar:'<path d="M5 3v3M19 3v3M4 8h16M4 5h16v16H4zM8 12h3M13 12h3M8 16h3"/>',map:'<path d="M9 18l-5 3V6l5-3 6 3 5-3v15l-5 3zM9 3v15M15 6v15"/>',chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',store:'<path d="M4 10v10h16V10M3 10l2-6h14l2 6M8 20v-6h8v6"/>',scan:'<path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M8 12h8"/>',users:'<path d="M16 20v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 10a4 4 0 100-8 4 4 0 000 8zM17 11a4 4 0 010-8M22 20v-2a4 4 0 00-3-3.87"/>',cloud:'<path d="M5 18h13a4 4 0 00.8-7.92A7 7 0 005.4 8.5 4.8 4.8 0 005 18z"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19 15l2 2-4 4-2-2-3 1-1 3H7l-1-3-3-1v-4l3-1 1-3-2-2 4-4 2 2 3-1 1-3h4l1 3 3 1v4l-3 1z"/>',history:'<path d="M3 12a9 9 0 109-9 9 9 0 00-6.36 2.64L3 8M3 3v5h5M12 7v5l3 2"/>'};
+  const icon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name]||icons.grid}</svg>`;
+  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+  const root=document.getElementById("spaRoot"),u=AdminAuth.user()||{},role=String(u.role||"ADMIN").toUpperCase();
+  const entries=Object.entries(routes).filter(([,r])=>r.roles.includes(role)),groups=[...new Set(entries.map(([,r])=>r.group))];
+  root.innerHTML=`<div class="officeShell" id="officeShell"><aside class="officeSidebar"><div class="officeBrand"><div class="officeLogo">RO</div><div class="officeBrandText"><strong>ReceiptOCR</strong><span>Operations Console</span></div><button id="collapseNav" class="navCollapse" aria-label="ย่อเมนู">‹</button></div><nav class="officeNav" id="spaNav">${groups.map(g=>`<section><div class="navGroupLabel">${g}</div>${entries.filter(([,r])=>r.group===g).map(([key,r])=>`<a href="#${key}" data-route="${key}" title="${r.title}"><span class="navIcon">${icon(r.icon)}</span><span class="navText">${r.title}</span>${key==="review"?'<span class="navCount" id="reviewNavCount" hidden>0</span>':''}</a>`).join("")}</section>`).join("")}</nav><div class="officeSystem"><span class="onlineDot"></span><div><strong>ระบบพร้อมใช้งาน</strong><small>D1 · R2 · API</small></div></div></aside><section class="officeMain"><header class="officeHeader"><button id="mobileMenu" class="mobileMenuBtn" aria-label="เปิดเมนู">☰</button><div class="officePageTitle"><div class="officeBreadcrumb">ReceiptOCR / <span id="spaCrumb"></span></div><h1 id="spaTitle"></h1><p id="spaSub"></p></div><div class="officeHeaderActions"><span class="rolePill">${role==="ADMIN"?"ADMIN":"หัวหน้างาน"}</span><div class="officeUser"><strong>${esc(u.fullName||u.username||"ผู้ใช้งาน")}</strong><span>${esc(u.username||"")}</span></div><button id="spaLogout" class="officeLogout">ออกจากระบบ</button></div></header><div class="spaProgress" id="spaProgress"></div><main class="officeWorkspace"><div class="spaFrameWrap"><iframe id="frameA" class="spaFrame active" title="พื้นที่ทำงาน"></iframe><iframe id="frameB" class="spaFrame" title="พื้นที่ทำงาน"></iframe></div></main></section><button id="navBackdrop" class="navBackdrop" aria-label="ปิดเมนู"></button></div>`;
+  const shell=document.getElementById("officeShell"),frames=[document.getElementById("frameA"),document.getElementById("frameB")],progress=document.getElementById("spaProgress"),navHost=document.getElementById("spaNav");let activeIndex=0,currentRoute="",serial=0;
+  if(localStorage.getItem("receiptocr_nav_compact")==="1")shell.classList.add("navCompact");
+  const firstRoute=()=>entries[0]?.[0]||"home";
+  function keyFromHash(){const key=(location.hash||`#${firstRoute()}`).slice(1).split("?")[0];return routes[key]?.roles.includes(role)?key:firstRoute()}
+  function routeUrl(r){return `${r.url}${r.url.includes("?")?"&":"?"}embed=1&v=${VERSION}`}
+  function closeMobile(){shell.classList.remove("mobileNavOpen")}
+  function setHeader(key){const r=routes[key];document.getElementById("spaTitle").textContent=r.title;document.getElementById("spaCrumb").textContent=r.group;document.getElementById("spaSub").textContent=r.sub;document.title=`${r.title} · ReceiptOCR`;navHost.querySelectorAll("a").forEach(a=>a.classList.toggle("active",a.dataset.route===key))}
+  function navigate(force=false){const key=keyFromHash();if((location.hash||"").slice(1).split("?")[0]!==key)history.replaceState(null,"",`#${key}`);setHeader(key);closeMobile();if(!force&&key===currentRoute)return;const n=++serial,nextIndex=1-activeIndex,next=frames[nextIndex];progress.classList.add("show");next.onload=()=>{if(n!==serial)return;next.classList.add("active");frames[activeIndex].classList.remove("active");activeIndex=nextIndex;currentRoute=key;progress.classList.remove("show")};next.src=routeUrl(routes[key])}
+  async function refreshReviewCount(){const badge=document.getElementById("reviewNavCount");if(!badge)return;try{const d=await AdminAuth.json("/api/admin/submissions?status=SUBMITTED"),n=(d.items||[]).length;badge.textContent=n;badge.hidden=!n}catch{badge.hidden=true}}
+  window.addEventListener("hashchange",()=>navigate());document.getElementById("spaLogout").onclick=AdminAuth.logout;document.getElementById("collapseNav").onclick=()=>{shell.classList.toggle("navCompact");localStorage.setItem("receiptocr_nav_compact",shell.classList.contains("navCompact")?"1":"0")};document.getElementById("mobileMenu").onclick=()=>shell.classList.add("mobileNavOpen");document.getElementById("navBackdrop").onclick=closeMobile;navigate(true);refreshReviewCount();setInterval(refreshReviewCount,60000);
 })();

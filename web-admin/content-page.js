@@ -7,7 +7,18 @@ const ContentPage = (() => {
     "index.html":"ocr",
     "storage.html":"storage",
     "reports.html":"reports",
+    "review.html":"review",
+    "approvals.html":"approvals",
+    "map.html":"map",
+    "audit.html":"audit",
     "settings.html":"settings"
+  };
+  const routeRoles = {
+    home:["ADMIN","SUPERVISOR"], review:["ADMIN","SUPERVISOR"],
+    approvals:["ADMIN","SUPERVISOR"], map:["ADMIN","SUPERVISOR"],
+    reports:["ADMIN","SUPERVISOR"], users:["ADMIN"], brands:["ADMIN"],
+    workplans:["ADMIN"], ocr:["ADMIN"], storage:["ADMIN"],
+    settings:["ADMIN"], audit:["ADMIN"]
   };
 
   async function init() {
@@ -21,7 +32,15 @@ const ContentPage = (() => {
     }
 
     document.body.classList.add("embedPage");
-    return await AdminAuth.guard();
+    if (!await AdminAuth.guard()) return false;
+
+    const route = routeMap[file] || "home";
+    const role = String(AdminAuth.user()?.role || "").toUpperCase();
+    if (!(routeRoles[route] || ["ADMIN"]).includes(role)) {
+      window.top.location.replace("admin.html#home");
+      return false;
+    }
+    return true;
   }
 
   return { init };
