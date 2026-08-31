@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ReceiptOCR Admin - แผนงาน</title>
-<link rel="stylesheet" href="styles.css?v=53">
+<link rel="stylesheet" href="styles.css?v=57">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -23,23 +23,38 @@
     <button id="tabManage">จัดการแผนงาน</button>
   </div>
 
-  <div id="importArea">
-  <section class="simplePanel">
-    <div class="stepTitle"><span>1</span><div><h3>เลือกผู้ใช้งาน</h3><p>งานที่นำเข้าจะผูกกับผู้ใช้งานคนนี้</p></div></div>
+  <div id="importArea" class="importConsole">
+  <header class="importConsoleHead">
+    <div>
+      <span>EXCEL IMPORT</span>
+      <h3>นำเข้าแผนงานภาคสนาม</h3>
+      <p>กำหนดผู้รับผิดชอบ เลือกไฟล์ และตรวจความถูกต้องก่อนบันทึกเข้าสู่ระบบ</p>
+    </div>
+    <div class="importFlow" aria-label="ขั้นตอนนำเข้า">
+      <span class="active"><b>1</b>กำหนดผู้รับผิดชอบ</span>
+      <i></i><span id="flowFile"><b>2</b>เลือกไฟล์</span>
+      <i></i><span id="flowReview"><b>3</b>ตรวจสอบและนำเข้า</span>
+    </div>
+  </header>
+
+  <div class="importSetupGrid">
+  <section class="simplePanel importSetupPanel">
+    <div class="stepTitle"><span>1</span><div><h3>ผู้รับผิดชอบแผนงาน</h3><p>รายการจากไฟล์จะผูกกับผู้ปฏิบัติงานที่เลือก</p></div></div>
     <div class="smartUserRow">
       <label>ผู้ใช้งาน<select id="userSelect"></select></label>
       <div id="userPlanSummary" class="planSummaryBox">ยังไม่ได้เลือก</div>
     </div>
   </section>
 
-  <section class="simplePanel">
-    <div class="stepTitle"><span>2</span><div><h3>เลือกไฟล์ Excel</h3><p>ตำแหน่งคอลัมน์เปลี่ยนได้ ระบบจะวิเคราะห์จากชื่อและโครงสร้าง</p></div></div>
-    <label class="uploadBox">
+  <section class="simplePanel importSetupPanel">
+    <div class="stepTitle"><span>2</span><div><h3>ไฟล์แผนงาน Excel</h3><p>ระบบตรวจหัวตาราง คอลัมน์ และข้อมูลร้านก่อนนำเข้า</p></div></div>
+    <label class="uploadBox importFileDrop">
       <input id="excelInput" type="file" accept=".xlsx,.xls">
-      <span>เลือกไฟล์แผนงาน .xlsx / .xls</span>
+      <b>XLSX</b><span>เลือกไฟล์แผนงาน</span><small>.xlsx หรือ .xls</small>
     </label>
     <div id="fileInfo" class="cloudInfo">ยังไม่ได้เลือกไฟล์</div>
   </section>
+  </div>
 
   <section id="detectPanel" class="simplePanel hidden">
     <div class="stepTitle"><span>3</span><div><h3>ตรวจสิ่งที่ระบบพบ</h3><p>ถ้าระบบอ่านผิด Admin สามารถแก้ก่อนนำเข้าได้</p></div></div>
@@ -170,7 +185,7 @@
 <script src="config.js"></script>
 <script src="admin-auth.js"></script>
 <script src="content-page.js"></script>
-<script src="workplans-smart.js"></script>
-  <script src="workplan-manage.js?v=53"></script>
+<script src="workplans-smart.js?v=57"></script>
+  <script src="workplan-manage.js?v=57"></script>
 </body>
 </html>

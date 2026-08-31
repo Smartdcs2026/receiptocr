@@ -299,6 +299,7 @@ function renderPreview(){
     </tr>`).join("");
 
   $("previewPanel").classList.remove("hidden");
+  $("flowReview")?.classList.add("active");
 }
 $("refreshPreviewBtn").onclick=buildPreview;
 $("reAnalyzeBtn").onclick=()=>{analysis=null;analyzeCurrent()};
@@ -312,6 +313,7 @@ $("excelInput").onchange=async ev=>{
   $("confirmUnmapped").checked=false;
   $("fileInfo").textContent=`${file.name} • ${(file.size/1024).toFixed(1)} KB`;
   $("fileInfo").className="cloudInfo ok";
+  $("flowFile")?.classList.add("active");
   const buf=await file.arrayBuffer();
   wb=XLSX.read(buf,{type:"array"});
   $("sheetSelect").innerHTML=wb.SheetNames.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("");
