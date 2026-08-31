@@ -78,3 +78,10 @@ const SwalSmall = {
     confirmButtonText:"ยืนยัน",cancelButtonText:"ยกเลิก",officeKind:"confirm"
   })
 };
+
+window.friendlyAuthError=(value=>({
+  LOGIN_FAILED:"ชื่อเข้าระบบหรือรหัสผ่านไม่ถูกต้อง",
+  TOO_MANY_ATTEMPTS:"ลองเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่",
+  ACCOUNT_DISABLED:"บัญชีนี้ถูกระงับการใช้งาน",
+  API_BASE_URL_NOT_CONFIGURED:"ยังไม่ได้ตั้งค่าที่อยู่ระบบ"
+}[String(value||"")]||String(value||"ไม่สามารถดำเนินการได้")));

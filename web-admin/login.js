@@ -41,7 +41,7 @@ document.getElementById("loginBtn").onclick=async()=>{
       AdminAuth.clear();await SwalSmall.ok("เปลี่ยนรหัสผ่านแล้ว","กรุณาเข้าสู่ระบบด้วยรหัสใหม่");location.href="login.html";return;
     }
     location.href="admin.html#home";
-  }catch(e){SwalSmall.error("เข้าสู่ระบบไม่สำเร็จ",e.message)}
+  }catch(e){SwalSmall.error("เข้าสู่ระบบไม่สำเร็จ",friendlyAuthError(e.message))}
   finally{btn.disabled=false}
 };
 document.getElementById("password").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("loginBtn").click()});
