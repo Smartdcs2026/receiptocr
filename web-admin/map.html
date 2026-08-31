@@ -1,1 +1,77 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>แผนที่ร้าน</title><link rel="stylesheet" href="styles.css?v=52"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></head><body><div class="officePage mapPage"><section class="pageCommandBar"><div class="commandFilters"><label>ผู้ปฏิบัติงาน<select id="mapUser"></select></label><label>ตั้งแต่วันที่<input id="mapFrom" type="date"></label><label>ถึงวันที่<input id="mapTo" type="date"></label><button id="loadMap" class="primary">แสดงร้าน</button></div><div class="mapTools"><button id="measureMap" class="secondary">วัดระยะ</button><button id="clearMeasure" class="ghost">ล้างเส้นวัด</button></div></section><section class="mapWorkspace"><div id="storeMap" class="storeMap"></div><aside class="mapSide"><header><strong>ร้านในแผนงาน</strong><span id="mapSummary">0 ร้าน</span></header><div class="mapNotice">ใช้เฉพาะพิกัดประจำร้าน ไม่มีการเก็บพิกัดขณะพนักงานส่งงาน</div><div id="measureResult" class="measureResult">กด “วัดระยะ” แล้วเลือกจุดบนแผนที่อย่างน้อย 2 จุด</div><div id="mapStoreList" class="mapStoreList"></div></aside></section></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="config.js"></script><script src="admin-auth.js"></script><script src="content-page.js"></script><script src="map.js?v=52"></script></body></html>
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ศูนย์แผนที่ร้าน</title>
+  <link rel="stylesheet" href="styles.css?v=54">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+</head>
+<body>
+<div class="officePage professionalMapPage">
+  <section class="mapCommandBar">
+    <div class="mapPrimaryFilters">
+      <label>ผู้ปฏิบัติงาน<select id="mapUser"></select></label>
+      <label>ตั้งแต่วันที่<input id="mapFrom" type="date"></label>
+      <label>ถึงวันที่<input id="mapTo" type="date"></label>
+      <button id="loadMap" class="primary">ประมวลผลแผนที่</button>
+    </div>
+    <div class="mapCommandActions">
+      <button id="exportMap" class="secondary" title="ส่งออกร้านที่กำลังแสดง">ส่งออก CSV</button>
+      <button id="toggleMapPanel" class="ghost" title="ซ่อนหรือแสดงแผงรายการร้าน">ซ่อนรายการ</button>
+    </div>
+  </section>
+
+  <section class="mapKpiBar" aria-label="สรุปข้อมูลบนแผนที่">
+    <article><span>ร้านที่มีพิกัด</span><strong id="mapTotalKpi">0</strong></article>
+    <article><span>กำลังแสดง</span><strong id="mapVisibleKpi">0</strong></article>
+    <article><span>จำนวนแบรนด์</span><strong id="mapBrandKpi">0</strong></article>
+    <article><span>จำนวน POS</span><strong id="mapPosKpi">0</strong></article>
+    <article class="mapKpiWarning"><span>ร้านไม่มีพิกัด</span><strong id="mapMissingKpi">0</strong></article>
+  </section>
+
+  <section id="mapWorkspace" class="professionalMapWorkspace">
+    <div class="mapCanvasWrap">
+      <div id="storeMap" class="professionalStoreMap"></div>
+      <div class="mapToolDock" role="toolbar" aria-label="เครื่องมือแผนที่">
+        <button id="fitMap" title="แสดงร้านทั้งหมด"><span>⌗</span>ทั้งหมด</button>
+        <button id="measureMap" title="วัดระยะทาง"><span>↔</span>วัดระยะ</button>
+        <button id="undoMeasure" title="ย้อนกลับจุดวัดล่าสุด" disabled><span>↶</span>ย้อนจุด</button>
+        <button id="clearMeasure" title="ล้างเส้นวัด" disabled><span>×</span>ล้าง</button>
+        <button id="fullscreenMap" title="เปิดแผนที่เต็มจอ"><span>⛶</span>เต็มจอ</button>
+      </div>
+      <div id="mapModeStatus" class="mapModeStatus">พร้อมใช้งาน</div>
+      <div id="measureResult" class="professionalMeasureResult" hidden></div>
+    </div>
+
+    <aside class="professionalMapSide">
+      <header class="mapSideHeader">
+        <div><strong>ร้านในแผนงาน</strong><span id="mapSummary">0 ร้าน</span></div>
+        <span class="mapLiveBadge"><i></i>ข้อมูลแผนงาน</span>
+      </header>
+
+      <div class="mapSideFilters">
+        <label class="mapSearchBox"><span>⌕</span><input id="mapSearch" type="search" placeholder="ค้นหารหัสหรือชื่อร้าน"></label>
+        <select id="mapBrand" aria-label="กรองตามแบรนด์"><option value="">ทุกแบรนด์</option></select>
+      </div>
+
+      <div id="mapBrandLegend" class="mapBrandLegend"></div>
+
+      <div id="selectedStorePanel" class="selectedStorePanel" hidden></div>
+
+      <div class="mapDataNotice">ใช้พิกัดประจำร้านจากแผนงานเท่านั้น ระบบนี้ไม่เก็บพิกัดของพนักงานขณะส่งงาน</div>
+      <div id="mapStoreList" class="professionalMapStoreList"></div>
+    </aside>
+  </section>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="config.js"></script>
+<script src="admin-auth.js"></script>
+<script src="content-page.js"></script>
+<script src="map.js?v=54"></script>
+</body>
+</html>

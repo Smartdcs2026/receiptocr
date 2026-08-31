@@ -1,6 +1,6 @@
 (async()=>{
   if(!await AdminAuth.guard()) return;
-  const VERSION="53",allRoles=["ADMIN","SUPERVISOR"];
+  const VERSION="54",allRoles=["ADMIN","SUPERVISOR"];
   const routes={
     home:{title:"ภาพรวมการปฏิบัติงาน",sub:"สถานะงาน การตรวจสอบ และรายการที่ต้องดำเนินการ",url:"dashboard.html",roles:allRoles,group:"งานประจำวัน",icon:"grid"},
     review:{title:"ศูนย์ตรวจสอบงาน",sub:"ตรวจภาพบิล ภาพร้าน และข้อมูลยอดลูกค้าราย POS",url:"review.html",roles:allRoles,group:"งานประจำวัน",icon:"check"},
