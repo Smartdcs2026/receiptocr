@@ -32,7 +32,48 @@ async function askMove(title){const r=await Swal.fire({title,customClass:{popup:
 async function moveDay(fromDate){const v=await askMove(`ย้ายงานทั้งหมดวันที่ ${fmt(fromDate)}`);if(!v)return;try{const d=await AdminAuth.json('/api/admin/work-plan-move',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({employeeCode:$("manageUser").value,fromDate,toDate:v.toDate,reason:v.reason})});await SwalSmall.ok('ย้ายแผนงานแล้ว',`${d.count} ร้าน`);refreshManageData()}catch(e){showMoveError(e)}}
 async function moveIds(ids){if(!ids.length)return;const v=await askMove(`ย้าย ${ids.length} ร้านที่เลือก`);if(!v)return;try{const d=await AdminAuth.json('/api/admin/work-plan-move',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({employeeCode:$("manageUser").value,ids,toDate:v.toDate,reason:v.reason})});await SwalSmall.ok('ย้ายแผนงานแล้ว',`${d.count} ร้าน`);refreshManageData()}catch(e){showMoveError(e)}}
 function showMoveError(e){const t=String(e.message||e);const map={WORK_ALREADY_SUBMITTED:'มีงานที่ส่งตรวจแล้ว ต้องจัดการงานที่ส่งมาก่อนย้าย',TARGET_DUPLICATE_STORE:'วันที่ปลายทางมีร้านเดียวกันอยู่แล้ว',TARGET_DATE_SAME_AS_SOURCE:'วันที่ใหม่ต้องไม่ใช่วันเดิม',NO_ACTIVE_WORK_TO_MOVE:'ไม่พบงานที่สามารถย้ายได้'};SwalSmall.error('ย้ายแผนงานไม่สำเร็จ',map[t]||t)}
-async function itemDialog(x=null){const val=k=>esc(x?.[k]||'');const r=await Swal.fire({title:x?"แก้ไขข้อมูลร้าน":"เพิ่มแผนงาน",width:760,customClass:{popup:"swal-compact swal-wide"},html:`<div class="swalForm planDetailForm"><label>วันที่<input id="pDate" type="date" class="swal2-input" value="${val('work_date')}" ${x?'readonly':''}></label>${x?'<div class="small">หากต้องการเปลี่ยนวัน ให้ใช้ปุ่ม “ย้ายวัน” เพื่อเก็บรายการเดิมไว้เป็นหลักฐาน</div>':''}<label>แบรนด์<select id="pBrand" class="swal2-select">${brands.map(b=>`<option ${b.brand_name===x?.brand?'selected':''}>${esc(b.brand_name)}</option>`).join('')}</select></label><label>รหัสร้าน<input id="pCode" class="swal2-input" value="${val('store_code')}"></label><label>ชื่อร้าน<input id="pName" class="swal2-input" value="${val('store_name')}"></label><label>จำนวน POS<input id="pPos" type="number" min="1" max="99" class="swal2-input" value="${x?.pos_count||1}"></label><label>ประเภทร้าน<input id="pBusinessType" class="swal2-input" value="${val('business_type')}"></label><label>เวลาเปิด-ปิด<input id="pOpenClose" class="swal2-input" value="${val('open_close')}"></label><label class="wideField">ที่อยู่ร้าน<textarea id="pAddress" class="swal2-textarea">${val('address')}</textarea></label><label>รูปแบบร้าน<input id="pStoreFormat" class="swal2-input" value="${val('store_format')}"></label><label>ระดับร้าน<input id="pRank" class="swal2-input" value="${val('rank')}"></label><label>ละติจูด<input id="pLatitude" class="swal2-input" value="${val('latitude')}"></label><label>ลองจิจูด<input id="pLongitude" class="swal2-input" value="${val('longitude')}"></label><label class="wideField">ข้อมูลจากแผนงาน<textarea id="pStoreNote" class="swal2-textarea">${val('store_note')}</textarea></label><label class="wideField">เหตุผลที่เปลี่ยนแปลง<textarea id="pReason" class="swal2-textarea" placeholder="ระบุเหตุผลที่แก้ไข">${x?'แก้ไขข้อมูลในวันเดิม':'เพิ่มงานโดย Admin'}</textarea></label></div>`,showCancelButton:true,confirmButtonText:"บันทึก",cancelButtonText:"ยกเลิก",preConfirm:()=>{const read=id=>document.getElementById(id).value.trim(),workDate=read('pDate'),storeCode=read('pCode'),storeName=read('pName'),posCount=Number(read('pPos')||1),latitude=read('pLatitude'),longitude=read('pLongitude'),reason=read('pReason');if(!workDate||!storeCode||!storeName||!reason){Swal.showValidationMessage('กรุณากรอกวันที่ รหัสร้าน ชื่อร้าน และเหตุผล');return false}if(!Number.isInteger(posCount)||posCount<1||posCount>99){Swal.showValidationMessage('จำนวน POS ต้องเป็นเลข 1–99');return false}if((latitude&&!longitude)||(!latitude&&longitude)){Swal.showValidationMessage('พิกัดต้องมีทั้งละติจูดและลองจิจูด');return false}return{workDate,brand:read('pBrand'),storeCode,storeName,posCount,businessType:read('pBusinessType'),openClose:read('pOpenClose'),address:read('pAddress'),storeFormat:read('pStoreFormat'),rank:read('pRank'),latitude,longitude,storeNote:read('pStoreNote'),reason}}});return r.isConfirmed?r.value:null}
+async function itemDialog(){
+ const employee=$('manageUser').selectedOptions[0]?.textContent||$('manageUser').value||'-';
+ const r=await Swal.fire({
+  title:"เพิ่มแผนงาน",width:720,padding:0,heightAuto:false,focusConfirm:false,buttonsStyling:false,
+  customClass:{popup:"receiptStoreModal receiptPlanAddModal",title:"receiptModalTitle",htmlContainer:"receiptModalBody",actions:"receiptModalActions",confirmButton:"receiptSaveButton",cancelButton:"receiptCancelButton",validationMessage:"receiptValidation"},
+  html:`<div class="receiptStoreEditor">
+   <div class="receiptAddSummary"><span>ผู้รับแผนงาน</span><strong>${esc(employee)}</strong></div>
+   <div class="receiptSectionLabel"><span>ข้อมูลหลักของแผนงาน</span><small>ช่องที่มีเครื่องหมาย * จำเป็นต้องกรอก</small></div>
+   <div class="receiptAddGrid">
+    <label class="receiptField"><span>วันที่ <b>*</b></span><input id="pDate" type="date"></label>
+    <label class="receiptField"><span>แบรนด์ <b>*</b></span><select id="pBrand">${brands.map(b=>`<option value="${esc(b.brand_name)}">${esc(b.brand_name)}</option>`).join('')}</select></label>
+    <label class="receiptField"><span>รหัสร้าน <b>*</b></span><input id="pCode" autocomplete="off"></label>
+    <label class="receiptField"><span>ชื่อร้าน <b>*</b></span><input id="pName" autocomplete="off"></label>
+    <label class="receiptField"><span>จำนวน POS <b>*</b></span><input id="pPos" type="number" min="1" max="99" value="1"></label>
+    <label class="receiptField"><span>ประเภทร้าน</span><input id="pBusinessType" placeholder="เช่น Standalone"></label>
+    <label class="receiptField receiptFieldWide"><span>เวลาเปิด-ปิด</span><input id="pOpenClose" placeholder="เช่น 06:00–23:00"></label>
+   </div>
+   <details class="receiptAdvanced">
+    <summary><span><b>รายละเอียดร้านเพิ่มเติม</b><small>ที่อยู่ รูปแบบร้าน ระดับร้าน และพิกัดประจำร้าน</small></span><i aria-hidden="true"></i></summary>
+    <div class="receiptAdvancedGrid">
+     <label class="receiptField receiptFieldFull"><span>ที่อยู่ร้าน</span><textarea id="pAddress" rows="2"></textarea></label>
+     <label class="receiptField"><span>รูปแบบร้าน</span><input id="pStoreFormat"></label>
+     <label class="receiptField"><span>ระดับร้าน</span><input id="pRank"></label>
+     <label class="receiptField"><span>ละติจูดร้าน</span><input id="pLatitude" inputmode="decimal"></label>
+     <label class="receiptField"><span>ลองจิจูดร้าน</span><input id="pLongitude" inputmode="decimal"></label>
+     <label class="receiptField receiptFieldFull"><span>ข้อมูลจากแผนงาน</span><textarea id="pStoreNote" rows="2"></textarea></label>
+    </div>
+   </details>
+  </div>`,
+  showCancelButton:true,confirmButtonText:"เพิ่มแผนงาน",cancelButtonText:"ยกเลิก",
+  showClass:{popup:"receiptModalShow"},hideClass:{popup:"receiptModalHide"},
+  didOpen:()=>document.getElementById('pDate').value=selectedCalendarDate||$('manageFrom').value||todayBangkok(),
+  preConfirm:()=>{
+   const read=id=>document.getElementById(id).value.trim(),workDate=read('pDate'),storeCode=read('pCode'),storeName=read('pName'),posCount=Number(read('pPos')||1),latitude=read('pLatitude'),longitude=read('pLongitude');
+   if(!workDate||!storeCode||!storeName){Swal.showValidationMessage('กรุณากรอกวันที่ รหัสร้าน และชื่อร้าน');return false}
+   if(!Number.isInteger(posCount)||posCount<1||posCount>99){Swal.showValidationMessage('จำนวน POS ต้องเป็นเลข 1–99');return false}
+   if((latitude&&!longitude)||(!latitude&&longitude)){Swal.showValidationMessage('พิกัดร้านต้องมีทั้งละติจูดและลองจิจูด');return false}
+   return{workDate,brand:read('pBrand'),storeCode,storeName,posCount,businessType:read('pBusinessType'),openClose:read('pOpenClose'),address:read('pAddress'),storeFormat:read('pStoreFormat'),rank:read('pRank'),latitude,longitude,storeNote:read('pStoreNote'),reason:'เพิ่มงานโดย Admin'};
+  }
+ });
+ return r.isConfirmed?r.value:null;
+}
 async function editStoreDialog(x){
  const val=k=>esc(x?.[k]||''),month=`${THAI_MONTHS[Number(x.work_date.slice(5,7))-1]} ${x.work_date.slice(0,4)}`,badge=esc(x.brand_abbr||x.brand||'-'),badgeVisual=x.logo_url?`<img src="${esc(x.logo_url)}" alt="${badge}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden>${badge}</span>`:badge;
  const scopeBlock=`<div class="receiptScope" role="radiogroup" aria-label="ขอบเขตการแก้ไข">
