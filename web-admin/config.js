@@ -9,8 +9,7 @@ window.RECEIPTOCR_CONFIG = {
 (function(){
   const DATE_FORMATS = [
     ["DD/MM/YYYY", "วัน/เดือน/ปี — dd/MM/yyyy"],
-    ["MM/DD/YYYY", "เดือน/วัน/ปี — MM/dd/yyyy"],
-    ["YYYY-MM-DD", "ปี-เดือน-วัน — yyyy-MM-dd"]
+    ["MM/DD/YYYY", "เดือน/วัน/ปี — MM/dd/yyyy"]
   ];
 
   function syncReceiptDateFormatEditor(){
