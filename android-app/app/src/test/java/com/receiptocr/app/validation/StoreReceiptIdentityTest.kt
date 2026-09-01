@@ -61,4 +61,14 @@ class StoreReceiptIdentityTest {
         assertEquals(StoreReceiptStatus.MIXED_STORE, result.status)
         assertTrue(result.summaryWarnings.single().contains("ยังระบุไม่ได้"))
     }
+
+    @Test
+    fun leadingZerosDoNotCreateFalseStoreMismatch() {
+        val result = StoreReceiptIdentity.evaluate(
+            workStoreCode = "0652",
+            storeIdsByPos = mapOf(1 to "0652", 2 to "652")
+        )
+
+        assertEquals(StoreReceiptStatus.OK, result.status)
+    }
 }
