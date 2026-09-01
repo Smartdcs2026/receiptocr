@@ -38,6 +38,7 @@
     const noStore=identity.querySelector("#round78NoStoreId");
     const hint=identity.querySelector("#round78StoreHint");
     const mustMatch=$("mustMatchStore");
+    const storePalette=()=>document.querySelector('.simplePaletteItems [data-type="STORE_ID"]');
 
     function storeChips(){
       return [...document.querySelectorAll(".simpleFieldChip")].filter(x=>x.textContent.includes("รหัสร้าน"));
@@ -48,12 +49,25 @@
         $("removeFieldBtn")?.click();
       });
     }
+    function convertStoreSegments(){
+      document.querySelectorAll(".segType").forEach(select=>{
+        if(select.value!=="STORE_ID")return;
+        select.value="NUMBER_TEXT";
+        select.dispatchEvent(new Event("change",{bubbles:true}));
+      });
+    }
     function hasStoreChip(){return storeChips().length>0}
     function refreshIdentity(fromEditor=false){
       const hasStore=hasStoreChip();
       if(fromEditor && !hasStore && mustMatch && !mustMatch.checked) noStore.checked=true;
+      const paletteButton=storePalette();
+      if(paletteButton){
+        paletteButton.disabled=noStore.checked;
+        paletteButton.title=noStore.checked?"รูปแบบนี้ตั้งว่าไม่มีรหัสร้าน":"เพิ่มรหัสร้านจากบิล";
+      }
       if(noStore.checked){
         if(mustMatch){mustMatch.checked=false;mustMatch.disabled=true;}
+        convertStoreSegments();
         hint.className="ocrIdentityHint note";
         hint.textContent="โหมดไม่มีรหัสร้าน: ใช้ POS + วันที่/เวลา + ยอด/เลขลูกค้า และรหัสยึดแถว/ข้อความคงที่ (ถ้ามี) เพื่อจับชุดข้อมูล โดยไม่สร้างเลขร้านขึ้นมาเอง";
       }else{
@@ -68,10 +82,12 @@
       }
     }
     noStore.addEventListener("change",()=>{
-      if(noStore.checked) removePlainStoreFields();
+      if(noStore.checked){removePlainStoreFields();convertStoreSegments();}
       refreshIdentity(false);
     });
     new MutationObserver(()=>refreshIdentity(true)).observe($("rowsArea"),{childList:true,subtree:true,characterData:true});
+    const segmentHost=$("segmentRows");
+    if(segmentHost)new MutationObserver(()=>{if(noStore.checked)convertStoreSegments()}).observe(segmentHost,{childList:true,subtree:true});
     setTimeout(()=>refreshIdentity(true),200);
   }
 
@@ -94,7 +110,6 @@
   dock.querySelector("#round78GoTest").onclick=()=>document.querySelector(".simpleTestPanel")?.scrollIntoView({behavior:"smooth",block:"start"});
   dock.querySelector("#round78Save").onclick=()=>$("savePatternBtn")?.click();
 
-  // ocr-simple เดิมซ่อน editor หลัง save; รอบนี้เปิดรูปแบบเดิมกลับให้อัตโนมัติ
   let savedName="";
   $("savePatternBtn")?.addEventListener("click",()=>{
     savedName=String($("patternName")?.value||"").trim();
