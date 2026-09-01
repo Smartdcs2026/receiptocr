@@ -32,6 +32,11 @@ data class WorkItem(
     val latitude: String,
     val longitude: String,
     val storeNote: String = "",
+    /**
+     * รหัสร้านที่คาดว่าจะพบบนบิลจริง หากระบบแผนงานใช้รหัสอีกชุดหนึ่ง
+     * ถ้าไม่ได้กำหนด APK จะใช้ storeCode เป็นค่าที่ต้องเทียบเสมอ
+     */
+    val receiptStoreId: String = "",
     val reviewStatus: String = "",
     val returnReason: String = "",
     val planStatus: String = "ACTIVE",
@@ -39,7 +44,10 @@ data class WorkItem(
     val movedToDate: String = "",
     val changeNote: String = "",
     val status: WorkStatus = WorkStatus.NOT_STARTED
-)
+) {
+    val expectedReceiptStoreId: String
+        get() = receiptStoreId.ifBlank { storeCode }
+}
 
 data class PosRecord(
     val posNumber: Int,
