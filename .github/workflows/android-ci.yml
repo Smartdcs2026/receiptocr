@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - round75-store-date-validation
+      - round76-ocr-correction-store-identity
     paths:
       - 'android-app/**'
       - '.github/workflows/android-ci.yml'
