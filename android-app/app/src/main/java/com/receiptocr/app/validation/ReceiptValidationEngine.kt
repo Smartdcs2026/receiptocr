@@ -120,6 +120,7 @@ object ReceiptValidationEngine {
         val issues = mutableListOf<ValidationIssue>()
 
         validateRequiredFields(records, issues)
+        validateReceiptStoreIds(work, records, issues)
         if (rule.groupDateRule.enabled) {
             issues += groupDateIssues(records, workDate, rule.groupDateRule)
         } else {
@@ -166,6 +167,51 @@ object ReceiptValidationEngine {
                 if (record.customerNo.isBlank()) issues += block("CUSTOMER_REQUIRED", "POS ${record.posNumber}: ยังไม่มีเลข/ยอดลูกค้า")
                 if (record.billDate.isBlank()) issues += block("DATE_REQUIRED", "POS ${record.posNumber}: ยังไม่มีวันที่")
                 if (record.billTime.isBlank()) issues += block("TIME_REQUIRED", "POS ${record.posNumber}: ยังไม่มีเวลา")
+            }
+        }
+    }
+
+    /**
+     * ถ้า OCR อ่านรหัสร้านจากบิลแล้ว ต้องเทียบกับรหัสร้านของงานเสมอ
+     * ผิดร้านหรือสลับร้าน = BLOCK เพราะข้อมูลใช้กับงานร้านนี้ไม่ได้
+     */
+    private fun validateReceiptStoreIds(
+        work: WorkItem,
+        records: List<PosRecord>,
+        issues: MutableList<ValidationIssue>
+    ) {
+        val ocrRecords = records.filter { record ->
+            !record.noReceipt && (record.ocrStoreId.isNotBlank() || record.ocrSourceImagePath.isNotBlank())
+        }
+        if (ocrRecords.isEmpty()) return
+
+        val storeIdsByPos = ocrRecords
+            .filter { it.ocrStoreId.isNotBlank() }
+            .associate { it.posNumber to it.ocrStoreId }
+
+        val missing = ocrRecords.filter { it.ocrStoreId.isBlank() }
+        missing.forEach { record ->
+            issues += block(
+                "STORE_ID_REQUIRED_POS_${record.posNumber}",
+                "POS ${record.posNumber}: ยังยืนยันร้านไม่ได้ เพราะยังอ่านรหัสร้านจากบิลไม่พบ"
+            )
+        }
+
+        val assessment = StoreReceiptIdentity.evaluate(
+            expectedStoreId = work.expectedReceiptStoreId,
+            storeIdsByPos = storeIdsByPos
+        )
+        assessment.warningsByPos.toSortedMap().forEach { (pos, warning) ->
+            val code = when (assessment.status) {
+                StoreReceiptStatus.BILL_SWAPPED_STORE -> "BILL_SWAPPED_STORE_POS_$pos"
+                StoreReceiptStatus.WRONG_STORE -> "WRONG_STORE_POS_$pos"
+                else -> "STORE_IDENTITY_POS_$pos"
+            }
+            issues += block(code, "POS $pos: $warning")
+        }
+        if (assessment.status == StoreReceiptStatus.UNKNOWN && assessment.summaryWarnings.isNotEmpty()) {
+            assessment.summaryWarnings.forEach { warning ->
+                issues += block("STORE_IDENTITY_UNKNOWN", warning)
             }
         }
     }
@@ -410,8 +456,7 @@ object ReceiptValidationEngine {
     }
 
     /**
-     * จะเริ่มบังคับได้ทันทีเมื่อหน้า Admin กำหนด token/รหัสจำเพาะร้าน
-     * รอบนี้เก็บโครงไว้ก่อนและไม่เดากฎของแต่ละแบรนด์เอง
+     * กฎ token/ชื่อร้านจาก Admin เป็นชั้นเสริม นอกเหนือจาก STORE_ID ที่บังคับเทียบจากแผนงาน
      */
     private fun validateStoreIdentityWhenConfigured(
         context: Context,
@@ -459,8 +504,6 @@ object ReceiptValidationEngine {
     private fun receiptDataFingerprint(work: WorkItem, record: PosRecord): String? {
         if (record.customerNo.isBlank()) return null
         val cycle = counterCycleKey(record)
-        // ยอด/เลขลูกค้าอาจเริ่มนับใหม่ตามรอบที่ Admin กำหนด จึงใช้รอบเป็นส่วนหนึ่งของกุญแจ
-        // และแยกตาม POS เพื่อไม่ให้เลขเดียวกันของคนละเครื่องถูกตัดสินว่าซ้ำโดยอัตโนมัติ
         return sha256(
             "${normalize(work.brand)}|${normalize(work.storeCode)}|${record.posNumber}|$cycle|${normalize(record.customerNo)}"
         )
