@@ -67,8 +67,6 @@ object RealOcrPipeline {
             templates = templates
         )
 
-        // crop ที่มี originY > 0 มาจากช่วงแนวนอนแคบและเหลื่อมกัน
-        // ถ้าจับ POS ได้ ให้เชื่อผลชุดนี้ก่อน เพราะมีโอกาสปะปนกับบิลข้างเคียงน้อยกว่าภาพเต็ม
         val isolatedTexts = mlTextPasses
             .filter { it.originY > 0 && it.text.text.isNotBlank() }
             .map { it.text }
@@ -79,7 +77,6 @@ object RealOcrPipeline {
             interpret(mlTexts)
         }
 
-        // กฎตำแหน่งและกฎรูปแบบจาก Admin เป็นคนละแหล่งข้อมูลที่เสริมกัน
         val shouldRunProfile = profile.regions.isNotEmpty() &&
             (!profile.profileId.startsWith("demo-", ignoreCase = true) || templates.isEmpty())
         val profileResult = if (shouldRunProfile) {
@@ -114,15 +111,35 @@ object RealOcrPipeline {
         val currentStoreIdsByPos = buildStoreIdsByPos(templateResult, profileResult)
         val dateFormat = configuredDateFormat(templates)
 
+        // ปัญหาวันที่จากภาพก่อนหน้าอาจเกิดจากกฎแบบรวมทั้งร้าน ไม่ได้อยู่ใน ocrWarnings เดิม
+        // แปลงปัญหาเหล่านั้นเป็น warning ของ POS ชั่วคราว เพื่อให้ภาพถัดไปซ่อมเฉพาะวันที่ที่มีปัญหาได้
+        val priorDateWarningsByPos = ReceiptValidationEngine.groupDateIssues(
+            records = records,
+            workDate = workDate,
+            rule = receiptRule.groupDateRule
+        ).mapNotNull { issue ->
+            validationPos(issue.code)?.let { it to issue.message }
+        }.groupBy({ it.first }, { it.second })
+
+        val recordsForAccumulation = records.map { record ->
+            val dateWarnings = priorDateWarningsByPos[record.posNumber].orEmpty()
+            if (!record.source.startsWith("OCR", ignoreCase = true) || dateWarnings.isEmpty()) return@map record
+            val warnings = buildList {
+                if (record.ocrWarnings.isNotBlank()) add(record.ocrWarnings)
+                addAll(dateWarnings)
+            }.distinct().joinToString(" • ")
+            record.copy(ocrWarnings = warnings)
+        }
+
         val accumulation = OcrAccumulationPolicy.merge(
-            originals = records,
+            originals = recordsForAccumulation,
             templateRecords = templateResult.records,
             profileRecords = profileResult?.records.orEmpty(),
             currentDetectedPos = currentDetectedSet
         )
 
         val combinedRecords = accumulation.records.map { record ->
-            val original = records.firstOrNull { it.posNumber == record.posNumber } ?: record
+            val original = recordsForAccumulation.firstOrNull { it.posNumber == record.posNumber } ?: record
             val dateResult = if (record.posNumber in currentDetectedSet && record.billDate.isNotBlank()) {
                 ReceiptDateOcrNormalizer.normalize(
                     raw = record.billDate,
@@ -138,7 +155,6 @@ object RealOcrPipeline {
             record.copy(
                 billDate = dateResult?.value ?: record.billDate,
                 ocrStoreId = storeId,
-                // POS ที่อ่านซ้ำในภาพปัจจุบันจะสร้างคำเตือนใหม่จากค่าล่าสุดด้านล่าง
                 ocrWarnings = if (record.posNumber in currentDetectedSet) "" else sanitizeLegacyOcrWarnings(record.ocrWarnings)
             )
         }
@@ -360,6 +376,9 @@ object RealOcrPipeline {
             original.ocrWarnings.contains("STORE", ignoreCase = true)
         return if (oldStoreHasProblem) candidateStoreId else original.ocrStoreId
     }
+
+    private fun validationPos(code: String): Int? =
+        Regex("_POS_(\\d+)$").find(code)?.groupValues?.getOrNull(1)?.toIntOrNull()
 
     private fun configuredDateFormat(templates: List<UniversalOcrTemplate>): String {
         val formats = templates.asSequence()
