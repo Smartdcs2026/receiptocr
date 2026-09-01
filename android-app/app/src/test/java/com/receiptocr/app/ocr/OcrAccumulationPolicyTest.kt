@@ -52,6 +52,25 @@ class OcrAccumulationPolicyTest {
     }
 
     @Test
+    fun laterImageCanRepairPreviouslyFlaggedDateWindow() {
+        val original = listOf(
+            PosRecord(
+                4, "004477", "20/08/2026", "22:22",
+                source = "OCR-TEMPLATE",
+                ocrWarnings = "ก่อนวันงาน 3 วัน • ย้อนหลังได้ไม่เกิน 2 วัน"
+            )
+        )
+        val candidate = listOf(
+            original[0].copy(billDate = "22/08/2026", source = "OCR-TEMPLATE", ocrSourceImagePath = "bill-2.jpg")
+        )
+
+        val result = OcrAccumulationPolicy.merge(original, candidate, emptyList(), setOf(4))
+
+        assertEquals("22/08/2026", result.records.single().billDate)
+        assertEquals(setOf(4), result.improvedPos)
+    }
+
+    @Test
     fun laterImageDoesNotSilentlyOverwriteGoodOcr() {
         val original = listOf(
             PosRecord(1, "001111", "22/08/2026", "10:00", source = "OCR-TEMPLATE")
