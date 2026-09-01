@@ -39,7 +39,12 @@ object OcrAccumulationPolicy {
             val candidateTime = changedValue(original.billTime, template.billTime, profile.billTime)
 
             val customer = chooseField(original, original.customerNo, candidateCustomer, listOf("ลูกค้า", "ยอด"))
-            val date = chooseField(original, original.billDate, candidateDate, listOf("วันที่", "เดือน", "ปี"))
+            val date = chooseField(
+                original,
+                original.billDate,
+                candidateDate,
+                listOf("วันที่", "เดือน", "ปี", "ย้อนหลัง", "ก่อนวันงาน", "หลังวันงาน", "ใช้ร่วมกับบิล")
+            )
             val time = chooseField(original, original.billTime, candidateTime, listOf("เวลา"))
 
             val didImprove = customer != original.customerNo || date != original.billDate || time != original.billTime
@@ -72,7 +77,6 @@ object OcrAccumulationPolicy {
                 noReceiptReason = "",
                 source = candidateSource.source.ifBlank { "OCR-ACCUMULATED" },
                 ocrSourceImagePath = candidateSource.ocrSourceImagePath.ifBlank { original.ocrSourceImagePath },
-                // คำเตือนของ POS ที่ได้รับการอ่านใหม่จะถูกสร้างใหม่ใน RealOcrPipeline
                 ocrWarnings = ""
             )
         }
@@ -101,8 +105,6 @@ object OcrAccumulationPolicy {
     ): String {
         if (candidateValue.isBlank()) return originalValue
         if (originalValue.isBlank()) return candidateValue
-
-        // ข้อมูลที่ผู้ใช้กรอกเองถือเป็นค่าที่ล็อกไว้ ไม่ให้ OCR เปลี่ยนเงียบ ๆ
         if (!originalRecord.source.startsWith("OCR", ignoreCase = true)) return originalValue
 
         val hasRelevantProblem = warningKeywords.any { key -> originalRecord.ocrWarnings.contains(key) }
