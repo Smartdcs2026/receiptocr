@@ -13,6 +13,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognizer
 import java.io.File
+import kotlin.math.sqrt
 
 data class OcrTextPass(
     val text: Text,
@@ -31,8 +32,13 @@ data class MultiPassOcrResult(
 }
 
 /**
- * อ่านทั้งภาพและอ่านซ้ำเป็นช่วงแนวนอนที่เหลื่อมกัน
- * ช่วยภาพที่วางบิลหลายใบซ้อนกัน โดยไม่ผูกกับชื่อแบรนด์หรือรูปแบบบิลใด
+ * OCR หลายมุมมองสำหรับบิลจริง
+ * - ภาพต้นฉบับ
+ * - contrast หลายระดับ
+ * - local contrast สำหรับบิลซีดไม่เท่ากัน
+ * - adaptive threshold + ซ่อมรอยขาด 1 pixel
+ * - หมุนเล็กน้อยสองทิศสำหรับแถวเอียง
+ * - crop แนวนอนแบบเหลื่อมและแคบ เพื่อไม่ให้ข้อมูลคนละ POS ไหลข้ามกัน
  */
 object MultiPassOcrReader {
     fun process(
@@ -46,40 +52,42 @@ object MultiPassOcrReader {
         val bitmaps = mutableListOf<Bitmap>()
         val tasks = mutableListOf<Task<Text>>()
         val passOrigins = mutableListOf<Pair<Int, Int>>()
-        tasks += recognizer.process(InputImage.fromBitmap(source, 0))
-        passOrigins += 0 to 0
 
+        fun addPass(bitmap: Bitmap, originX: Int = 0, originY: Int = 0, owned: Boolean = true) {
+            if (owned) bitmaps += bitmap
+            tasks += recognizer.process(InputImage.fromBitmap(bitmap, 0))
+            passOrigins += originX to originY
+        }
+
+        addPass(source, owned = false)
         val qualityWarnings = inspectImageQuality(source)
 
-        // อ่านภาพเต็มหลายระดับ ภาพสีรักษารายละเอียดเดิม ภาพขาวดำช่วยบิลซีด
-        // และภาพขาวดำเข้มช่วยกรณีตัวอักษรความร้อนมีสีใกล้กับพื้นกระดาษ
-        val softContrast = enhanceForText(source, contrast = 1.15f, brightness = -4f)
+        val softContrast = enhanceForText(source, contrast = 1.12f, brightness = -5f)
         val enhanced = enhanceForText(source, contrast = 1.35f, brightness = 0f)
-        val highContrast = enhanceForText(source, contrast = 1.75f, brightness = 8f)
+        val highContrast = enhanceForText(source, contrast = 1.72f, brightness = 6f)
+        // ภาพมืดลงเล็กน้อยช่วยเก็บส่วนที่เกือบขาวจากแสงสะท้อน แต่ไม่สามารถกู้ pixel ที่ขาวล้วนได้
+        val glareSafe = enhanceForText(source, contrast = 1.28f, brightness = -22f)
+        val localContrast = localContrastNormalize(source)
         val sharpened = sharpenForText(enhanced)
-        val adaptive = blockAdaptiveThreshold(enhanced)
-        bitmaps += softContrast
-        bitmaps += enhanced
-        bitmaps += highContrast
-        bitmaps += sharpened
-        bitmaps += adaptive
-        tasks += recognizer.process(InputImage.fromBitmap(softContrast, 0))
-        passOrigins += 0 to 0
-        tasks += recognizer.process(InputImage.fromBitmap(enhanced, 0))
-        passOrigins += 0 to 0
-        tasks += recognizer.process(InputImage.fromBitmap(highContrast, 0))
-        passOrigins += 0 to 0
-        tasks += recognizer.process(InputImage.fromBitmap(sharpened, 0))
-        passOrigins += 0 to 0
-        tasks += recognizer.process(InputImage.fromBitmap(adaptive, 0))
-        passOrigins += 0 to 0
+        val adaptive = blockAdaptiveThreshold(localContrast)
+        val repaired = bridgeBrokenStrokes(adaptive)
+        val rotateLeft = rotateSameSize(localContrast, -2.5f)
+        val rotateRight = rotateSameSize(localContrast, 2.5f)
 
-        // แถบที่แคบและเหลื่อมกันช่วยแยกบิลซ้อนหลายใบออกจากกัน
-        // จำนวนช่วงอิงจำนวน POS ในแผนงาน แต่ไม่ผูกกับชื่อแบรนด์
-        val passCount = (expectedRecords * 2 + 1).coerceIn(7, 11)
-        // ช่วงเดิมสูงเกินไปและมักครอบบิลซ้อนพร้อมกัน 2 ใบ ทำให้ ML Kit
-        // รวมบรรทัดคนละ POS เข้าด้วยกัน จึงใช้ช่วงแคบลงแต่คงการเหลื่อมไว้
-        val cropRatio = (0.86f / expectedRecords.coerceAtLeast(1)).coerceIn(0.18f, 0.30f)
+        addPass(softContrast)
+        addPass(enhanced)
+        addPass(highContrast)
+        addPass(glareSafe)
+        addPass(localContrast)
+        addPass(sharpened)
+        addPass(adaptive)
+        addPass(repaired)
+        addPass(rotateLeft)
+        addPass(rotateRight)
+
+        // crop ให้แคบกว่ารอบก่อนเพื่อแยกบิล/POS ที่อยู่ใกล้กัน
+        val passCount = (expectedRecords * 2 + 3).coerceIn(9, 15)
+        val cropRatio = (0.72f / expectedRecords.coerceAtLeast(1)).coerceIn(0.14f, 0.26f)
         val cropHeight = (source.height * cropRatio).toInt().coerceIn(1, source.height)
         val travel = (source.height - cropHeight).coerceAtLeast(0)
         val tops = (0 until passCount).map { index ->
@@ -87,15 +95,14 @@ object MultiPassOcrReader {
         }.distinct()
 
         tops.forEachIndexed { index, top ->
-            val cropSource = when (index % 3) {
-                0 -> highContrast
+            val cropSource = when (index % 4) {
+                0 -> localContrast
                 1 -> sharpened
-                else -> adaptive
+                2 -> adaptive
+                else -> repaired
             }
             val crop = Bitmap.createBitmap(cropSource, 0, top, cropSource.width, cropHeight)
-            bitmaps += crop
-            tasks += recognizer.process(InputImage.fromBitmap(crop, 0))
-            passOrigins += 0 to top
+            addPass(crop, originY = top)
         }
 
         return Tasks.whenAllSuccess<Text>(tasks).continueWith { completed ->
@@ -104,21 +111,24 @@ object MultiPassOcrReader {
                     throw completed.exception ?: IllegalStateException("อ่านข้อความไม่สำเร็จ")
                 }
                 val results = completed.result.orEmpty()
+                // ต้องรวม origin ใน dedup เพราะข้อความเหมือนกันอาจมาจากบิลคนละตำแหน่ง
                 val unique = results.mapIndexed { index, text ->
                     val origin = passOrigins.getOrElse(index) { 0 to 0 }
                     OcrTextPass(text = text, originX = origin.first, originY = origin.second)
-                }.distinctBy { normalizeForDedup(it.text.text) }
+                }.distinctBy {
+                    "${it.originX}:${it.originY}:" + normalizeForDedup(it.text.text)
+                }
                 MultiPassOcrResult(
                     passes = unique,
                     imageWidth = source.width,
                     imageHeight = source.height,
                     rawText = unique.mapIndexed { index, pass ->
-                        "--- รอบอ่าน ${index + 1} ---\n${pass.text.text.trim()}"
+                        "--- รอบอ่าน ${index + 1} @${pass.originY} ---\n${pass.text.text.trim()}"
                     }.joinToString("\n"),
                     qualityWarnings = qualityWarnings
                 )
             } finally {
-                bitmaps.forEach { if (!it.isRecycled) it.recycle() }
+                bitmaps.distinct().forEach { if (!it.isRecycled) it.recycle() }
                 if (!source.isRecycled) source.recycle()
             }
         }
@@ -130,10 +140,6 @@ object MultiPassOcrReader {
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
         var sample = 1
-        // ภาพจากกล้อง 12MP เคยถูกลดจากราว 4,000px เหลือประมาณ 1,000px
-        // ทำให้ตัวเลขบนบิลหลายใบเล็กเกินกว่าที่ ML Kit จะรักษาไว้ได้
-        // 2,800px ทำให้ภาพ 4,032px ใช้ inSampleSize=2 (ประมาณ 2,016px)
-        // โดยยังควบคุมหน่วยความจำด้วยการอ่านแบบ power-of-two sampling
         while (maxOf(bounds.outWidth / sample, bounds.outHeight / sample) > 2800) sample *= 2
         return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply {
             inSampleSize = sample
@@ -162,7 +168,51 @@ object MultiPassOcrReader {
         return output
     }
 
-    /** เพิ่มขอบตัวอักษรโดยคงขนาดและตำแหน่งเดิม เพื่อให้ข้อความที่ขาดเล็กน้อยต่อเนื่องขึ้น */
+    /** ปรับ contrast แยกเป็นพื้นที่ ช่วยบิลความร้อนที่ซีดหรือมีเงาไม่เท่ากันทั้งใบ */
+    private fun localContrastNormalize(source: Bitmap): Bitmap {
+        val width = source.width
+        val height = source.height
+        val input = IntArray(width * height)
+        val output = IntArray(width * height)
+        source.getPixels(input, 0, width, 0, 0, width, height)
+        val block = 64
+        var top = 0
+        while (top < height) {
+            val bottom = (top + block).coerceAtMost(height)
+            var left = 0
+            while (left < width) {
+                val right = (left + block).coerceAtMost(width)
+                var sum = 0.0
+                var sumSquares = 0.0
+                var count = 0
+                for (y in top until bottom) {
+                    val row = y * width
+                    for (x in left until right) {
+                        val v = Color.red(input[row + x]).toDouble()
+                        sum += v
+                        sumSquares += v * v
+                        count++
+                    }
+                }
+                val mean = if (count == 0) 128.0 else sum / count
+                val variance = if (count == 0) 0.0 else (sumSquares / count - mean * mean).coerceAtLeast(0.0)
+                val sd = sqrt(variance).coerceAtLeast(1.0)
+                val gain = (62.0 / sd).coerceIn(0.90, 2.35)
+                for (y in top until bottom) {
+                    val row = y * width
+                    for (x in left until right) {
+                        val v = Color.red(input[row + x]).toDouble()
+                        val adjusted = (128.0 + (v - mean) * gain).toInt().coerceIn(0, 255)
+                        output[row + x] = Color.rgb(adjusted, adjusted, adjusted)
+                    }
+                }
+                left += block
+            }
+            top += block
+        }
+        return Bitmap.createBitmap(output, width, height, Bitmap.Config.ARGB_8888)
+    }
+
     private fun sharpenForText(source: Bitmap): Bitmap {
         val width = source.width
         val height = source.height
@@ -183,7 +233,6 @@ object MultiPassOcrReader {
         return Bitmap.createBitmap(output, width, height, Bitmap.Config.ARGB_8888)
     }
 
-    /** แยกตัวอักษรจากพื้นกระดาษทีละพื้นที่ ช่วยบิลที่ซีดไม่เท่ากันหรือมีเงาบางส่วน */
     private fun blockAdaptiveThreshold(source: Bitmap): Bitmap {
         val width = source.width
         val height = source.height
@@ -221,25 +270,59 @@ object MultiPassOcrReader {
         return Bitmap.createBitmap(output, width, height, Bitmap.Config.ARGB_8888)
     }
 
-    /** ตรวจคุณภาพแบบเบา ๆ จากจุดตัวอย่าง เพื่อเตือนโดยไม่ปฏิเสธภาพแทนผู้ใช้ */
+    /** เชื่อมเฉพาะช่องว่าง 1 pixel ที่มีหมึกอยู่สองข้าง ลดอักษรขาดโดยไม่ขยายตัวอักษรทั้งก้อน */
+    private fun bridgeBrokenStrokes(source: Bitmap): Bitmap {
+        val width = source.width
+        val height = source.height
+        val input = IntArray(width * height)
+        val output = IntArray(width * height)
+        source.getPixels(input, 0, width, 0, 0, width, height)
+        input.copyInto(output)
+        fun dark(i: Int) = Color.red(input[i]) < 80
+        for (y in 1 until height - 1) {
+            val row = y * width
+            for (x in 1 until width - 1) {
+                val i = row + x
+                if (Color.red(input[i]) < 200) continue
+                val bridgeHorizontal = dark(i - 1) && dark(i + 1)
+                val bridgeVertical = dark(i - width) && dark(i + width)
+                if (bridgeHorizontal || bridgeVertical) output[i] = Color.BLACK
+            }
+        }
+        return Bitmap.createBitmap(output, width, height, Bitmap.Config.ARGB_8888)
+    }
+
+    private fun rotateSameSize(source: Bitmap, degrees: Float): Bitmap {
+        val output = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+        canvas.drawColor(Color.WHITE)
+        canvas.rotate(degrees, source.width / 2f, source.height / 2f)
+        canvas.drawBitmap(source, 0f, 0f, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+        return output
+    }
+
     private fun inspectImageQuality(source: Bitmap): List<String> {
         val stepX = (source.width / 96).coerceAtLeast(1)
         val stepY = (source.height / 96).coerceAtLeast(1)
         var count = 0L
         var sum = 0.0
         var sumSquares = 0.0
+        var saturated = 0L
+        var veryDark = 0L
         var y = 0
         while (y < source.height) {
             var x = 0
             while (x < source.width) {
                 val color = source.getPixel(x, y)
                 val luminance = (
-                    android.graphics.Color.red(color) * 0.299 +
-                        android.graphics.Color.green(color) * 0.587 +
-                        android.graphics.Color.blue(color) * 0.114
+                    Color.red(color) * 0.299 +
+                        Color.green(color) * 0.587 +
+                        Color.blue(color) * 0.114
                     )
                 sum += luminance
                 sumSquares += luminance * luminance
+                if (luminance >= 250.0) saturated++
+                if (luminance <= 28.0) veryDark++
                 count++
                 x += stepX
             }
@@ -248,11 +331,14 @@ object MultiPassOcrReader {
         if (count == 0L) return emptyList()
         val mean = sum / count
         val variance = (sumSquares / count - mean * mean).coerceAtLeast(0.0)
+        val saturatedRatio = saturated.toDouble() / count.toDouble()
+        val darkRatio = veryDark.toDouble() / count.toDouble()
         val warnings = mutableListOf<String>()
-        if (mean < 55.0) warnings += "ภาพค่อนข้างมืด กรุณาตรวจข้อมูลกับภาพ"
-        if (mean > 235.0) warnings += "ภาพสว่างมาก ตัวอักษรอาจจาง กรุณาตรวจข้อมูลกับภาพ"
-        if (variance < 180.0) warnings += "ภาพมีความต่างสีต่ำ ตัวอักษรอาจไม่ชัด"
-        return warnings
+        if (mean < 55.0 || darkRatio > 0.35) warnings += "ภาพค่อนข้างมืด • ระบบปรับภาพให้อัตโนมัติแล้ว กรุณาตรวจผล"
+        if (mean > 235.0) warnings += "ภาพสว่างมาก • ระบบพยายามดึงข้อความจางให้อัตโนมัติแล้ว"
+        if (variance < 180.0) warnings += "ตัวอักษรกับพื้นกระดาษต่างกันน้อย • ระบบเพิ่ม contrast เฉพาะพื้นที่แล้ว"
+        if (saturatedRatio > 0.18) warnings += "พบพื้นที่ขาวจัด/แสงสะท้อนมาก • หากข้อมูลตรงนั้นหายจริงควรถ่ายเพิ่มอีกมุม"
+        return warnings.distinct()
     }
 
     private fun normalizeForDedup(value: String): String = value
