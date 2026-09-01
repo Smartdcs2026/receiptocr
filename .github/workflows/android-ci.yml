@@ -1,0 +1,58 @@
+name: ReceiptOCR CI
+
+on:
+  push:
+    branches:
+      - round75-store-date-validation
+      - round76-ocr-correction-store-identity
+      - round77-workplan-store-normalization
+    paths:
+      - 'android-app/**'
+      - 'web-admin/**'
+      - 'tests/**'
+      - '.github/workflows/android-ci.yml'
+  pull_request:
+    paths:
+      - 'android-app/**'
+      - 'web-admin/**'
+      - 'tests/**'
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Work-plan store normalization tests
+        run: node tests/workplan-store-normalizer.test.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace

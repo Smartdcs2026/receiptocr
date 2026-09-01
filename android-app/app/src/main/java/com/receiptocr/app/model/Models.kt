@@ -32,6 +32,11 @@ data class WorkItem(
     val latitude: String,
     val longitude: String,
     val storeNote: String = "",
+    /**
+     * รหัสร้านที่คาดว่าจะพบบนบิลจริง หากระบบแผนงานใช้รหัสอีกชุดหนึ่ง
+     * ค่าใหม่นี้มาจากขั้นตอน Import/ข้อมูลร้าน และควรเป็นรหัสตัวเลขตามบิล
+     */
+    val receiptStoreId: String = "",
     val reviewStatus: String = "",
     val returnReason: String = "",
     val planStatus: String = "ACTIVE",
@@ -39,7 +44,16 @@ data class WorkItem(
     val movedToDate: String = "",
     val changeNote: String = "",
     val status: WorkStatus = WorkStatus.NOT_STARTED
-)
+) {
+    /**
+     * ใช้ receiptStoreId เป็นหลักเสมอ
+     * สำหรับแผนงานเก่าที่ยังไม่มี field นี้ ให้ดึงเฉพาะตัวเลขจาก storeCode
+     * เช่น CJ2125 -> 2125, JF3017 -> 3017, 2982 -> 2982
+     * หากไม่มีตัวเลขเลยให้คืนค่าว่าง เพื่อให้ validation แจ้งว่าไม่สามารถยืนยันร้านได้
+     */
+    val expectedReceiptStoreId: String
+        get() = receiptStoreId.trim().ifBlank { storeCode.filter(Char::isDigit) }
+}
 
 data class PosRecord(
     val posNumber: Int,
@@ -58,6 +72,8 @@ data class PosRecord(
     val ocrConfidence: String = "",
     val ocrTemplateName: String = "",
     val ocrWarnings: String = "",
+    /** รหัสร้านที่อ่านได้จากช่อง STORE_ID ตามแม่แบบ Admin ของ POS นี้ */
+    val ocrStoreId: String = "",
     /** รอบที่ใช้ตรวจเลขลูกค้าซ้ำ มาจากแม่แบบเดียวกับหน้า Admin */
     val ocrCounterCycle: String = "CONTINUOUS"
 )
