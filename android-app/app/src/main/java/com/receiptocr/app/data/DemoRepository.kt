@@ -95,6 +95,7 @@ object DemoRepository {
                 ocrConfidence = prefs.getString("$k.ocrConfidence", "") ?: "",
                 ocrTemplateName = prefs.getString("$k.ocrTemplateName", "") ?: "",
                 ocrWarnings = prefs.getString("$k.ocrWarnings", "") ?: "",
+                ocrStoreId = prefs.getString("$k.ocrStoreId", "") ?: "",
                 ocrCounterCycle = prefs.getString("$k.ocrCounterCycle", "CONTINUOUS") ?: "CONTINUOUS"
             )
         }
@@ -115,6 +116,7 @@ object DemoRepository {
                 .putString("$k.ocrConfidence", r.ocrConfidence)
                 .putString("$k.ocrTemplateName", r.ocrTemplateName)
                 .putString("$k.ocrWarnings", r.ocrWarnings)
+                .putString("$k.ocrStoreId", r.ocrStoreId)
                 .putString("$k.ocrCounterCycle", r.ocrCounterCycle)
         }
         editor.apply()
