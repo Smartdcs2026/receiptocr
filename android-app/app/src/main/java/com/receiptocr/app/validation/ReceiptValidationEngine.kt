@@ -172,8 +172,9 @@ object ReceiptValidationEngine {
     }
 
     /**
-     * ถ้า OCR อ่านรหัสร้านจากบิลแล้ว ต้องเทียบกับรหัสร้านของงานเสมอ
-     * ผิดร้านหรือสลับร้าน = BLOCK เพราะข้อมูลใช้กับงานร้านนี้ไม่ได้
+     * ตรวจ STORE_ID เฉพาะรูปแบบบิลที่ Admin กำหนดว่ามีรหัสร้านจริง
+     * การที่ข้อมูลมาจาก OCR เพียงอย่างเดียวไม่ได้หมายความว่าบิลต้องมี STORE_ID
+     * เพราะบางแบรนด์/บางรูปแบบไม่มีรหัสร้านบนบิล
      */
     private fun validateReceiptStoreIds(
         work: WorkItem,
@@ -181,7 +182,11 @@ object ReceiptValidationEngine {
         issues: MutableList<ValidationIssue>
     ) {
         val ocrRecords = records.filter { record ->
-            !record.noReceipt && (record.ocrStoreId.isNotBlank() || record.ocrSourceImagePath.isNotBlank())
+            if (record.noReceipt) return@filter false
+            record.ocrStoreIdExpected ||
+                record.ocrStoreId.isNotBlank() ||
+                record.ocrWarnings.contains("รหัสร้าน") ||
+                record.ocrWarnings.contains("ยืนยันร้านไม่ได้")
         }
         if (ocrRecords.isEmpty()) return
 
