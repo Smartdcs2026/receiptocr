@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ศูนย์แผนที่ร้าน</title>
-  <link rel="stylesheet" href="styles.css?v=63">
+  <link rel="stylesheet" href="styles.css?v=64">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -19,7 +19,7 @@
       <button id="loadMap" class="primary">ประมวลผลแผนที่</button>
     </div>
     <div class="mapCommandActions">
-      <button id="exportMap" class="secondary" title="ส่งออกร้านที่กำลังแสดง">ส่งออก CSV</button>
+      <button id="exportMap" class="secondary" title="ดาวน์โหลดรายชื่อร้านที่กำลังแสดง">ดาวน์โหลดรายชื่อ</button>
       <button id="toggleMapPanel" class="ghost" title="ซ่อนหรือแสดงแผงรายการร้าน">ซ่อนรายการ</button>
     </div>
   </section>
@@ -28,27 +28,27 @@
     <section class="mapOperationsBar" aria-label="เครื่องมือแผนที่">
       <div class="mapOperationsTitle"><strong>เครื่องมือแผนที่</strong><span id="mapModeStatus" class="mapModeStatus">พร้อมใช้งาน</span></div>
       <div class="mapToolDock" role="toolbar">
-        <button id="fitMap" title="แสดงร้านทั้งหมด"><span>⌗</span>แสดงร้านทั้งหมด</button>
+        <button id="fitMap" title="แสดงร้านทั้งหมด"><span>⌗</span>ร้านทั้งหมด</button>
         <button id="routePlannerMap" title="วางเส้นทางระหว่างร้าน" disabled><span>⌁</span>วางเส้นทาง</button>
         <button id="nearbyMap" title="ค้นหาร้านใกล้ร้านที่เลือก" disabled><span>◎</span>ร้านใกล้เคียง</button>
-        <button id="measureMap" title="วัดระยะทางแบบเส้นตรง"><span>↔</span>วัดระยะตรง</button>
-        <button id="undoMeasure" title="ย้อนกลับจุดวัดล่าสุด" disabled><span>↶</span>ย้อนกลับ</button>
-        <button id="clearMeasure" title="ล้างเส้นและผลการคำนวณ" disabled><span>×</span>ล้างเส้น</button>
-        <button id="fullscreenMap" title="เปิดแผนที่และเครื่องมือเต็มจอ"><span>⛶</span>เต็มหน้าจอ</button>
+        <button id="measureMap" title="วัดระยะทางแบบเส้นตรง"><span>↔</span>วัดระยะ</button>
+        <button id="undoMeasure" class="measureContextBtn" title="ย้อนกลับจุดวัดล่าสุด" disabled hidden><span>↶</span>ย้อนกลับ</button>
+        <button id="clearMeasure" class="measureContextBtn" title="ล้างเส้นวัด" disabled hidden><span>×</span>ล้างระยะ</button>
+        <button id="fullscreenMap" title="เปิดแผนที่และเครื่องมือเต็มจอ"><span>⛶</span>เต็มจอ</button>
       </div>
     </section>
 
     <section id="routePlannerPanel" class="routePlannerPanel" hidden>
-      <header><div><strong>วางเส้นทางระหว่างร้าน</strong><span>เปรียบเทียบระยะเส้นตรงกับระยะตามถนน</span></div><button id="closeRoutePlanner" class="ghost" aria-label="ปิด">×</button></header>
+      <header><div><strong>วางเส้นทางระหว่างร้าน</strong><span>ค้นหาด้วยรหัสร้าน ชื่อร้าน หรือแบรนด์</span></div><div class="routePanelActions"><button id="clearRoute" class="ghost">ล้าง</button><button id="closeRoutePlanner" class="ghost" aria-label="ปิด">×</button></div></header>
       <div class="routePlannerControls">
-        <label>ร้านต้นทาง<select id="routeFrom"><option value="">เลือกร้านต้นทาง</option></select></label>
+        <label>ร้านต้นทาง<div class="routeSearchField"><span>⌕</span><input id="routeFrom" list="routeStoreOptions" autocomplete="off" placeholder="พิมพ์รหัสหรือชื่อร้าน"></div></label>
         <button id="swapRoute" class="routeSwap" title="สลับต้นทางและปลายทาง">⇄</button>
-        <label>ร้านปลายทาง<select id="routeTo"><option value="">เลือกร้านปลายทาง</option></select></label>
-        <label>วิธีเดินทาง<select id="routeTravel"><option value="driving">รถยนต์</option><option value="walking">เดิน</option><option value="bicycling">จักรยาน</option><option value="transit">ขนส่งสาธารณะ</option></select></label>
-        <button id="calculateRoute" class="primary">คำนวณเส้นทาง</button>
-        <button id="clearRoute" class="ghost">ล้างเส้นทาง</button>
+        <label>ร้านปลายทาง<div class="routeSearchField"><span>⌕</span><input id="routeTo" list="routeStoreOptions" autocomplete="off" placeholder="พิมพ์รหัสหรือชื่อร้าน"></div></label>
+        <label>วิธีเดินทาง<select id="routeTravel"><option value="driving">รถยนต์</option><option value="motorcycle">รถจักรยานยนต์</option><option value="walking">เดิน</option><option value="bicycling">จักรยาน</option><option value="transit">ขนส่งสาธารณะ</option></select></label>
+        <button id="calculateRoute" class="primary">คำนวณ</button>
       </div>
-      <div id="routeOutput" class="routeOutput"><span>เลือกร้านต้นทางและปลายทางเพื่อเริ่มวางเส้นทาง</span></div>
+      <datalist id="routeStoreOptions"></datalist>
+      <div id="routeOutput" class="routeOutput" hidden></div>
     </section>
 
     <section class="mapKpiBar" aria-label="สรุปข้อมูลบนแผนที่">
@@ -90,8 +90,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="config.js"></script>
-<script src="admin-auth.js?v=63"></script>
+<script src="admin-auth.js?v=64"></script>
 <script src="content-page.js"></script>
-<script src="map.js?v=63"></script>
+<script src="map.js?v=64"></script>
 </body>
 </html>
