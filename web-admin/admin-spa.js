@@ -1,6 +1,6 @@
 (async()=>{
   if(!await AdminAuth.guard()) return;
-  const VERSION="67",allRoles=["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"];
+  const VERSION="78",allRoles=["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"];
   const routes={
     home:{title:"ภาพรวมการปฏิบัติงาน",sub:"สถานะงาน การตรวจสอบ และรายการที่ต้องดำเนินการ",url:"dashboard.html",roles:allRoles,group:"งานประจำวัน",icon:"grid"},
     review:{title:"ศูนย์ตรวจสอบงาน",sub:"ตรวจภาพบิล ภาพร้าน และข้อมูลยอดลูกค้าราย POS",url:"review.html",roles:allRoles,group:"งานประจำวัน",icon:"check"},
@@ -29,7 +29,20 @@
   function routeUrl(r){return `${r.url}${r.url.includes("?")?"&":"?"}embed=1&v=${VERSION}`}
   function closeMobile(){shell.classList.remove("mobileNavOpen")}
   function setHeader(key){const r=routes[key];document.getElementById("spaTitle").textContent=r.title;document.getElementById("spaCrumb").textContent=r.group;document.getElementById("spaSub").textContent=r.sub;document.title=`${r.title} · ReceiptOCR`;navHost.querySelectorAll("a").forEach(a=>a.classList.toggle("active",a.dataset.route===key))}
-  function navigate(force=false){const key=keyFromHash();if((location.hash||"").slice(1).split("?")[0]!==key)history.replaceState(null,"",`#${key}`);setHeader(key);closeMobile();if(!force&&key===currentRoute)return;const n=++serial,nextIndex=1-activeIndex,next=frames[nextIndex];progress.classList.add("show");next.onload=()=>{if(n!==serial)return;next.classList.add("active");frames[activeIndex].classList.remove("active");activeIndex=nextIndex;currentRoute=key;progress.classList.remove("show")};next.src=routeUrl(routes[key])}
+  function installRouteEnhancements(frame,key){
+    if(key!=="ocr")return;
+    try{
+      const doc=frame.contentDocument;
+      if(!doc)return;
+      if(!doc.getElementById("round78OcrCss")){
+        const link=doc.createElement("link");link.id="round78OcrCss";link.rel="stylesheet";link.href=`ocr-admin-ux.css?v=${VERSION}`;doc.head.appendChild(link);
+      }
+      if(!doc.getElementById("round78OcrJs")){
+        const script=doc.createElement("script");script.id="round78OcrJs";script.src=`ocr-admin-ux.js?v=${VERSION}`;doc.body.appendChild(script);
+      }
+    }catch(_){/* same-origin iframe expected; base page still works if enhancement cannot load */}
+  }
+  function navigate(force=false){const key=keyFromHash();if((location.hash||"").slice(1).split("?")[0]!==key)history.replaceState(null,"",`#${key}`);setHeader(key);closeMobile();if(!force&&key===currentRoute)return;const n=++serial,nextIndex=1-activeIndex,next=frames[nextIndex];progress.classList.add("show");next.onload=()=>{if(n!==serial)return;installRouteEnhancements(next,key);next.classList.add("active");frames[activeIndex].classList.remove("active");activeIndex=nextIndex;currentRoute=key;progress.classList.remove("show")};next.src=routeUrl(routes[key])}
   async function refreshReviewCount(){const badge=document.getElementById("reviewNavCount");if(!badge)return;try{const d=await AdminAuth.json("/api/admin/submissions?status=SUBMITTED"),n=(d.items||[]).length;badge.textContent=n;badge.hidden=!n}catch{badge.hidden=true}}
   window.addEventListener("hashchange",()=>navigate());document.getElementById("spaLogout").onclick=AdminAuth.logout;document.getElementById("collapseNav").onclick=()=>{shell.classList.toggle("navCompact");localStorage.setItem("receiptocr_nav_compact",shell.classList.contains("navCompact")?"1":"0")};document.getElementById("mobileMenu").onclick=()=>shell.classList.add("mobileNavOpen");document.getElementById("navBackdrop").onclick=closeMobile;navigate(true);refreshReviewCount();setInterval(refreshReviewCount,60000);
 })();
