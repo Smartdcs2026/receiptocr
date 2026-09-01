@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ReceiptOCR Admin - รูปแบบบิล</title>
-  <link rel="stylesheet" href="styles.css?v=67">
+  <link rel="stylesheet" href="styles.css?v=68">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
@@ -211,12 +211,42 @@
           </select>
         </label>
       </div>
+
+      <div class="dateRuleEditor">
+        <div class="subSectionTitle">ช่วงวันที่บิลของแบรนด์นี้</div>
+        <div class="small">ตรวจ POS ทุกเครื่องของร้านร่วมกัน โดยใช้วันที่เก่าสุดกำหนดช่วงที่ใช้ได้</div>
+        <div class="simpleFormGrid two dateRuleGrid">
+          <label>การนับยอดของแบรนด์
+            <select id="dateCountingMode">
+              <option value="CONTINUOUS">นับต่อเนื่อง ข้ามเดือนได้</option>
+              <option value="MONTHLY_RESET">ตัดยอดทุกสิ้นเดือน</option>
+            </select>
+          </label>
+          <label>บิลย้อนหลังได้ไม่เกิน
+            <select id="maxBeforeDays">
+              <option value="2">2 วัน</option>
+              <option value="1">1 วัน</option>
+              <option value="0">ใช้เฉพาะวันงานและหลังวันงาน</option>
+            </select>
+          </label>
+          <label>ถ้าวันเก่าสุดย้อนหลัง 2 วัน ใช้หลังวันงานได้
+            <input id="afterOldestMax" type="number" min="0" max="31" value="0">
+          </label>
+          <label>ถ้าวันเก่าสุดย้อนหลัง 1 วัน ใช้หลังวันงานได้
+            <input id="afterOldestOne" type="number" min="0" max="31" value="2">
+          </label>
+          <label>ถ้าวันเก่าสุดเป็นวันงาน ใช้หลังวันงานได้
+            <input id="afterOldestWork" type="number" min="0" max="31" value="2">
+          </label>
+        </div>
+        <div class="dateRuleExample" id="dateRuleExample">ค่ามาตรฐาน: ย้อนหลัง 2 วันใช้ได้ถึงวันงาน ส่วนกรณีอื่นใช้ได้ถึง 2 วันหลังวันงาน</div>
+      </div>
     </section>
 
     <section class="simpleTestPanel">
       <div class="testPanelHead">
         <div>
-          <h4>ทดสอบรูปแบบที่สร้าง <span class="readerVersion">ตัวอ่านรุ่น 67</span></h4>
+          <h4>ทดสอบรูปแบบที่สร้าง <span class="readerVersion">ตัวอ่านรุ่น 68</span></h4>
           <div class="small">วางข้อความที่อ่านจากบิล ระบบจะแสดงทุกชุดข้อมูลที่พบและแจ้งเตือนเฉพาะเงื่อนไขที่ไม่ตรง</div>
         </div>
         <button id="runPatternTestBtn" class="primary">ทดสอบ</button>
@@ -245,10 +275,11 @@
 </div>
 
 <script src="config.js"></script>
-<script src="admin-auth.js?v=67"></script>
+<script src="admin-auth.js?v=68"></script>
 <script src="content-page.js"></script>
-<script src="ocr-template-contract.js?v=67"></script>
-<script src="ocr-pattern-engine.js?v=67"></script>
-<script src="ocr-simple.js?v=67"></script>
+<script src="ocr-template-contract.js?v=68"></script>
+<script src="ocr-pattern-engine.js?v=68"></script>
+<script src="receipt-date-rules.js?v=68"></script>
+<script src="ocr-simple.js?v=68"></script>
 </body>
 </html>

@@ -21,6 +21,7 @@ const META={
 const SEGMENTS=[["LITERAL","ข้อความคงที่"],["YEAR_VALUE","ปี"],["MONTH_VALUE","เดือน"],["DAY_VALUE","วัน"],["STORE_ID","รหัสร้าน"],["POS_NUMBER","หมายเลขเครื่อง"],["EMPLOYEE_CODE","รหัสพนักงาน"],["CUSTOMER_VALUE","ยอด/เลขลูกค้า"],["SEPARATOR","ตัวคั่น"],["NUMBER_TEXT","ตัวเลขทั่วไป"],["ALNUM_TEXT","ตัวอักษร+ตัวเลข"],["IGNORE","ไม่ต้องใช้"]];
 
 let brands=[],patterns=[],editing=null,selectedRow=0,selectedFieldId=null,dragFieldId=null;
+let brandReceiptRule=ReceiptDateRules.defaultRule("");
 
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 function makeField(type){
@@ -41,8 +42,44 @@ async function loadPatterns(){
   try{
     const d=await AdminAuth.json(`/api/brands/${encodeURIComponent(brand)}/ocr-templates`);
     patterns=(d.items||[]).map(x=>x.template||x);
-  }catch(e){patterns=[]}
+    brandReceiptRule=ReceiptDateRules.normalize(d.receiptRule||ReceiptDateRules.defaultRule(brand),brand);
+  }catch(e){patterns=[];brandReceiptRule=ReceiptDateRules.defaultRule(brand)}
+  renderDateRule();
   renderPatternList();
+}
+function renderDateRule(){
+  const r=brandReceiptRule.groupDateRule;
+  $("dateCountingMode").value=r.resetAtMonthEnd?"MONTHLY_RESET":"CONTINUOUS";
+  $("maxBeforeDays").value=String(r.maxBeforeDays);
+  $("afterOldestMax").value=r.afterDaysWhenOldestIsMaxBefore;
+  $("afterOldestOne").value=r.afterDaysWhenOldestIsOneDayBefore;
+  $("afterOldestWork").value=r.afterDaysWhenOldestIsWorkDay;
+  $("dateRuleExample").textContent=r.resetAtMonthEnd
+    ?"แบรนด์นี้ห้ามใช้วันที่บิลข้ามเดือน แม้อยู่ในช่วงจำนวนวันที่กำหนด"
+    :"แบรนด์นี้ใช้วันที่ข้ามเดือนได้ตามช่วงจำนวนวันที่กำหนด";
+}
+function buildReceiptRule(){
+  const mode=$("dateCountingMode").value;
+  return ReceiptDateRules.normalize({
+    brandId:$("brandId").value,
+    customerCounterMode:mode,
+    preventDuplicateImage:true,
+    preventDuplicateReceiptData:true,
+    groupDateRule:{
+      enabled:true,
+      resetAtMonthEnd:mode==="MONTHLY_RESET",
+      maxBeforeDays:+$("maxBeforeDays").value,
+      afterDaysWhenOldestIsMaxBefore:+$("afterOldestMax").value,
+      afterDaysWhenOldestIsOneDayBefore:+$("afterOldestOne").value,
+      afterDaysWhenOldestIsWorkDay:+$("afterOldestWork").value,
+      action:"BLOCK",
+      warningText:"วันที่บิลไม่อยู่ในช่วงที่ใช้ได้"
+    }
+  },$("brandId").value);
+}
+async function saveBrandReceiptRule(){
+  brandReceiptRule=buildReceiptRule();
+  await AdminAuth.json("/api/admin/brand-receipt-rules",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({receiptRule:brandReceiptRule})});
 }
 function renderPatternList(){
   $("patternList").innerHTML=patterns.length?patterns.map((p,i)=>`
@@ -202,6 +239,7 @@ async function save(){
   const contractErrors=ReceiptOcrTemplateContract.validate(t);
   if(contractErrors.length)return SwalSmall.error("ยังบันทึกรูปแบบไม่ได้",contractErrors.join(" • "));
   try{
+    await saveBrandReceiptRule();
     await AdminAuth.json("/api/ocr-templates",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({template:t})});
     await SwalSmall.ok("บันทึกรูปแบบแล้ว",t.templateName);
     $("editorPanel").classList.add("hidden");editing=null;await loadPatterns();
@@ -274,6 +312,7 @@ $("addLgoExampleBtn").onclick=()=>{
   $("testPosCount").value="3";
 };
 $("brandId").onchange=()=>{editing=null;$("editorPanel").classList.add("hidden");loadPatterns()};
+["dateCountingMode","maxBeforeDays","afterOldestMax","afterOldestOne","afterOldestWork"].forEach(id=>{$(id).oninput=()=>{brandReceiptRule=buildReceiptRule();renderDateRule()};$(id).onchange=()=>{brandReceiptRule=buildReceiptRule();renderDateRule()}});
 $("addPatternBtn").onclick=openNew;
 $("savePatternBtn").onclick=save;
 $("deletePatternBtn").onclick=()=>deletePattern(null);
