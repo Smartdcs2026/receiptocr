@@ -1,8 +1,10 @@
 package com.receiptocr.app.validation
 
 /**
- * แยกการตรวจ "รหัสร้านบนบิล" ออกจากรหัสงานภายใน เช่น CJ375
- * เพราะสองค่านี้อาจเป็นคนละระบบรหัสกัน
+ * ตรวจรหัสร้านบนบิลกับรหัสร้านที่แผนงานกำหนดไว้เสมอ
+ *
+ * ถ้าองค์กรมีรหัสแผนงานและรหัสบนบิลคนละชุด ให้ WorkItem ส่ง receiptStoreId
+ * ที่ map ไว้แล้วมาเป็น expectedStoreId แทนการข้าม validation
  */
 enum class StoreReceiptStatus {
     OK,
@@ -21,80 +23,79 @@ data class StoreReceiptAssessment(
 
 object StoreReceiptIdentity {
     fun evaluate(
-        workStoreCode: String,
+        expectedStoreId: String,
         storeIdsByPos: Map<Int, String>
     ): StoreReceiptAssessment {
-        val cleaned = storeIdsByPos.mapValues { (_, raw) -> normalizeReceiptStoreId(raw) }
-            .filterValues { it.isNotBlank() }
-        if (cleaned.isEmpty()) return StoreReceiptAssessment(StoreReceiptStatus.UNKNOWN)
-
-        // เทียบกับ Work Plan โดยตรงได้เฉพาะกรณีรหัสงานเป็นตัวเลขล้วน
-        // เช่น 1695 <-> 1695 เท่านั้น ไม่เอา CJ375 ไปเทียบกับ 1695
-        val expected = comparableWorkStoreId(workStoreCode)
-        if (expected != null) {
-            val mismatches = cleaned.filterValues { it != expected }
-            val matches = cleaned.filterValues { it == expected }
-            if (mismatches.isEmpty()) {
-                return StoreReceiptAssessment(
-                    status = StoreReceiptStatus.OK,
-                    expectedReceiptStoreId = expected
-                )
-            }
-            if (matches.isEmpty()) {
-                val values = mismatches.values.distinct().sorted().joinToString(", ")
-                return StoreReceiptAssessment(
-                    status = StoreReceiptStatus.WRONG_STORE,
-                    summaryWarnings = listOf(
-                        "บิลผิดร้าน • รหัสร้านที่อ่านได้ $values ไม่ตรงกับรหัสร้านของงาน $expected"
-                    ),
-                    expectedReceiptStoreId = expected
-                )
-            }
+        val expected = normalizeStoreId(expectedStoreId)
+        if (expected.isBlank()) {
             return StoreReceiptAssessment(
-                status = StoreReceiptStatus.BILL_SWAPPED_STORE,
-                warningsByPos = mismatches.mapValues { (_, actual) ->
-                    "พบบิลสลับร้าน • รหัสร้านที่อ่านได้ ($actual) ควรเป็น $expected"
-                },
+                status = StoreReceiptStatus.UNKNOWN,
+                summaryWarnings = listOf(
+                    "ยังไม่มีรหัสร้านในแผนงานสำหรับตรวจบิล • กรุณาให้ผู้ดูแลกำหนดรหัสร้านก่อนใช้งาน"
+                )
+            )
+        }
+
+        val cleaned = storeIdsByPos.mapValues { (_, raw) -> normalizeStoreId(raw) }
+            .filterValues { it.isNotBlank() }
+        if (cleaned.isEmpty()) {
+            return StoreReceiptAssessment(
+                status = StoreReceiptStatus.UNKNOWN,
                 expectedReceiptStoreId = expected
             )
         }
 
-        val groups = cleaned.entries.groupBy { it.value }
-        if (groups.size <= 1) {
-            return StoreReceiptAssessment(StoreReceiptStatus.OK)
+        val matches = cleaned.filterValues { sameStoreId(it, expected) }
+        val mismatches = cleaned.filterValues { !sameStoreId(it, expected) }
+
+        if (mismatches.isEmpty()) {
+            return StoreReceiptAssessment(
+                status = StoreReceiptStatus.OK,
+                expectedReceiptStoreId = expected
+            )
         }
 
-        val ranked = groups.entries.sortedByDescending { it.value.size }
-        val top = ranked.first()
-        val secondSize = ranked.getOrNull(1)?.value?.size ?: 0
-        return if (top.value.size > secondSize) {
-            val expectedFromMajority = top.key
-            val outliers = cleaned.filterValues { it != expectedFromMajority }
-            StoreReceiptAssessment(
-                status = StoreReceiptStatus.BILL_SWAPPED_STORE,
-                warningsByPos = outliers.mapValues { (_, actual) ->
-                    "พบบิลสลับร้าน • รหัสร้านที่อ่านได้ ($actual) ต่างจากบิลส่วนใหญ่ ($expectedFromMajority)"
+        if (matches.isEmpty()) {
+            val actualValues = mismatches.values.distinct().sorted().joinToString(", ")
+            return StoreReceiptAssessment(
+                status = StoreReceiptStatus.WRONG_STORE,
+                warningsByPos = mismatches.mapValues { (_, actual) ->
+                    "บิลผิดร้าน • รหัสร้านที่อ่านได้ ($actual) ไม่ตรงกับรหัสร้านของงาน ($expected)"
                 },
-                expectedReceiptStoreId = expectedFromMajority
-            )
-        } else {
-            StoreReceiptAssessment(
-                status = StoreReceiptStatus.MIXED_STORE,
                 summaryWarnings = listOf(
-                    "พบรหัสร้านหลายค่าในภาพ (${cleaned.values.distinct().sorted().joinToString(", ")}) • ยังระบุไม่ได้ว่าบิลใดสลับร้าน กรุณาตรวจภาพ"
-                )
+                    "บิลผิดร้าน • รหัสร้านที่อ่านได้ $actualValues ไม่ตรงกับรหัสร้านของงาน $expected"
+                ),
+                expectedReceiptStoreId = expected
             )
         }
+
+        return StoreReceiptAssessment(
+            status = StoreReceiptStatus.BILL_SWAPPED_STORE,
+            warningsByPos = mismatches.mapValues { (_, actual) ->
+                "พบบิลสลับร้าน • รหัสร้านที่อ่านได้ ($actual) ควรเป็น $expected"
+            },
+            summaryWarnings = listOf(
+                "พบบิลสลับร้าน ${mismatches.size} POS • กรุณาเปลี่ยนเป็นบิลของร้าน $expected ก่อนใช้งาน"
+            ),
+            expectedReceiptStoreId = expected
+        )
     }
 
-    fun normalizeReceiptStoreId(raw: String): String =
-        raw.trim().filter(Char::isDigit).trimStart('0').ifBlank {
-            if (raw.any(Char::isDigit)) "0" else ""
-        }
+    fun normalizeStoreId(raw: String): String =
+        raw.trim()
+            .uppercase()
+            .replace(Regex("[\\s._/-]+"), "")
+            .filter { it.isLetterOrDigit() }
 
-    private fun comparableWorkStoreId(raw: String): String? {
-        val value = raw.trim()
-        if (!value.matches(Regex("^\\d+$"))) return null
-        return value.trimStart('0').ifBlank { "0" }
+    fun sameStoreId(first: String, second: String): Boolean {
+        val a = normalizeStoreId(first)
+        val b = normalizeStoreId(second)
+        if (a.isBlank() || b.isBlank()) return false
+
+        // รหัสตัวเลขล้วนยอมรับ leading zero ต่างกัน เช่น 0652 = 652
+        if (a.all(Char::isDigit) && b.all(Char::isDigit)) {
+            return a.trimStart('0').ifBlank { "0" } == b.trimStart('0').ifBlank { "0" }
+        }
+        return a == b
     }
 }
