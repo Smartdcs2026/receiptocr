@@ -58,6 +58,8 @@ data class PosRecord(
     val ocrConfidence: String = "",
     val ocrTemplateName: String = "",
     val ocrWarnings: String = "",
+    /** รหัสร้านที่อ่านได้จากช่อง STORE_ID ตามแม่แบบ Admin ของ POS นี้ */
+    val ocrStoreId: String = "",
     /** รอบที่ใช้ตรวจเลขลูกค้าซ้ำ มาจากแม่แบบเดียวกับหน้า Admin */
     val ocrCounterCycle: String = "CONTINUOUS"
 )
