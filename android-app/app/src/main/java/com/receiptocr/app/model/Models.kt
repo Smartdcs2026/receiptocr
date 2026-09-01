@@ -34,7 +34,7 @@ data class WorkItem(
     val storeNote: String = "",
     /**
      * รหัสร้านที่คาดว่าจะพบบนบิลจริง หากระบบแผนงานใช้รหัสอีกชุดหนึ่ง
-     * ถ้าไม่ได้กำหนด APK จะใช้ storeCode เป็นค่าที่ต้องเทียบเสมอ
+     * ค่าใหม่นี้มาจากขั้นตอน Import/ข้อมูลร้าน และควรเป็นรหัสตัวเลขตามบิล
      */
     val receiptStoreId: String = "",
     val reviewStatus: String = "",
@@ -45,8 +45,14 @@ data class WorkItem(
     val changeNote: String = "",
     val status: WorkStatus = WorkStatus.NOT_STARTED
 ) {
+    /**
+     * ใช้ receiptStoreId เป็นหลักเสมอ
+     * สำหรับแผนงานเก่าที่ยังไม่มี field นี้ ให้ดึงเฉพาะตัวเลขจาก storeCode
+     * เช่น CJ2125 -> 2125, JF3017 -> 3017, 2982 -> 2982
+     * หากไม่มีตัวเลขเลยให้คืนค่าว่าง เพื่อให้ validation แจ้งว่าไม่สามารถยืนยันร้านได้
+     */
     val expectedReceiptStoreId: String
-        get() = receiptStoreId.ifBlank { storeCode }
+        get() = receiptStoreId.trim().ifBlank { storeCode.filter(Char::isDigit) }
 }
 
 data class PosRecord(
