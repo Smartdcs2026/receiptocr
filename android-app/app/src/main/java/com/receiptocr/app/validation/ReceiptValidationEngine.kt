@@ -37,6 +37,45 @@ data class ReceiptGroupDateWindow(
 
 object ReceiptValidationEngine {
     private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    private val canonicalDateShape = Regex("^(\\d{2})/(\\d{2})/(\\d{4})$")
+
+    private data class DateParseResult(
+        val date: LocalDate? = null,
+        val code: String? = null,
+        val message: String? = null
+    )
+
+    private fun parseCanonicalReceiptDate(value: String): DateParseResult {
+        val raw = value.trim()
+        val match = canonicalDateShape.matchEntire(raw)
+            ?: return DateParseResult(
+                code = "DATE_FORMAT",
+                message = "รูปแบบวันที่ไม่ถูกต้อง • กรุณาใช้ dd/MM/yyyy"
+            )
+        val day = match.groupValues[1].toInt()
+        val month = match.groupValues[2].toInt()
+        val year = match.groupValues[3].toInt()
+
+        if (month !in 1..12) {
+            return DateParseResult(
+                code = "DATE_INVALID",
+                message = "เดือนที่อ่านได้ (${match.groupValues[2]}) ไม่มีอยู่จริง • เดือนต้องอยู่ระหว่าง 01-12"
+            )
+        }
+        if (day < 1) {
+            return DateParseResult(
+                code = "DATE_INVALID",
+                message = "วันที่ที่อ่านได้ ($raw) ไม่มีอยู่จริง"
+            )
+        }
+
+        val date = runCatching { LocalDate.of(year, month, day) }.getOrNull()
+            ?: return DateParseResult(
+                code = "DATE_INVALID",
+                message = "วันที่ที่อ่านได้ ($raw) ไม่มีอยู่จริง • กรุณาตรวจจำนวนวันของเดือน ${"%02d".format(month)}"
+            )
+        return DateParseResult(date = date)
+    }
 
     fun individualDateIssue(
         record: PosRecord,
@@ -45,8 +84,8 @@ object ReceiptValidationEngine {
     ): String? {
         if (!rule.enabled || record.noReceipt) return null
         if (record.billDate.isBlank()) return "ยังไม่มีวันที่บิล"
-        val date = runCatching { LocalDate.parse(record.billDate, dateFormatter) }.getOrNull()
-            ?: return "รูปแบบวันที่ไม่ถูกต้อง"
+        val parsed = parseCanonicalReceiptDate(record.billDate)
+        val date = parsed.date ?: return parsed.message ?: "ตรวจวันที่อีกครั้ง"
         if (rule.resetAtMonthEnd && (date.year != workDate.year || date.monthValue != workDate.monthValue)) {
             return "วันที่บิลต้องอยู่เดือนเดียวกับวันงาน"
         }
@@ -60,8 +99,8 @@ object ReceiptValidationEngine {
     }
 
     fun datePositionLabel(billDate: String, workDate: LocalDate): String {
-        val date = runCatching { LocalDate.parse(billDate, dateFormatter) }.getOrNull()
-            ?: return "ตรวจวันที่อีกครั้ง"
+        val parsed = parseCanonicalReceiptDate(billDate)
+        val date = parsed.date ?: return parsed.message ?: "ตรวจวันที่อีกครั้ง"
         val offset = java.time.temporal.ChronoUnit.DAYS.between(workDate, date).toInt()
         return when {
             offset < 0 -> "ก่อนวันงาน ${-offset} วัน"
@@ -137,11 +176,7 @@ object ReceiptValidationEngine {
         rule: ReceiptDateWindowRule
     ): Boolean? {
         if (!rule.enabled || billDate.isBlank()) return null
-        val parsed = try {
-            LocalDate.parse(billDate, dateFormatter)
-        } catch (_: Exception) {
-            return false
-        }
+        val parsed = parseCanonicalReceiptDate(billDate).date ?: return false
         val minDate = workDate.minusDays(rule.beforeDays.coerceAtLeast(0).toLong())
         val maxDate = workDate.plusDays(rule.afterDays.coerceAtLeast(0).toLong())
         return !parsed.isBefore(minDate) && !parsed.isAfter(maxDate)
@@ -156,7 +191,7 @@ object ReceiptValidationEngine {
         if (!rule.enabled) return null
         val validDates = records
             .filter { !it.noReceipt && it.billDate.isNotBlank() }
-            .mapNotNull { runCatching { LocalDate.parse(it.billDate, dateFormatter) }.getOrNull() }
+            .mapNotNull { parseCanonicalReceiptDate(it.billDate).date }
         if (validDates.isEmpty()) return null
 
         val earliest = validDates.minOrNull() ?: return null
@@ -193,13 +228,14 @@ object ReceiptValidationEngine {
     ): List<ValidationIssue> {
         if (!rule.enabled) return emptyList()
         val dated = records.filter { !it.noReceipt && it.billDate.isNotBlank() }.map { record ->
-            record to runCatching { LocalDate.parse(record.billDate, dateFormatter) }.getOrNull()
+            record to parseCanonicalReceiptDate(record.billDate)
         }
         val issues = mutableListOf<ValidationIssue>()
-        dated.filter { it.second == null }.forEach { (record, _) ->
-            issues += block("DATE_FORMAT_POS_${record.posNumber}", "รูปแบบวันที่ไม่ถูกต้อง • กรุณาใช้ dd/MM/yyyy")
+        dated.filter { it.second.date == null }.forEach { (record, parsed) ->
+            val code = parsed.code ?: "DATE_INVALID"
+            issues += block("${code}_POS_${record.posNumber}", parsed.message ?: "ตรวจวันที่อีกครั้ง")
         }
-        val valid = dated.mapNotNull { (record, date) -> date?.let { record to it } }
+        val valid = dated.mapNotNull { (record, parsed) -> parsed.date?.let { record to it } }
         if (valid.isEmpty()) return issues
 
         if (rule.resetAtMonthEnd) {
@@ -282,16 +318,13 @@ object ReceiptValidationEngine {
     ) {
         if (!rule.enabled) return
         records.filter { !it.noReceipt && it.billDate.isNotBlank() }.forEach { record ->
-            val parsed = try {
-                LocalDate.parse(record.billDate, dateFormatter)
-            } catch (_: Exception) {
-                null
-            }
+            val parsedResult = parseCanonicalReceiptDate(record.billDate)
+            val parsed = parsedResult.date
 
             if (parsed == null) {
                 issues += block(
-                    "DATE_FORMAT",
-                    "POS ${record.posNumber}: วันที่ต้องเป็นรูปแบบ dd/MM/yyyy"
+                    parsedResult.code ?: "DATE_INVALID",
+                    "POS ${record.posNumber}: ${parsedResult.message ?: "ตรวจวันที่อีกครั้ง"}"
                 )
                 return@forEach
             }
@@ -434,7 +467,7 @@ object ReceiptValidationEngine {
     }
 
     private fun counterCycleKey(record: PosRecord): String {
-        val date = runCatching { LocalDate.parse(record.billDate, dateFormatter) }.getOrNull()
+        val date = parseCanonicalReceiptDate(record.billDate).date
         return when (record.ocrCounterCycle.uppercase()) {
             "DAILY" -> date?.toString() ?: normalize(record.billDate)
             "MONTHLY" -> date?.let { "%04d-%02d".format(it.year, it.monthValue) } ?: normalize(record.billDate).takeLast(7)

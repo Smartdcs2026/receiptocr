@@ -2,11 +2,13 @@ package com.receiptocr.app.ocr
 
 import com.receiptocr.app.config.AdminOcrProfile
 import com.receiptocr.app.config.BrandReceiptRule
+import com.receiptocr.app.config.OcrFieldType
 import com.receiptocr.app.config.TemplateSource
 import com.receiptocr.app.config.UniversalOcrTemplate
 import com.receiptocr.app.model.PosRecord
 import com.receiptocr.app.model.WorkItem
 import com.receiptocr.app.validation.ReceiptValidationEngine
+import com.receiptocr.app.validation.StoreReceiptIdentity
 import java.time.LocalDate
 
 enum class OcrConfidence(val label: String) {
@@ -95,23 +97,37 @@ object RealOcrPipeline {
             }
         }
         val detectedPos = (templateResult.detectedPos + profileFilledPos).distinct().sorted()
+        val storeIdsByPos = buildStoreIdsByPos(templateResult, profileResult)
         val combinedRecords = mergeRecords(records, templateResult.records, profileResult?.records.orEmpty())
+            .map { record ->
+                record.copy(
+                    ocrStoreId = storeIdsByPos[record.posNumber] ?: record.ocrStoreId,
+                    ocrWarnings = sanitizeLegacyOcrWarnings(record.ocrWarnings)
+                )
+            }
 
         if (detectedPos.isNotEmpty()) {
             val detectedRecords = combinedRecords.filter { it.posNumber in detectedPos }
             val completeCore = detectedRecords.isNotEmpty() && detectedRecords.all {
                 it.billDate.isNotBlank() && it.billTime.isNotBlank() && it.customerNo.isNotBlank()
             }
-            val storeValues = templateResult.extracted["STORE_ID"].orEmpty() +
-                profileResult?.rawFieldSummary?.get(com.receiptocr.app.config.OcrFieldType.STORE_ID).orEmpty()
-            val storeMatched = storeValues.any { sameStoreCode(it, work.storeCode) }
+            val detectedStoreIds = storeIdsByPos.filterKeys { it in detectedPos }
+            val storeAssessment = StoreReceiptIdentity.evaluate(work.storeCode, detectedStoreIds)
+            val expectsStoreId = templates.any(::templateHasStoreId) ||
+                profile.regions.any { it.fieldType == OcrFieldType.STORE_ID }
             val missingPos = records.map { it.posNumber }.filterNot { it in detectedPos }
             val warnings = buildList {
                 addAll(imageQualityWarnings)
                 templateResult.validationWarnings.toSortedMap().forEach { (pos, items) ->
-                    items.forEach { add("POS $pos: $it") }
+                    items.filterNot(::isLegacyInterpreterWarning).forEach { add("POS $pos: $it") }
                 }
-                if (!storeMatched) add("ไม่พบรหัสร้านในภาพ กรุณาตรวจชื่อร้านกับภาพอีกครั้ง")
+                storeAssessment.warningsByPos.toSortedMap().forEach { (pos, warning) ->
+                    add("POS $pos: $warning")
+                }
+                addAll(storeAssessment.summaryWarnings)
+                if (expectsStoreId && detectedStoreIds.isEmpty()) {
+                    add("ไม่พบรหัสร้านตามตำแหน่งที่ Admin กำหนด กรุณาตรวจภาพอีกครั้ง")
+                }
                 if (!completeCore) add("ข้อมูลสำคัญบางช่องอ่านได้ไม่ครบ กรุณาตรวจแก้ก่อนยืนยัน")
                 if (missingPos.isNotEmpty()) add("ยังไม่พบข้อมูลเครื่อง ${missingPos.joinToString(", ")} ในภาพ")
                 addAll(
@@ -121,8 +137,8 @@ object RealOcrPipeline {
                         rule = receiptRule.groupDateRule
                     ).map { it.message }
                 )
-            }
-            val confidence = if (completeCore && storeMatched && warnings.isEmpty()) OcrConfidence.HIGH else OcrConfidence.MEDIUM
+            }.distinct()
+            val confidence = if (completeCore && warnings.isEmpty()) OcrConfidence.HIGH else OcrConfidence.MEDIUM
             val successMessage = when {
                 missingPos.isNotEmpty() ->
                     "อ่านข้อมูลได้ ${detectedPos.size} จาก ${records.size} เครื่อง • กรุณาตรวจเครื่อง ${missingPos.joinToString(", ")}"
@@ -216,11 +232,49 @@ object RealOcrPipeline {
         )
     }
 
-    private fun sameStoreCode(first: String, second: String): Boolean {
-        val a = OcrTextNormalizer.normalizeDigits(first).filter(Char::isDigit).trimStart('0').ifBlank { "0" }
-        val b = OcrTextNormalizer.normalizeDigits(second).filter(Char::isDigit).trimStart('0').ifBlank { "0" }
-        return a == b
+    private fun buildStoreIdsByPos(
+        templateResult: UniversalTemplateResult,
+        profileResult: RuleDrivenOcrResult?
+    ): Map<Int, String> {
+        val result = linkedMapOf<Int, String>()
+        val templateValues = templateResult.extracted["STORE_ID"].orEmpty()
+        if (templateValues.size == templateResult.detectedPos.size) {
+            templateResult.detectedPos.zip(templateValues).forEach { (pos, storeId) ->
+                if (storeId.isNotBlank()) result[pos] = storeId
+            }
+        }
+
+        val profilePos = profileResult?.detectedPos.orEmpty()
+        val profileValues = profileResult?.rawFieldSummary?.get(OcrFieldType.STORE_ID).orEmpty()
+        if (profileValues.size == profilePos.size) {
+            profilePos.zip(profileValues).forEach { (pos, storeId) ->
+                if (storeId.isNotBlank() && result[pos].isNullOrBlank()) result[pos] = storeId
+            }
+        }
+        return result
     }
+
+    private fun templateHasStoreId(template: UniversalOcrTemplate): Boolean =
+        template.recognition.rows.any { row ->
+            row.fields.any { field ->
+                field.type == "STORE_ID" ||
+                    field.composite?.segments.orEmpty().any { it.type == "STORE_ID" }
+            }
+        }
+
+    private fun isLegacyInterpreterWarning(value: String): Boolean {
+        val warning = value.trim()
+        return (warning.startsWith("รหัสร้านที่อ่านได้") && warning.contains("ไม่ตรงกับแผนงาน")) ||
+            warning.contains("รหัสร้านในภาพไม่ตรงกันทุกชุด") ||
+            warning.startsWith("วันที่ที่อ่านได้มีรูปแบบไม่ถูกต้อง")
+    }
+
+    private fun sanitizeLegacyOcrWarnings(raw: String): String =
+        raw.split(" • ")
+            .map { it.trim() }
+            .filter { it.isNotBlank() && !isLegacyInterpreterWarning(it) }
+            .distinct()
+            .joinToString(" • ")
 
     /** Template มาก่อน แล้วเติมเฉพาะช่องว่างด้วยผลจากกฎตำแหน่งของ Admin */
     private fun mergeRecords(
