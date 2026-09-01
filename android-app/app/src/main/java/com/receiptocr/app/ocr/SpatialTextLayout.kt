@@ -21,7 +21,10 @@ data class RebuiltOcrDocument(
     val estimatedSkewDegrees: Float
 )
 
-/** จัดคำใหม่จาก bounding boxes เพื่อไม่ยึดลำดับ block ที่ ML Kit ส่งกลับมา */
+/**
+ * จัดคำใหม่จาก bounding boxes เพื่อไม่ยึดลำดับ block ที่ ML Kit ส่งกลับมา
+ * Round78 แยกกลุ่มแนวนอนที่ห่างกันมาก เพื่อไม่รวมข้อความของบิล/POS คนละใบเป็นแถวเดียวกัน
+ */
 object SpatialTextLayout {
     private data class Token(
         val text: String,
@@ -78,17 +81,21 @@ object SpatialTextLayout {
 
         val medianHeight = median(tokens.map { it.height }).coerceAtLeast(1f)
         val tolerance = medianHeight * 0.62f
-        val groups = mutableListOf<MutableList<Pair<Token, Pair<Float, Float>>>>()
+        val yGroups = mutableListOf<MutableList<Pair<Token, Pair<Float, Float>>>>()
         rotated.forEach { item ->
             val y = item.second.second
-            val target = groups.minByOrNull { group -> kotlin.math.abs(group.map { it.second.second }.average().toFloat() - y) }
+            val target = yGroups.minByOrNull { group -> kotlin.math.abs(group.map { it.second.second }.average().toFloat() - y) }
             val targetY = target?.map { it.second.second }?.average()?.toFloat()
             if (target != null && targetY != null && kotlin.math.abs(targetY - y) <= tolerance) target += item
-            else groups += mutableListOf(item)
+            else yGroups += mutableListOf(item)
         }
 
+        // ML Kit อาจวางข้อความของบิลสองใบที่อยู่ระดับ Y ใกล้กันไว้ในบรรทัดเดียว
+        // แยกเมื่อช่องว่างแนวนอนกว้างผิดปกติเมื่อเทียบกับความสูงตัวอักษร
+        val groups = yGroups.flatMap { splitHorizontal(it, medianHeight) }
+
         val lines = groups
-            .sortedBy { group -> group.map { it.second.second }.average() }
+            .sortedWith(compareBy({ group -> group.map { it.second.second }.average() }, { group -> group.minOf { it.second.first } }))
             .mapIndexed { index, group ->
                 val sorted = group.sortedBy { it.second.first }
                 RebuiltOcrLine(
@@ -103,6 +110,29 @@ object SpatialTextLayout {
             .filter { it.text.isNotBlank() }
 
         return RebuiltOcrDocument(lines, skew)
+    }
+
+    private fun splitHorizontal(
+        group: List<Pair<Token, Pair<Float, Float>>>,
+        medianHeight: Float
+    ): List<List<Pair<Token, Pair<Float, Float>>>> {
+        if (group.size <= 1) return listOf(group)
+        val sorted = group.sortedBy { it.second.first }
+        val gapLimit = medianHeight * 10f
+        val result = mutableListOf<MutableList<Pair<Token, Pair<Float, Float>>>>()
+        var current = mutableListOf(sorted.first())
+        for (index in 1 until sorted.size) {
+            val previous = sorted[index - 1].first.rect
+            val next = sorted[index].first.rect
+            val gap = (next.left - previous.right).toFloat()
+            if (gap > gapLimit) {
+                result += current
+                current = mutableListOf()
+            }
+            current += sorted[index]
+        }
+        if (current.isNotEmpty()) result += current
+        return result
     }
 
     private fun angleOf(points: Array<Point>?): Float {
