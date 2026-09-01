@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ศูนย์แผนที่ร้าน</title>
-  <link rel="stylesheet" href="styles.css?v=64">
+  <link rel="stylesheet" href="styles.css?v=65">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -28,12 +28,13 @@
     <section class="mapOperationsBar" aria-label="เครื่องมือแผนที่">
       <div class="mapOperationsTitle"><strong>เครื่องมือแผนที่</strong><span id="mapModeStatus" class="mapModeStatus">พร้อมใช้งาน</span></div>
       <div class="mapToolDock" role="toolbar">
-        <button id="fitMap" title="แสดงร้านทั้งหมด"><span>⌗</span>ร้านทั้งหมด</button>
+        <button id="fitMap" title="ปรับแผนที่ให้เห็นร้านทั้งหมด"><span>⌗</span>แสดงร้านทั้งหมด</button>
         <button id="routePlannerMap" title="วางเส้นทางระหว่างร้าน" disabled><span>⌁</span>วางเส้นทาง</button>
-        <button id="nearbyMap" title="ค้นหาร้านใกล้ร้านที่เลือก" disabled><span>◎</span>ร้านใกล้เคียง</button>
+        <button id="nearbyMap" title="ค้นหาร้านใกล้ร้านที่เลือก" disabled hidden><span>◎</span>ร้านใกล้เคียง</button>
         <button id="measureMap" title="วัดระยะทางแบบเส้นตรง"><span>↔</span>วัดระยะ</button>
         <button id="undoMeasure" class="measureContextBtn" title="ย้อนกลับจุดวัดล่าสุด" disabled hidden><span>↶</span>ย้อนกลับ</button>
         <button id="clearMeasure" class="measureContextBtn" title="ล้างเส้นวัด" disabled hidden><span>×</span>ล้างระยะ</button>
+        <button id="toggleFullscreenPanel" title="ซ่อนหรือแสดงรายชื่อร้าน" hidden><span>▤</span>ซ่อนรายชื่อ</button>
         <button id="fullscreenMap" title="เปิดแผนที่และเครื่องมือเต็มจอ"><span>⛶</span>เต็มจอ</button>
       </div>
     </section>
@@ -90,8 +91,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="config.js"></script>
-<script src="admin-auth.js?v=64"></script>
+<script src="admin-auth.js?v=65"></script>
 <script src="content-page.js"></script>
-<script src="map.js?v=64"></script>
+<script src="map.js?v=65"></script>
 </body>
 </html>

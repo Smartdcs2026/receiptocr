@@ -108,7 +108,7 @@
     selectStore(store,false);
   }
   function selectStore(store,open=true){
-    activeStore=store;$('nearbyMap').disabled=false;
+    activeStore=store;$("nearbyMap").disabled=false;$("nearbyMap").hidden=false;
     const meta=brandMeta(store),lat=Number(store.latitude),lng=Number(store.longitude),route=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     $("selectedStorePanel").hidden=false;
     $("selectedStorePanel").innerHTML=`<button id="closeSelectedStore" aria-label="ปิด">×</button><div class="selectedStoreHead">${logoVisual(meta,"selectedBrandLogo")}<div><strong>${esc(store.store_name||"-")}</strong><span>${esc(meta.name)} · ${esc(store.store_code||"-")}</span></div></div><div class="selectedStoreFacts"><span><b>${Number(store.pos_count||0)}</b> POS</span><span><b>${lat.toFixed(5)}</b> Lat</span><span><b>${lng.toFixed(5)}</b> Lng</span></div>${store.address?`<p>${esc(store.address)}</p>`:""}<div class="selectedStoreActions routeStoreActions"><button id="useRouteFrom">ตั้งเป็นต้นทาง</button><button id="useRouteTo">ตั้งเป็นปลายทาง</button><a href="${route}" target="_blank" rel="noopener">นำทาง</a><button id="copySelectedCoord">คัดลอกพิกัด</button></div>`;
@@ -159,7 +159,7 @@
   function drawStraightRoute(from,to){
     const line=L.polyline([[Number(from.latitude),Number(from.longitude)],[Number(to.latitude),Number(to.longitude)]],{color:"#64748b",weight:2,dashArray:"7 7",opacity:.85}).addTo(map);routeLayers.push(line);return line;
   }
-  function routeIntro(from,to,straight){return`<div class="routeSummaryHead"><div><small>ต้นทาง</small><strong>${esc(storeLabel(from))}</strong></div><i>→</i><div><small>ปลายทาง</small><strong>${esc(storeLabel(to))}</strong></div><span><small>ระยะเส้นตรง</small><b>${formatDistance(straight)}</b></span></div>`;}
+  function routeStraightFact(straight){return`<div class="routeDirectFact"><span>ระยะเส้นตรง</span><strong>${formatDistance(straight)}</strong></div>`;}
   function bindNearbyButtons(){document.querySelectorAll("[data-nearby-route]").forEach(button=>button.onclick=()=>{const store=storeByKey(button.dataset.nearbyRoute);if(store)$("routeTo").value=routeStoreLabel(store);showRouteOutput('<div class="routeMessage">เลือกร้านปลายทางแล้ว กดคำนวณเพื่อดูระยะตามถนน</div>');});}
   function showNearby(){
     if(!activeStore){$("mapModeStatus").textContent="กรุณาเลือกร้านบนแผนที่ก่อน";return;}
@@ -172,16 +172,16 @@
     if(!from||!to){showRouteOutput('<div class="routeMessage warning">ไม่พบร้านที่ระบุ กรุณาเลือกร้านจากคำแนะนำที่แสดงขณะพิมพ์</div>');return;}if(key(from)===key(to)){showRouteOutput('<div class="routeMessage warning">ต้นทางและปลายทางต้องเป็นคนละร้าน</div>');return;}
     $("routeFrom").value=routeStoreLabel(from);$("routeTo").value=routeStoreLabel(to);
     clearRoute();const straight=hav({lat:Number(from.latitude),lng:Number(from.longitude)},{lat:Number(to.latitude),lng:Number(to.longitude)}),googleUrl=googleRouteUrl(from,to,travel),straightLayer=drawStraightRoute(from,to);map.fitBounds(straightLayer.getBounds().pad(.18));
-    if(travel!=="driving"){const message=travel==="motorcycle"?"เปิด Google Maps แล้วเลือกโหมดรถจักรยานยนต์เพื่อดูเส้นทางที่เหมาะสม":"วิธีเดินทางนี้จะคำนวณต่อใน Google Maps";showRouteOutput(routeIntro(from,to,straight)+`<div class="routeInlineAction"><span>${message}</span><a class="routeGoogleBtn" href="${googleUrl}" target="_blank" rel="noopener">เปิด Google Maps</a></div>`);return;}
-    showRouteOutput(routeIntro(from,to,straight)+'<div class="routeMessage">กำลังคำนวณระยะตามถนนและเส้นทางสำรอง…</div>');
+    if(travel!=="driving"){const message=travel==="motorcycle"?"เปิดนำทาง แล้วเลือกโหมดรถจักรยานยนต์":"คำนวณเส้นทางต่อใน Google Maps";showRouteOutput(`<div class="routeCompactResult">${routeStraightFact(straight)}<span class="routeCompactNote">${message}</span><a class="routeGoogleBtn" href="${googleUrl}" target="_blank" rel="noopener">เปิดนำทาง</a></div>`);return;}
+    showRouteOutput(`<div class="routeCompactResult loading">${routeStraightFact(straight)}<span class="routeCompactNote">กำลังคำนวณระยะตามถนนและเส้นทางสำรอง…</span></div>`);
     routeRequest=new AbortController();const timer=setTimeout(()=>routeRequest?.abort(),12000);
     try{
       const coordinates=`${Number(from.longitude)},${Number(from.latitude)};${Number(to.longitude)},${Number(to.latitude)}`,url=`https://router.project-osrm.org/route/v1/driving/${coordinates}?alternatives=3&steps=false&geometries=geojson&overview=full`;
       const response=await fetch(url,{signal:routeRequest.signal});if(!response.ok)throw new Error("ROUTE_FAILED");const data=await response.json();if(data.code!=="Ok"||!data.routes?.length)throw new Error("ROUTE_FAILED");
       const colors=["#175cd3","#f79009","#7a5af8"];data.routes.slice(0,3).forEach((route,index)=>{const points=route.geometry.coordinates.map(point=>[point[1],point[0]]),line=L.polyline(points,{color:colors[index],weight:index?4:6,opacity:index ? .68 : .92}).addTo(map);if(index)line.bringToBack();routeLayers.push(line);});
       const bounds=L.featureGroup(routeLayers).getBounds();if(bounds.isValid())map.fitBounds(bounds.pad(.12));
-      showRouteOutput(routeIntro(from,to,straight)+`<div class="routeResultLine"><div class="routeChoices">${data.routes.slice(0,3).map((route,index)=>`<article style="--route-color:${colors[index]}"><span>${index===0?"ทางแนะนำ":`ทางสำรอง ${index}`}</span><strong>${formatDistance(route.distance/1000)}</strong><small>${formatDuration(route.duration)}</small></article>`).join("")}</div><div class="routeResultAction"><span>เวลาโดยประมาณ ไม่รวมสภาพจราจรจริง</span><a class="routeGoogleBtn" href="${googleUrl}" target="_blank" rel="noopener">เปิดนำทาง</a></div></div>`);
-    }catch(error){showRouteOutput(routeIntro(from,to,straight)+`<div class="routeInlineAction warning"><span>คำนวณเส้นทางตามถนนไม่ได้ แต่ยังเปิดนำทางต่อได้</span><a class="routeGoogleBtn" href="${googleUrl}" target="_blank" rel="noopener">เปิด Google Maps</a></div>`);}finally{clearTimeout(timer);routeRequest=null;}
+      showRouteOutput(`<div class="routeCompactResult driving">${routeStraightFact(straight)}<div class="routeChoices">${data.routes.slice(0,3).map((route,index)=>`<article style="--route-color:${colors[index]}"><span>${index===0?"ทางแนะนำ":`ทางสำรอง ${index}`}</span><strong>${formatDistance(route.distance/1000)}</strong><small>${formatDuration(route.duration)}</small></article>`).join("")}</div><span class="routeTrafficNote">เวลาโดยประมาณ<br>ไม่รวมสภาพจราจรจริง</span><a class="routeGoogleBtn" href="${googleUrl}" target="_blank" rel="noopener">เปิดนำทาง</a></div>`);
+    }catch(error){showRouteOutput(`<div class="routeCompactResult warning">${routeStraightFact(straight)}<span class="routeCompactNote">คำนวณระยะตามถนนไม่ได้ แต่ยังเปิดนำทางต่อได้</span><a class="routeGoogleBtn" href="${googleUrl}" target="_blank" rel="noopener">เปิดนำทาง</a></div>`);}finally{clearTimeout(timer);routeRequest=null;}
   }
 
   function drawMeasure(){
@@ -221,17 +221,31 @@
       const withCoordinates=active.filter(hasCoordinates);
       allStores=withCoordinates.filter(store=>{const id=key(store);if(seen.has(id))return false;seen.add(id);return true;});
       const missing=new Set(active.filter(store=>!hasCoordinates(store)).map(key)).size;
-      $("mapMissingKpi").dataset.value=missing;$("mapSearch").value="";$("mapBrand").value="";$("selectedStorePanel").hidden=true;activeStore=null;$("nearbyMap").disabled=true;clearRoute();
+      $("mapMissingKpi").dataset.value=missing;$("mapSearch").value="";$("mapBrand").value="";$("selectedStorePanel").hidden=true;activeStore=null;$("nearbyMap").disabled=true;$("nearbyMap").hidden=true;clearRoute();
       renderBrandControls();populateRouteStores();applyFilters(true);updateMetrics(missing);$("mapModeStatus").textContent=`โหลดข้อมูลแล้ว ${allStores.length} ร้าน`;setTimeout(()=>$("mapModeStatus").textContent="พร้อมใช้งาน",1800);
     }catch(error){$("mapStoreList").innerHTML=`<div class="officeError">${esc(error.message)}</div>`;$("mapModeStatus").textContent="โหลดข้อมูลไม่สำเร็จ";}
   }
   async function toggleFullscreen(){
     const host=$("mapFullscreenArea");try{if(!document.fullscreenElement)await host.requestFullscreen();else await document.exitFullscreen();}catch{}setTimeout(()=>map?.invalidateSize(),180);
   }
+  function setStorePanelHidden(hidden){
+    $("mapWorkspace").classList.toggle("panelHidden",hidden);
+    $("toggleMapPanel").textContent=hidden?"แสดงรายการ":"ซ่อนรายการ";
+    $("toggleFullscreenPanel").innerHTML=hidden?"<span>▤</span>แสดงรายชื่อ":"<span>▤</span>ซ่อนรายชื่อ";
+    setTimeout(()=>map?.invalidateSize(),200);
+  }
+  function toggleStorePanel(){setStorePanelHidden(!$("mapWorkspace").classList.contains("panelHidden"));}
+  function syncFullscreenControls(){
+    const full=document.fullscreenElement===$("mapFullscreenArea");
+    $("fullscreenMap").classList.toggle("active",full);$("toggleFullscreenPanel").hidden=!full;
+    $("fullscreenMap").innerHTML=full?"<span>⛶</span>ออกจากเต็มจอ":"<span>⛶</span>เต็มจอ";
+    $("fullscreenMap").title=full?"ออกจากการแสดงผลเต็มจอ":"เปิดแผนที่และเครื่องมือเต็มจอ";
+    setStorePanelHidden($("mapWorkspace").classList.contains("panelHidden"));
+  }
 
   const mapReady=initMap();await base();
   $("loadMap").onclick=load;$("mapSearch").oninput=()=>applyFilters(false);$("mapBrand").onchange=()=>applyFilters(true);$("fitMap").onclick=fitVisible;$("routePlannerMap").onclick=()=>$("routePlannerPanel").hidden?openRoutePlanner():closeRoutePlanner();$("nearbyMap").onclick=showNearby;$("closeRoutePlanner").onclick=closeRoutePlanner;$("calculateRoute").onclick=calculateRoute;$("clearRoute").onclick=clearRoute;$("swapRoute").onclick=()=>{const from=$("routeFrom").value;$("routeFrom").value=$("routeTo").value;$("routeTo").value=from;};["routeFrom","routeTo"].forEach(id=>$(id).addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();calculateRoute();}}));$("measureMap").onclick=toggleMeasure;$("undoMeasure").onclick=undoMeasure;$("clearMeasure").onclick=clearMeasure;$("fullscreenMap").onclick=toggleFullscreen;$("exportMap").onclick=exportCsv;
-  $("toggleMapPanel").onclick=()=>{const hidden=$("mapWorkspace").classList.toggle("panelHidden");$("toggleMapPanel").textContent=hidden?"แสดงรายการ":"ซ่อนรายการ";setTimeout(()=>map?.invalidateSize(),200);};
-  document.addEventListener("fullscreenchange",()=>{$("fullscreenMap").classList.toggle("active",Boolean(document.fullscreenElement));setTimeout(()=>map?.invalidateSize(),180);});
+  $("toggleMapPanel").onclick=toggleStorePanel;$("toggleFullscreenPanel").onclick=toggleStorePanel;
+  document.addEventListener("fullscreenchange",syncFullscreenControls);
   if(mapReady)await load();
 })();
