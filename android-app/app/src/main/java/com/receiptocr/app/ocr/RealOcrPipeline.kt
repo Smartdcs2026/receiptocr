@@ -29,8 +29,8 @@ data class RealOcrPipelineResult(
 
 /**
  * จุดเข้าหลักของ OCR ภาพจริง: ML Kit -> ตำแหน่งข้อความ -> แม่แบบ -> ตรวจร้าน/POS/วันที่
- * Round78 เพิ่มการสะสมข้อมูลจากภาพบิลหลายช่อง และให้ผลจาก crop แคบมาก่อนภาพเต็ม
- * เพื่อป้องกันข้อมูลของ POS ที่อยู่ใกล้กันไหลข้ามแถว
+ * Round78 hotfix: ใช้ลำดับการอ่านภาพแบบ Round77 ที่ผ่านการทดสอบจริง
+ * แต่ยังคงการสะสมข้อมูลจากภาพบิลหลายช่องของ Round78
  */
 object RealOcrPipeline {
     fun analyze(
@@ -56,8 +56,8 @@ object RealOcrPipeline {
             )
         }
 
-        fun interpret(texts: List<com.google.mlkit.vision.text.Text>) = UniversalTemplateInterpreter.apply(
-            mlTexts = texts,
+        val templateResult = UniversalTemplateInterpreter.apply(
+            mlTexts = mlTexts,
             imageWidth = imageWidth,
             imageHeight = imageHeight,
             records = records,
@@ -66,16 +66,6 @@ object RealOcrPipeline {
             imagePath = imagePath,
             templates = templates
         )
-
-        val isolatedTexts = mlTextPasses
-            .filter { it.originY > 0 && it.text.text.isNotBlank() }
-            .map { it.text }
-        val isolatedTemplateResult = isolatedTexts.takeIf { it.isNotEmpty() }?.let(::interpret)
-        val templateResult = if (isolatedTemplateResult?.detectedPos?.isNotEmpty() == true) {
-            isolatedTemplateResult
-        } else {
-            interpret(mlTexts)
-        }
 
         val shouldRunProfile = profile.regions.isNotEmpty() &&
             (!profile.profileId.startsWith("demo-", ignoreCase = true) || templates.isEmpty())
@@ -111,8 +101,6 @@ object RealOcrPipeline {
         val currentStoreIdsByPos = buildStoreIdsByPos(templateResult, profileResult)
         val dateFormat = configuredDateFormat(templates)
 
-        // ปัญหาวันที่จากภาพก่อนหน้าอาจเกิดจากกฎแบบรวมทั้งร้าน ไม่ได้อยู่ใน ocrWarnings เดิม
-        // แปลงปัญหาเหล่านั้นเป็น warning ของ POS ชั่วคราว เพื่อให้ภาพถัดไปซ่อมเฉพาะวันที่ที่มีปัญหาได้
         val priorDateWarningsByPos = ReceiptValidationEngine.groupDateIssues(
             records = records,
             workDate = workDate,
