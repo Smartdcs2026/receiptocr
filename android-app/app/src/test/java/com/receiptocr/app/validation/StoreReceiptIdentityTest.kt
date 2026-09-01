@@ -6,21 +6,21 @@ import org.junit.Test
 
 class StoreReceiptIdentityTest {
     @Test
-    fun alphanumericWorkCodeDoesNotFalseMatchAgainstReceiptStoreId() {
+    fun alphanumericWorkCodeMustNotBeSkippedWhenReceiptStoreIsDifferent() {
         val result = StoreReceiptIdentity.evaluate(
-            workStoreCode = "CJ375",
+            expectedStoreId = "CJ375",
             storeIdsByPos = mapOf(1 to "1695", 2 to "1695", 3 to "1695")
         )
 
-        assertEquals(StoreReceiptStatus.OK, result.status)
-        assertTrue(result.warningsByPos.isEmpty())
-        assertTrue(result.summaryWarnings.isEmpty())
+        assertEquals(StoreReceiptStatus.WRONG_STORE, result.status)
+        assertEquals(setOf(1, 2, 3), result.warningsByPos.keys)
+        assertTrue(result.summaryWarnings.single().contains("บิลผิดร้าน"))
     }
 
     @Test
-    fun numericWorkCodeWithNoMatchingPosIsWrongStore() {
+    fun noMatchingPosIsWrongStore() {
         val result = StoreReceiptIdentity.evaluate(
-            workStoreCode = "1695",
+            expectedStoreId = "1695",
             storeIdsByPos = mapOf(1 to "1700", 2 to "1700", 3 to "1700")
         )
 
@@ -29,9 +29,9 @@ class StoreReceiptIdentityTest {
     }
 
     @Test
-    fun numericWorkCodeWithOneDifferentPosIsSwappedReceipt() {
+    fun oneDifferentPosIsSwappedReceipt() {
         val result = StoreReceiptIdentity.evaluate(
-            workStoreCode = "1695",
+            expectedStoreId = "1695",
             storeIdsByPos = mapOf(1 to "1695", 2 to "1700", 3 to "1695")
         )
 
@@ -41,31 +41,31 @@ class StoreReceiptIdentityTest {
     }
 
     @Test
-    fun alphanumericWorkCodeUsesClearMajorityForSwappedReceipt() {
+    fun alphanumericExpectedCodeCanMatchExactly() {
         val result = StoreReceiptIdentity.evaluate(
-            workStoreCode = "CJ375",
+            expectedStoreId = "CJ375",
+            storeIdsByPos = mapOf(1 to "CJ375", 2 to "cj375")
+        )
+
+        assertEquals(StoreReceiptStatus.OK, result.status)
+        assertTrue(result.warningsByPos.isEmpty())
+    }
+
+    @Test
+    fun multipleDifferentWrongStoresRemainWrongStoreNotMajorityGuess() {
+        val result = StoreReceiptIdentity.evaluate(
+            expectedStoreId = "CJ375",
             storeIdsByPos = mapOf(1 to "1695", 2 to "1700", 3 to "1695")
         )
 
-        assertEquals(StoreReceiptStatus.BILL_SWAPPED_STORE, result.status)
-        assertEquals(setOf(2), result.warningsByPos.keys)
+        assertEquals(StoreReceiptStatus.WRONG_STORE, result.status)
+        assertEquals(setOf(1, 2, 3), result.warningsByPos.keys)
     }
 
     @Test
-    fun twoDifferentStoresWithoutComparablePlanNeedsReview() {
+    fun leadingZerosDoNotCreateFalseNumericStoreMismatch() {
         val result = StoreReceiptIdentity.evaluate(
-            workStoreCode = "CJ375",
-            storeIdsByPos = mapOf(1 to "1695", 2 to "1700")
-        )
-
-        assertEquals(StoreReceiptStatus.MIXED_STORE, result.status)
-        assertTrue(result.summaryWarnings.single().contains("ยังระบุไม่ได้"))
-    }
-
-    @Test
-    fun leadingZerosDoNotCreateFalseStoreMismatch() {
-        val result = StoreReceiptIdentity.evaluate(
-            workStoreCode = "0652",
+            expectedStoreId = "0652",
             storeIdsByPos = mapOf(1 to "0652", 2 to "652")
         )
 
