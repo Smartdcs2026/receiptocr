@@ -99,7 +99,7 @@
     };
   }
 
-  if(typeof window!=="undefined")setTimeout(installAdminImportHook,0);
+  if(typeof window!=="undefined")installAdminImportHook();
 
   return {digitsOnly,templateStoreLengths,resolveFixedLength,normalizeStoreCode,enrichRows,installAdminImportHook};
 });
