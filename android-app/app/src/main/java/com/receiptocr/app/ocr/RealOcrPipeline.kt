@@ -29,7 +29,8 @@ data class RealOcrPipelineResult(
 
 /**
  * จุดเข้าหลักของ OCR ภาพจริง: ML Kit -> ตำแหน่งข้อความ -> แม่แบบ -> ตรวจร้าน/POS/วันที่
- * Round78 เพิ่มการสะสมข้อมูลจากภาพบิลหลายช่อง โดยไม่ทับ POS ที่อ่านดีแล้วแบบเงียบ ๆ
+ * Round78 เพิ่มการสะสมข้อมูลจากภาพบิลหลายช่อง และให้ผลจาก crop แคบมาก่อนภาพเต็ม
+ * เพื่อป้องกันข้อมูลของ POS ที่อยู่ใกล้กันไหลข้ามแถว
  */
 object RealOcrPipeline {
     fun analyze(
@@ -55,8 +56,8 @@ object RealOcrPipeline {
             )
         }
 
-        val templateResult = UniversalTemplateInterpreter.apply(
-            mlTexts = mlTexts,
+        fun interpret(texts: List<com.google.mlkit.vision.text.Text>) = UniversalTemplateInterpreter.apply(
+            mlTexts = texts,
             imageWidth = imageWidth,
             imageHeight = imageHeight,
             records = records,
@@ -65,6 +66,18 @@ object RealOcrPipeline {
             imagePath = imagePath,
             templates = templates
         )
+
+        // crop ที่มี originY > 0 มาจากช่วงแนวนอนแคบและเหลื่อมกัน
+        // ถ้าจับ POS ได้ ให้เชื่อผลชุดนี้ก่อน เพราะมีโอกาสปะปนกับบิลข้างเคียงน้อยกว่าภาพเต็ม
+        val isolatedTexts = mlTextPasses
+            .filter { it.originY > 0 && it.text.text.isNotBlank() }
+            .map { it.text }
+        val isolatedTemplateResult = isolatedTexts.takeIf { it.isNotEmpty() }?.let(::interpret)
+        val templateResult = if (isolatedTemplateResult?.detectedPos?.isNotEmpty() == true) {
+            isolatedTemplateResult
+        } else {
+            interpret(mlTexts)
+        }
 
         // กฎตำแหน่งและกฎรูปแบบจาก Admin เป็นคนละแหล่งข้อมูลที่เสริมกัน
         val shouldRunProfile = profile.regions.isNotEmpty() &&
@@ -172,7 +185,10 @@ object RealOcrPipeline {
                         add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามตำแหน่งที่ Admin กำหนด")
                     }
                 }.distinct()
-                record.copy(ocrWarnings = warningParts.joinToString(" • "))
+                record.copy(
+                    ocrWarnings = warningParts.joinToString(" • "),
+                    ocrStoreIdExpected = if (record.posNumber in currentDetectedSet) expectsStoreId else record.ocrStoreIdExpected
+                )
             }
 
             val dateIssues = ReceiptValidationEngine.groupDateIssues(
@@ -240,7 +256,6 @@ object RealOcrPipeline {
             )
         }
 
-        // ถ้า Admin มีรูปแบบบิลแล้ว ต้องไม่ข้ามไปใช้กฎสำรองเมื่อจับคู่ไม่ผ่าน
         if (templates.isNotEmpty() || templateSource in setOf(TemplateSource.CLOUD, TemplateSource.CACHE)) {
             return RealOcrPipelineResult(
                 proposedRecords = records,
@@ -278,7 +293,6 @@ object RealOcrPipeline {
         ) else record
     }
 
-    /** รวมผลอ่านข้อความหลายรอบ โดยไม่ให้ค่าจาก POS หนึ่งไหลไปอีก POS */
     private fun combineProfilePasses(
         originals: List<PosRecord>,
         passes: List<RuleDrivenOcrResult>
