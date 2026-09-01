@@ -4,8 +4,9 @@
   const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
   const attr=esc;
   const palette=["#175cd3","#7a5af8","#0e9384","#d97706","#c4320a","#1570ef","#6938ef","#027a48"];
-  let map,markerLayer,baseLayers={},labelLayer,allStores=[],visibleStores=[],brandIndex=new Map(),markerByKey=new Map();
+  let map,markerLayer,baseLayers={},labelLayer,allStores=[],visibleStores=[],brandIndex=new Map(),markerByKey=new Map(),activeStore=null;
   let measureMode=false,measurePoints=[],measureLine=null,measureDots=[];
+  let routeLayers=[],routeRequest=null;
 
   function today(){
     const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Bangkok",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
@@ -42,6 +43,9 @@
     return 2*R*Math.atan2(Math.sqrt(q),Math.sqrt(1-q));
   }
   function formatDistance(km){return km<1?`${(km*1000).toFixed(0)} เมตร`:`${km.toFixed(2)} กม.`;}
+  function formatDuration(seconds){const minutes=Math.max(1,Math.round(Number(seconds||0)/60));if(minutes<60)return`${minutes} นาที`;const hours=Math.floor(minutes/60),remain=minutes%60;return remain?`${hours} ชม. ${remain} นาที`:`${hours} ชม.`;}
+  function storeLabel(store){return`${store.store_code||"-"} — ${store.store_name||"ไม่ระบุชื่อร้าน"}`;}
+  function storeByKey(value){return allStores.find(store=>key(store)===value);}
 
   function initMap(){
     if(!window.L){$("storeMap").innerHTML='<div class="officeError">โหลดระบบแผนที่ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่</div>';return false;}
@@ -96,11 +100,13 @@
     selectStore(store,false);
   }
   function selectStore(store,open=true){
+    activeStore=store;$('nearbyMap').disabled=false;
     const meta=brandMeta(store),lat=Number(store.latitude),lng=Number(store.longitude),route=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     $("selectedStorePanel").hidden=false;
-    $("selectedStorePanel").innerHTML=`<button id="closeSelectedStore" aria-label="ปิด">×</button><div class="selectedStoreHead">${logoVisual(meta,"selectedBrandLogo")}<div><strong>${esc(store.store_name||"-")}</strong><span>${esc(meta.name)} · ${esc(store.store_code||"-")}</span></div></div><div class="selectedStoreFacts"><span><b>${Number(store.pos_count||0)}</b> POS</span><span><b>${lat.toFixed(5)}</b> Lat</span><span><b>${lng.toFixed(5)}</b> Lng</span></div>${store.address?`<p>${esc(store.address)}</p>`:""}<div class="selectedStoreActions"><a href="${route}" target="_blank" rel="noopener">นำทางด้วย Google Maps</a><button id="copySelectedCoord">คัดลอกพิกัด</button></div>`;
-    $("closeSelectedStore").onclick=()=>$("selectedStorePanel").hidden=true;
+    $("selectedStorePanel").innerHTML=`<button id="closeSelectedStore" aria-label="ปิด">×</button><div class="selectedStoreHead">${logoVisual(meta,"selectedBrandLogo")}<div><strong>${esc(store.store_name||"-")}</strong><span>${esc(meta.name)} · ${esc(store.store_code||"-")}</span></div></div><div class="selectedStoreFacts"><span><b>${Number(store.pos_count||0)}</b> POS</span><span><b>${lat.toFixed(5)}</b> Lat</span><span><b>${lng.toFixed(5)}</b> Lng</span></div>${store.address?`<p>${esc(store.address)}</p>`:""}<div class="selectedStoreActions routeStoreActions"><button id="useRouteFrom">ตั้งเป็นต้นทาง</button><button id="useRouteTo">ตั้งเป็นปลายทาง</button><a href="${route}" target="_blank" rel="noopener">นำทาง</a><button id="copySelectedCoord">คัดลอกพิกัด</button></div>`;
+    $("closeSelectedStore").onclick=()=>{$("selectedStorePanel").hidden=true;};
     $("copySelectedCoord").onclick=copyCoordinates;$("copySelectedCoord").dataset.copyCoord=`${lat},${lng}`;
+    $("useRouteFrom").onclick=()=>setRouteStore("from",store);$("useRouteTo").onclick=()=>setRouteStore("to",store);
     document.querySelectorAll("[data-store-key]").forEach(row=>row.classList.toggle("active",row.dataset.storeKey===key(store)));
     if(open)openStore(store);
   }
@@ -125,6 +131,47 @@
     $("mapBrand").innerHTML='<option value="">ทุกแบรนด์</option>'+names.map(name=>`<option value="${attr(brandKey(name))}">${esc(name)}</option>`).join("");
     $("mapBrandLegend").innerHTML=names.map(name=>{const meta=brandMeta({brand:name}),count=allStores.filter(store=>store.brand===name).length;return`<button data-brand-filter="${attr(brandKey(name))}">${logoVisual(meta,"legendBrandLogo")}<span>${esc(meta.abbr)}</span><b>${count}</b></button>`;}).join("");
     document.querySelectorAll("[data-brand-filter]").forEach(button=>button.onclick=()=>{$("mapBrand").value=button.dataset.brandFilter;applyFilters(true);});
+  }
+
+  function populateRouteStores(){
+    const from=$("routeFrom").value,to=$("routeTo").value,options=allStores.slice().sort((a,b)=>storeLabel(a).localeCompare(storeLabel(b),"th")).map(store=>`<option value="${attr(key(store))}">${esc(storeLabel(store))}</option>`).join("");
+    $("routeFrom").innerHTML='<option value="">เลือกร้านต้นทาง</option>'+options;$("routeTo").innerHTML='<option value="">เลือกร้านปลายทาง</option>'+options;
+    if(storeByKey(from))$("routeFrom").value=from;if(storeByKey(to))$("routeTo").value=to;
+    $("routePlannerMap").disabled=allStores.length<2;
+  }
+  function openRoutePlanner(){$("routePlannerPanel").hidden=false;$("routePlannerMap").classList.add("active");setTimeout(()=>map?.invalidateSize(),100);}
+  function closeRoutePlanner(){$("routePlannerPanel").hidden=true;$("routePlannerMap").classList.remove("active");setTimeout(()=>map?.invalidateSize(),100);}
+  function setRouteStore(side,store){openRoutePlanner();$(side==="from"?"routeFrom":"routeTo").value=key(store);$("routeOutput").innerHTML=`<span>เลือก${side==="from"?"ร้านปลายทาง":"ร้านต้นทาง"} แล้วกดคำนวณเส้นทาง</span>`;}
+  function googleRouteUrl(from,to,travel){return`https://www.google.com/maps/dir/?api=1&origin=${Number(from.latitude)},${Number(from.longitude)}&destination=${Number(to.latitude)},${Number(to.longitude)}&travelmode=${encodeURIComponent(travel)}`;}
+  function clearRoute(){
+    routeRequest?.abort();routeRequest=null;routeLayers.forEach(layer=>{if(map.hasLayer(layer))map.removeLayer(layer)});routeLayers=[];
+    $("routeOutput").innerHTML='<span>เลือกร้านต้นทางและปลายทางเพื่อเริ่มวางเส้นทาง</span>';
+  }
+  function drawStraightRoute(from,to){
+    const line=L.polyline([[Number(from.latitude),Number(from.longitude)],[Number(to.latitude),Number(to.longitude)]],{color:"#64748b",weight:2,dashArray:"7 7",opacity:.85}).addTo(map);routeLayers.push(line);return line;
+  }
+  function routeIntro(from,to,straight){return`<div class="routeSummaryHead"><div><small>ต้นทาง</small><strong>${esc(storeLabel(from))}</strong></div><i>→</i><div><small>ปลายทาง</small><strong>${esc(storeLabel(to))}</strong></div><span><small>ระยะเส้นตรง</small><b>${formatDistance(straight)}</b></span></div>`;}
+  function bindNearbyButtons(){document.querySelectorAll("[data-nearby-route]").forEach(button=>button.onclick=()=>{$("routeTo").value=button.dataset.nearbyRoute;$("routeOutput").innerHTML='<span>เลือกร้านปลายทางแล้ว กดคำนวณเส้นทางเพื่อดูระยะตามถนน</span>';});}
+  function showNearby(){
+    if(!activeStore){$("mapModeStatus").textContent="กรุณาเลือกร้านบนแผนที่ก่อน";return;}
+    openRoutePlanner();$("routeFrom").value=key(activeStore);
+    const origin={lat:Number(activeStore.latitude),lng:Number(activeStore.longitude)},near=visibleStores.filter(store=>key(store)!==key(activeStore)).map(store=>({store,km:hav(origin,{lat:Number(store.latitude),lng:Number(store.longitude)})})).sort((a,b)=>a.km-b.km).slice(0,8);
+    $("routeOutput").innerHTML=`<div class="nearbyResult"><header><strong>ร้านใกล้ ${esc(activeStore.store_name||activeStore.store_code)}</strong><span>เรียงตามระยะเส้นตรง</span></header>${near.map((item,index)=>`<button data-nearby-route="${attr(key(item.store))}"><b>${index+1}</b><span><strong>${esc(storeLabel(item.store))}</strong><small>${esc(item.store.brand||"")}</small></span><i>${formatDistance(item.km)}</i></button>`).join("")||'<span>ไม่พบร้านอื่นในรายการที่กำลังแสดง</span>'}</div>`;bindNearbyButtons();
+  }
+  async function calculateRoute(){
+    const from=storeByKey($("routeFrom").value),to=storeByKey($("routeTo").value),travel=$("routeTravel").value;
+    if(!from||!to){$("routeOutput").innerHTML='<div class="routeMessage warning">กรุณาเลือกร้านต้นทางและปลายทางให้ครบ</div>';return;}if(key(from)===key(to)){$("routeOutput").innerHTML='<div class="routeMessage warning">ต้นทางและปลายทางต้องเป็นคนละร้าน</div>';return;}
+    clearRoute();const straight=hav({lat:Number(from.latitude),lng:Number(from.longitude)},{lat:Number(to.latitude),lng:Number(to.longitude)}),googleUrl=googleRouteUrl(from,to,travel),straightLayer=drawStraightRoute(from,to);map.fitBounds(straightLayer.getBounds().pad(.18));
+    if(travel!=="driving"){$("routeOutput").innerHTML=routeIntro(from,to,straight)+`<div class="routeMessage">วิธีเดินทางนี้จะคำนวณต่อใน Google Maps</div><a class="routeGoogleBtn" href="${googleUrl}" target="_blank" rel="noopener">เปิดเส้นทางใน Google Maps</a>`;return;}
+    $("routeOutput").innerHTML=routeIntro(from,to,straight)+'<div class="routeMessage">กำลังคำนวณระยะตามถนนและเส้นทางสำรอง…</div>';
+    routeRequest=new AbortController();const timer=setTimeout(()=>routeRequest?.abort(),12000);
+    try{
+      const coordinates=`${Number(from.longitude)},${Number(from.latitude)};${Number(to.longitude)},${Number(to.latitude)}`,url=`https://router.project-osrm.org/route/v1/driving/${coordinates}?alternatives=3&steps=false&geometries=geojson&overview=full`;
+      const response=await fetch(url,{signal:routeRequest.signal});if(!response.ok)throw new Error("ROUTE_FAILED");const data=await response.json();if(data.code!=="Ok"||!data.routes?.length)throw new Error("ROUTE_FAILED");
+      const colors=["#175cd3","#f79009","#7a5af8"];data.routes.slice(0,3).forEach((route,index)=>{const points=route.geometry.coordinates.map(point=>[point[1],point[0]]),line=L.polyline(points,{color:colors[index],weight:index?4:6,opacity:index ? .68 : .92}).addTo(map);if(index)line.bringToBack();routeLayers.push(line);});
+      const bounds=L.featureGroup(routeLayers).getBounds();if(bounds.isValid())map.fitBounds(bounds.pad(.12));
+      $("routeOutput").innerHTML=routeIntro(from,to,straight)+`<div class="routeChoices">${data.routes.slice(0,3).map((route,index)=>`<article style="--route-color:${colors[index]}"><span>${index===0?"เส้นทางแนะนำ":`เส้นทางสำรอง ${index}`}</span><strong>${formatDistance(route.distance/1000)}</strong><small>ประมาณ ${formatDuration(route.duration)}</small></article>`).join("")}</div><div class="routeSourceNote">เวลาเป็นค่าประมาณและอาจเปลี่ยนตามสภาพการจราจร</div><a class="routeGoogleBtn" href="${googleUrl}" target="_blank" rel="noopener">เปิดนำทางใน Google Maps</a>`;
+    }catch(error){$("routeOutput").innerHTML=routeIntro(from,to,straight)+`<div class="routeMessage warning">ขณะนี้คำนวณเส้นทางตามถนนไม่ได้ แต่ยังเปิดนำทางต่อได้</div><a class="routeGoogleBtn" href="${googleUrl}" target="_blank" rel="noopener">เปิดเส้นทางใน Google Maps</a>`;}finally{clearTimeout(timer);routeRequest=null;}
   }
 
   function drawMeasure(){
@@ -164,16 +211,16 @@
       const withCoordinates=active.filter(hasCoordinates);
       allStores=withCoordinates.filter(store=>{const id=key(store);if(seen.has(id))return false;seen.add(id);return true;});
       const missing=new Set(active.filter(store=>!hasCoordinates(store)).map(key)).size;
-      $("mapMissingKpi").dataset.value=missing;$("mapSearch").value="";$("mapBrand").value="";$("selectedStorePanel").hidden=true;
-      renderBrandControls();applyFilters(true);updateMetrics(missing);$("mapModeStatus").textContent=`โหลดข้อมูลแล้ว ${allStores.length} ร้าน`;setTimeout(()=>$("mapModeStatus").textContent="พร้อมใช้งาน",1800);
+      $("mapMissingKpi").dataset.value=missing;$("mapSearch").value="";$("mapBrand").value="";$("selectedStorePanel").hidden=true;activeStore=null;$("nearbyMap").disabled=true;clearRoute();
+      renderBrandControls();populateRouteStores();applyFilters(true);updateMetrics(missing);$("mapModeStatus").textContent=`โหลดข้อมูลแล้ว ${allStores.length} ร้าน`;setTimeout(()=>$("mapModeStatus").textContent="พร้อมใช้งาน",1800);
     }catch(error){$("mapStoreList").innerHTML=`<div class="officeError">${esc(error.message)}</div>`;$("mapModeStatus").textContent="โหลดข้อมูลไม่สำเร็จ";}
   }
   async function toggleFullscreen(){
-    const host=$("mapWorkspace");try{if(!document.fullscreenElement)await host.requestFullscreen();else await document.exitFullscreen();}catch{}setTimeout(()=>map?.invalidateSize(),180);
+    const host=$("mapFullscreenArea");try{if(!document.fullscreenElement)await host.requestFullscreen();else await document.exitFullscreen();}catch{}setTimeout(()=>map?.invalidateSize(),180);
   }
 
   const mapReady=initMap();await base();
-  $("loadMap").onclick=load;$("mapSearch").oninput=()=>applyFilters(false);$("mapBrand").onchange=()=>applyFilters(true);$("fitMap").onclick=fitVisible;$("measureMap").onclick=toggleMeasure;$("undoMeasure").onclick=undoMeasure;$("clearMeasure").onclick=clearMeasure;$("fullscreenMap").onclick=toggleFullscreen;$("exportMap").onclick=exportCsv;
+  $("loadMap").onclick=load;$("mapSearch").oninput=()=>applyFilters(false);$("mapBrand").onchange=()=>applyFilters(true);$("fitMap").onclick=fitVisible;$("routePlannerMap").onclick=()=>$("routePlannerPanel").hidden?openRoutePlanner():closeRoutePlanner();$("nearbyMap").onclick=showNearby;$("closeRoutePlanner").onclick=closeRoutePlanner;$("calculateRoute").onclick=calculateRoute;$("clearRoute").onclick=clearRoute;$("swapRoute").onclick=()=>{const from=$("routeFrom").value;$("routeFrom").value=$("routeTo").value;$("routeTo").value=from;};$("measureMap").onclick=toggleMeasure;$("undoMeasure").onclick=undoMeasure;$("clearMeasure").onclick=clearMeasure;$("fullscreenMap").onclick=toggleFullscreen;$("exportMap").onclick=exportCsv;
   $("toggleMapPanel").onclick=()=>{const hidden=$("mapWorkspace").classList.toggle("panelHidden");$("toggleMapPanel").textContent=hidden?"แสดงรายการ":"ซ่อนรายการ";setTimeout(()=>map?.invalidateSize(),200);};
   document.addEventListener("fullscreenchange",()=>{$("fullscreenMap").classList.toggle("active",Boolean(document.fullscreenElement));setTimeout(()=>map?.invalidateSize(),180);});
   if(mapReady)await load();

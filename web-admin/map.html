@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ศูนย์แผนที่ร้าน</title>
-  <link rel="stylesheet" href="styles.css?v=62">
+  <link rel="stylesheet" href="styles.css?v=63">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -24,26 +24,42 @@
     </div>
   </section>
 
-  <section class="mapOperationsBar" aria-label="เครื่องมือแผนที่">
-    <div class="mapOperationsTitle"><strong>เครื่องมือแผนที่</strong><span id="mapModeStatus" class="mapModeStatus">พร้อมใช้งาน</span></div>
-    <div class="mapToolDock" role="toolbar">
-      <button id="fitMap" title="แสดงร้านทั้งหมด"><span>⌗</span>แสดงร้านทั้งหมด</button>
-      <button id="measureMap" title="วัดระยะทาง"><span>↔</span>วัดระยะทาง</button>
-      <button id="undoMeasure" title="ย้อนกลับจุดวัดล่าสุด" disabled><span>↶</span>ย้อนกลับ</button>
-      <button id="clearMeasure" title="ล้างเส้นวัด" disabled><span>×</span>ล้างระยะ</button>
-      <button id="fullscreenMap" title="เปิดแผนที่เต็มจอ"><span>⛶</span>เต็มหน้าจอ</button>
-    </div>
-  </section>
+  <section id="mapFullscreenArea" class="mapFullscreenArea">
+    <section class="mapOperationsBar" aria-label="เครื่องมือแผนที่">
+      <div class="mapOperationsTitle"><strong>เครื่องมือแผนที่</strong><span id="mapModeStatus" class="mapModeStatus">พร้อมใช้งาน</span></div>
+      <div class="mapToolDock" role="toolbar">
+        <button id="fitMap" title="แสดงร้านทั้งหมด"><span>⌗</span>แสดงร้านทั้งหมด</button>
+        <button id="routePlannerMap" title="วางเส้นทางระหว่างร้าน" disabled><span>⌁</span>วางเส้นทาง</button>
+        <button id="nearbyMap" title="ค้นหาร้านใกล้ร้านที่เลือก" disabled><span>◎</span>ร้านใกล้เคียง</button>
+        <button id="measureMap" title="วัดระยะทางแบบเส้นตรง"><span>↔</span>วัดระยะตรง</button>
+        <button id="undoMeasure" title="ย้อนกลับจุดวัดล่าสุด" disabled><span>↶</span>ย้อนกลับ</button>
+        <button id="clearMeasure" title="ล้างเส้นและผลการคำนวณ" disabled><span>×</span>ล้างเส้น</button>
+        <button id="fullscreenMap" title="เปิดแผนที่และเครื่องมือเต็มจอ"><span>⛶</span>เต็มหน้าจอ</button>
+      </div>
+    </section>
 
-  <section class="mapKpiBar" aria-label="สรุปข้อมูลบนแผนที่">
-    <article><span>ร้านที่มีพิกัด</span><strong id="mapTotalKpi">0</strong></article>
-    <article><span>กำลังแสดง</span><strong id="mapVisibleKpi">0</strong></article>
-    <article><span>จำนวนแบรนด์</span><strong id="mapBrandKpi">0</strong></article>
-    <article><span>จำนวน POS</span><strong id="mapPosKpi">0</strong></article>
-    <article class="mapKpiWarning"><span>ร้านไม่มีพิกัด</span><strong id="mapMissingKpi">0</strong></article>
-  </section>
+    <section id="routePlannerPanel" class="routePlannerPanel" hidden>
+      <header><div><strong>วางเส้นทางระหว่างร้าน</strong><span>เปรียบเทียบระยะเส้นตรงกับระยะตามถนน</span></div><button id="closeRoutePlanner" class="ghost" aria-label="ปิด">×</button></header>
+      <div class="routePlannerControls">
+        <label>ร้านต้นทาง<select id="routeFrom"><option value="">เลือกร้านต้นทาง</option></select></label>
+        <button id="swapRoute" class="routeSwap" title="สลับต้นทางและปลายทาง">⇄</button>
+        <label>ร้านปลายทาง<select id="routeTo"><option value="">เลือกร้านปลายทาง</option></select></label>
+        <label>วิธีเดินทาง<select id="routeTravel"><option value="driving">รถยนต์</option><option value="walking">เดิน</option><option value="bicycling">จักรยาน</option><option value="transit">ขนส่งสาธารณะ</option></select></label>
+        <button id="calculateRoute" class="primary">คำนวณเส้นทาง</button>
+        <button id="clearRoute" class="ghost">ล้างเส้นทาง</button>
+      </div>
+      <div id="routeOutput" class="routeOutput"><span>เลือกร้านต้นทางและปลายทางเพื่อเริ่มวางเส้นทาง</span></div>
+    </section>
 
-  <section id="mapWorkspace" class="professionalMapWorkspace">
+    <section class="mapKpiBar" aria-label="สรุปข้อมูลบนแผนที่">
+      <article><span>ร้านที่มีพิกัด</span><strong id="mapTotalKpi">0</strong></article>
+      <article><span>กำลังแสดง</span><strong id="mapVisibleKpi">0</strong></article>
+      <article><span>จำนวนแบรนด์</span><strong id="mapBrandKpi">0</strong></article>
+      <article><span>จำนวน POS</span><strong id="mapPosKpi">0</strong></article>
+      <article class="mapKpiWarning"><span>ร้านไม่มีพิกัด</span><strong id="mapMissingKpi">0</strong></article>
+    </section>
+
+    <section id="mapWorkspace" class="professionalMapWorkspace">
     <div class="mapCanvasWrap">
       <div id="storeMap" class="professionalStoreMap"></div>
       <div id="measureResult" class="professionalMeasureResult" hidden></div>
@@ -67,14 +83,15 @@
       <div class="mapDataNotice">ใช้พิกัดประจำร้านจากแผนงานเท่านั้น ระบบนี้ไม่เก็บพิกัดของพนักงานขณะส่งงาน</div>
       <div id="mapStoreList" class="professionalMapStoreList"></div>
     </aside>
+    </section>
   </section>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="config.js"></script>
-<script src="admin-auth.js?v=62"></script>
+<script src="admin-auth.js?v=63"></script>
 <script src="content-page.js"></script>
-<script src="map.js?v=62"></script>
+<script src="map.js?v=63"></script>
 </body>
 </html>
