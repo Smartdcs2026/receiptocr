@@ -77,11 +77,17 @@
     return {rows:enriched,errors,rules};
   }
 
+  function resolveAdminAuth(){
+    try{return typeof AdminAuth!=="undefined"?AdminAuth:null}catch(_){return null}
+  }
+
   function installAdminImportHook(){
-    if(typeof window==="undefined"||!window.AdminAuth||window.__receiptStoreNormalizerInstalled)return;
+    if(typeof window==="undefined"||window.__receiptStoreNormalizerInstalled)return;
+    const auth=resolveAdminAuth();
+    if(!auth||typeof auth.json!=="function")return;
     window.__receiptStoreNormalizerInstalled=true;
-    const originalJson=window.AdminAuth.json.bind(window.AdminAuth);
-    window.AdminAuth.json=async function(path,opts={}){
+    const originalJson=auth.json.bind(auth);
+    auth.json=async function(path,opts={}){
       const isImport=path==="/api/work-plans/import"&&String(opts.method||"GET").toUpperCase()==="POST"&&opts.body;
       if(!isImport)return originalJson(path,opts);
       let payload;
