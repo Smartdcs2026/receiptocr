@@ -67,7 +67,6 @@ object RealOcrPipeline {
         )
 
         // กฎตำแหน่งและกฎรูปแบบจาก Admin เป็นคนละแหล่งข้อมูลที่เสริมกัน
-        // เดิมเมื่อมี template ระบบจะไม่เรียก profile ทำให้ตำแหน่งที่ Admin กำหนดไม่ถูกใช้
         val shouldRunProfile = profile.regions.isNotEmpty() &&
             (!profile.profileId.startsWith("demo-", ignoreCase = true) || templates.isEmpty())
         val profileResult = if (shouldRunProfile) {
@@ -88,6 +87,7 @@ object RealOcrPipeline {
             }
             combineProfilePasses(records, passResults)
         } else null
+
         val profileFilledPos = profileResult?.records.orEmpty().mapNotNull { candidate ->
             val original = records.firstOrNull { it.posNumber == candidate.posNumber } ?: return@mapNotNull null
             candidate.posNumber.takeIf {
@@ -98,9 +98,19 @@ object RealOcrPipeline {
         }
         val detectedPos = (templateResult.detectedPos + profileFilledPos).distinct().sorted()
         val storeIdsByPos = buildStoreIdsByPos(templateResult, profileResult)
+        val dateFormat = configuredDateFormat(templates)
+
         val combinedRecords = mergeRecords(records, templateResult.records, profileResult?.records.orEmpty())
             .map { record ->
+                val dateResult = if (record.posNumber in detectedPos && record.billDate.isNotBlank()) {
+                    ReceiptDateOcrNormalizer.normalize(
+                        raw = record.billDate,
+                        configuredFormat = dateFormat,
+                        referenceDate = workDate
+                    )
+                } else null
                 record.copy(
+                    billDate = dateResult?.value ?: record.billDate,
                     ocrStoreId = storeIdsByPos[record.posNumber] ?: record.ocrStoreId,
                     ocrWarnings = sanitizeLegacyOcrWarnings(record.ocrWarnings)
                 )
@@ -112,10 +122,29 @@ object RealOcrPipeline {
                 it.billDate.isNotBlank() && it.billTime.isNotBlank() && it.customerNo.isNotBlank()
             }
             val detectedStoreIds = storeIdsByPos.filterKeys { it in detectedPos }
-            val storeAssessment = StoreReceiptIdentity.evaluate(work.storeCode, detectedStoreIds)
+            val storeAssessment = StoreReceiptIdentity.evaluate(
+                expectedStoreId = work.expectedReceiptStoreId,
+                storeIdsByPos = detectedStoreIds
+            )
             val expectsStoreId = templates.any(::templateHasStoreId) ||
                 profile.regions.any { it.fieldType == OcrFieldType.STORE_ID }
+            val missingStorePos = if (expectsStoreId) {
+                detectedPos.filter { storeIdsByPos[it].isNullOrBlank() }
+            } else emptyList()
             val missingPos = records.map { it.posNumber }.filterNot { it in detectedPos }
+
+            val recordsWithStoreWarnings = combinedRecords.map { record ->
+                if (record.posNumber !in detectedPos) return@map record
+                val warningParts = buildList {
+                    if (record.ocrWarnings.isNotBlank()) add(record.ocrWarnings)
+                    storeAssessment.warningsByPos[record.posNumber]?.let(::add)
+                    if (record.posNumber in missingStorePos) {
+                        add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามตำแหน่งที่ Admin กำหนด")
+                    }
+                }.distinct()
+                record.copy(ocrWarnings = warningParts.joinToString(" • "))
+            }
+
             val warnings = buildList {
                 addAll(imageQualityWarnings)
                 templateResult.validationWarnings.toSortedMap().forEach { (pos, items) ->
@@ -126,18 +155,21 @@ object RealOcrPipeline {
                 }
                 addAll(storeAssessment.summaryWarnings)
                 if (expectsStoreId && detectedStoreIds.isEmpty()) {
-                    add("ไม่พบรหัสร้านตามตำแหน่งที่ Admin กำหนด กรุณาตรวจภาพอีกครั้ง")
+                    add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามตำแหน่งที่ Admin กำหนด")
+                } else if (missingStorePos.isNotEmpty()) {
+                    add("ยังยืนยันรหัสร้านไม่ได้ใน POS ${missingStorePos.joinToString(", ")}")
                 }
                 if (!completeCore) add("ข้อมูลสำคัญบางช่องอ่านได้ไม่ครบ กรุณาตรวจแก้ก่อนยืนยัน")
                 if (missingPos.isNotEmpty()) add("ยังไม่พบข้อมูลเครื่อง ${missingPos.joinToString(", ")} ในภาพ")
                 addAll(
                     ReceiptValidationEngine.groupDateIssues(
-                        records = combinedRecords.filter { it.posNumber in detectedPos },
+                        records = recordsWithStoreWarnings.filter { it.posNumber in detectedPos },
                         workDate = workDate,
                         rule = receiptRule.groupDateRule
                     ).map { it.message }
                 )
             }.distinct()
+
             val confidence = if (completeCore && warnings.isEmpty()) OcrConfidence.HIGH else OcrConfidence.MEDIUM
             val successMessage = when {
                 missingPos.isNotEmpty() ->
@@ -147,7 +179,7 @@ object RealOcrPipeline {
             }
             return RealOcrPipelineResult(
                 proposedRecords = stampOcrMetadata(
-                    combinedRecords, detectedPos,
+                    recordsWithStoreWarnings, detectedPos,
                     confidence, templateResult.templateName.orEmpty()
                 ),
                 detectedPos = detectedPos,
@@ -160,7 +192,6 @@ object RealOcrPipeline {
         }
 
         // ถ้า Admin มีรูปแบบบิลแล้ว ต้องไม่ข้ามไปใช้กฎสำรองเมื่อจับคู่ไม่ผ่าน
-        // เพื่อให้ทุกแบรนด์และทุกเงื่อนไขยึดข้อมูลที่ผู้ดูแลตั้งไว้จริง
         if (templates.isNotEmpty() || templateSource in setOf(TemplateSource.CLOUD, TemplateSource.CACHE)) {
             return RealOcrPipelineResult(
                 proposedRecords = records,
@@ -252,6 +283,20 @@ object RealOcrPipeline {
             }
         }
         return result
+    }
+
+    private fun configuredDateFormat(templates: List<UniversalOcrTemplate>): String {
+        val formats = templates.asSequence()
+            .filter { it.active }
+            .flatMap { it.recognition.rows.asSequence() }
+            .flatMap { it.fields.asSequence() }
+            .filter { it.type == "BILL_DATE" }
+            .map { it.format.trim() }
+            .filter { it.isNotBlank() }
+            .toList()
+        return formats.firstOrNull { it.uppercase() !in setOf("DATE", "ANY") }
+            ?: formats.firstOrNull()
+            ?: "DD/MM/YYYY"
     }
 
     private fun templateHasStoreId(template: UniversalOcrTemplate): Boolean =
