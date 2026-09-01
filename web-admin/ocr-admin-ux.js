@@ -32,35 +32,45 @@
     identity.className="ocrIdentityChoice";
     identity.innerHTML=`
       <div class="ocrIdentityTitle"><strong>ข้อมูลยืนยันร้านบนบิล</strong><span>เลือกให้ตรงกับบิลจริงของรูปแบบนี้</span></div>
-      <label><input id="round78NoStoreId" type="checkbox"><span><strong>บิลรูปแบบนี้ไม่มีรหัสร้าน</strong><small>ระบบจะไม่บังคับหา STORE_ID และจะให้ผู้ใช้ตรวจร้านจากหลักฐานประกอบแทน</small></span></label>
+      <label><input id="round78NoStoreId" type="checkbox"><span><strong>บิลรูปแบบนี้ไม่มีรหัสร้าน</strong><small>ระบบจะไม่สร้างหรือเดารหัสร้าน และจะไม่บังคับ STORE_ID ตอนส่งงาน</small></span></label>
       <div id="round78StoreHint" class="ocrIdentityHint"></div>`;
     checkPanel.insertBefore(identity,validationGrid);
     const noStore=identity.querySelector("#round78NoStoreId");
     const hint=identity.querySelector("#round78StoreHint");
     const mustMatch=$("mustMatchStore");
 
-    function hasStoreChip(){
-      return [...document.querySelectorAll(".simpleFieldChip")].some(x=>x.textContent.includes("รหัสร้าน"));
+    function storeChips(){
+      return [...document.querySelectorAll(".simpleFieldChip")].filter(x=>x.textContent.includes("รหัสร้าน"));
     }
+    function removePlainStoreFields(){
+      storeChips().forEach(chip=>{
+        chip.click();
+        $("removeFieldBtn")?.click();
+      });
+    }
+    function hasStoreChip(){return storeChips().length>0}
     function refreshIdentity(fromEditor=false){
       const hasStore=hasStoreChip();
       if(fromEditor && !hasStore && mustMatch && !mustMatch.checked) noStore.checked=true;
       if(noStore.checked){
         if(mustMatch){mustMatch.checked=false;mustMatch.disabled=true;}
         hint.className="ocrIdentityHint note";
-        hint.textContent="ไม่มี STORE_ID: ควรใช้หมายเลขเครื่อง + วันที่/เวลา + รหัสประกอบหรือข้อความคงที่เป็นตัวช่วยยึดชุดข้อมูล และตรวจร้านจากภาพ/ข้อมูลร้านก่อนส่ง";
+        hint.textContent="โหมดไม่มีรหัสร้าน: ใช้ POS + วันที่/เวลา + ยอด/เลขลูกค้า และรหัสยึดแถว/ข้อความคงที่ (ถ้ามี) เพื่อจับชุดข้อมูล โดยไม่สร้างเลขร้านขึ้นมาเอง";
       }else{
-        if(mustMatch)mustMatch.disabled=false;
+        if(mustMatch){mustMatch.checked=true;mustMatch.disabled=true;}
         if(hasStore){
           hint.className="ocrIdentityHint ok";
-          hint.textContent="พบกล่องรหัสร้าน • เปิด “ร้านต้องตรง” เพื่อเทียบกับแผนงาน";
+          hint.textContent="พบกล่องรหัสร้าน • ระบบจะบังคับเทียบ STORE_ID กับร้านในแผนงานทุกครั้ง";
         }else{
           hint.className="ocrIdentityHint warn";
           hint.textContent="ยังไม่มีกล่องรหัสร้าน • ถ้าบิลมีรหัสร้านให้เพิ่ม STORE_ID; ถ้าไม่มีจริงให้เลือกตัวเลือกด้านบน";
         }
       }
     }
-    noStore.addEventListener("change",()=>refreshIdentity(false));
+    noStore.addEventListener("change",()=>{
+      if(noStore.checked) removePlainStoreFields();
+      refreshIdentity(false);
+    });
     new MutationObserver(()=>refreshIdentity(true)).observe($("rowsArea"),{childList:true,subtree:true,characterData:true});
     setTimeout(()=>refreshIdentity(true),200);
   }
@@ -70,10 +80,10 @@
   guide.innerHTML=`<summary>กล่องไหนควรใช้ในสถานการณ์จริง?</summary>
     <div class="ocrFieldGuideGrid">
       <article><strong>ควรมีทุก POS</strong><span>หมายเลขเครื่อง, วันที่, เวลา, ยอด/เลขลูกค้า</span></article>
-      <article><strong>ยืนยันร้าน</strong><span>รหัสร้าน ถ้าบิลมีข้อมูลนี้</span></article>
-      <article><strong>กันข้อมูลสลับแถว</strong><span>รหัสยึดแถว/รหัสประกอบ, ข้อความคงที่, ตัวคั่น</span></article>
+      <article><strong>ยืนยันร้าน</strong><span>รหัสร้าน ถ้าบิลมีข้อมูลนี้ — เมื่อมีจะบังคับเทียบกับแผนงาน</span></article>
+      <article><strong>กันข้อมูลสลับแถว</strong><span>รหัสยึดแถว/รหัสประกอบ, ข้อความคงที่, ตัวคั่น ช่วยบอกว่าหลายช่องเป็นชุดเดียวกัน</span></article>
       <article><strong>ตรวจความสมเหตุสมผล</strong><span>ปี, เดือน, วัน, รหัสพนักงาน เมื่อมีอยู่จริงบนบิล</span></article>
-      <article><strong>บิลไม่มีรหัสร้าน</strong><span>ไม่ควรสร้างเลขร้านเดาเอง ให้เลือก “ไม่มีรหัสร้าน” และใช้หลักฐานร้านประกอบ</span></article>
+      <article><strong>บิลไม่มีรหัสร้าน</strong><span>เลือกโหมด “ไม่มีรหัสร้าน” ไม่สร้างเลขเดา และใช้ข้อมูลร้าน/ภาพหลักฐานเป็นชั้นตรวจแทน</span></article>
     </div>`;
   document.querySelector(".simpleTestPanel")?.before(guide);
 
@@ -89,7 +99,7 @@
   $("savePatternBtn")?.addEventListener("click",()=>{
     savedName=String($("patternName")?.value||"").trim();
     sessionStorage.setItem("receiptocr_round78_reopen",savedName);
-    [450,900,1500,2400].forEach(delay=>setTimeout(reopenSaved,delay));
+    [450,900,1500,2400,4000].forEach(delay=>setTimeout(reopenSaved,delay));
   },true);
 
   function reopenSaved(){
@@ -105,8 +115,9 @@
       setTimeout(()=>editor.scrollIntoView({behavior:"smooth",block:"start"}),80);
     }
   }
+  const patternList=$("patternList");
+  if(patternList)new MutationObserver(reopenSaved).observe(patternList,{childList:true,subtree:true});
 
-  // ช่วยมองว่าแถวใดกำลังรับกล่องจาก palette
   const rows=$("rowsArea");
   if(rows){
     new MutationObserver(()=>{
