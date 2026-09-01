@@ -189,9 +189,9 @@ $("addSegmentBtn").onclick=()=>{const f=currentField();if(!f||f.type!=="COMPOSIT
 function build(){
   editing.templateName=$("patternName").value.trim();
   editing.sampleText=$("sampleText").value.trim();
-  editing.validation={mustMatchStore:$("mustMatchStore").checked,mustMatchPos:$("mustMatchPos").checked,noDuplicatePos:$("noDuplicatePos").checked,mustHaveDate:$("mustHaveDate").checked,mustHaveTime:$("mustHaveTime").checked,mustHaveCustomer:$("mustHaveCustomer").checked,counterCycle:$("counterCycle").value};
+  editing.validation={mustMatchStore:$("mustMatchStore").checked,mustMatchPos:true,noDuplicatePos:true,mustHaveDate:$("mustHaveDate").checked,mustHaveTime:$("mustHaveTime").checked,mustHaveCustomer:$("mustHaveCustomer").checked,counterCycle:$("counterCycle").value};
   return {
-    schemaVersion:3,templateId:editing.templateId,brandId:$("brandId").value,templateName:editing.templateName,version:editing.version||1,priority:editing.priority||100,active:true,sampleText:editing.sampleText,
+    schemaVersion:4,templateId:editing.templateId,brandId:$("brandId").value,templateName:editing.templateName,version:editing.version||1,priority:editing.priority||100,active:true,sampleText:editing.sampleText,
     recognition:{rowCount:editing.rows.length,groupAsSingleRecord:true,rows:editing.rows.map((r,ri)=>({row:ri+1,fields:r.map((f,fi)=>({order:fi+1,type:f.type,example:f.example||null,required:f.required,minLength:f.minLength,maxLength:f.maxLength,format:f.format,literal:f.literal||null,compareTo:f.compareTo||"NONE",posPrefixes:f.posPrefixes||null,posDigits:f.posDigits||null,separatorValue:f.separatorValue||null,composite:f.type==="COMPOSITE_CODE"?{prefix:f.prefix||null,separator:f.separator||null,segments:f.segments.map((s,i)=>({order:i+1,...s}))}:null}))}))},
     validation:{requiredCore:{date:editing.validation.mustHaveDate,time:editing.validation.mustHaveTime,customerValue:editing.validation.mustHaveCustomer},store:{mustMatchWorkPlan:editing.validation.mustMatchStore,sameStoreAcrossAllMatches:true},pos:{mustExistInStorePlan:editing.validation.mustMatchPos,mustBeUnique:editing.validation.noDuplicatePos}},
     duplicatePolicy:{customerCounterCycle:editing.validation.counterCycle,preventSameImageHash:true,preventSameReceiptKey:true}
@@ -199,8 +199,8 @@ function build(){
 }
 async function save(){
   const t=build();
-  if(!t.templateName)return SwalSmall.error("กรุณากรอกชื่อรูปแบบ");
-  if(!t.recognition.rows.some(r=>r.fields.length))return SwalSmall.error("กรุณาเพิ่มข้อมูลอย่างน้อย 1 กล่อง");
+  const contractErrors=ReceiptOcrTemplateContract.validate(t);
+  if(contractErrors.length)return SwalSmall.error("ยังบันทึกรูปแบบไม่ได้",contractErrors.join(" • "));
   try{
     await AdminAuth.json("/api/ocr-templates",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({template:t})});
     await SwalSmall.ok("บันทึกรูปแบบแล้ว",t.templateName);
@@ -216,7 +216,7 @@ async function deletePattern(i=null){
     // Save same template as inactive so it disappears from active list.
     const t=normalize(p);t.active=false;
     const payload={
-      schemaVersion:3,templateId:p.templateId,brandId:$("brandId").value,templateName:p.templateName,version:p.version||1,priority:p.priority||100,active:false,
+      schemaVersion:4,templateId:p.templateId,brandId:$("brandId").value,templateName:p.templateName,version:p.version||1,priority:p.priority||100,active:false,
       sampleText:p.sampleText||"",recognition:p.recognition||{rowCount:t.rows.length,groupAsSingleRecord:true,rows:[]},
       validation:p.validation||{},duplicatePolicy:p.duplicatePolicy||{}
     };

@@ -11,10 +11,18 @@
   }
 
   function normalizeText(value){
-    return String(value||"")
+    let normalized=String(value||"")
       .trim()
-      .replace(/\s+/g," ")
-      .replace(/\s*([:/.-])\s*/g,"$1");
+      .replace(/\s+/g," ");
+    normalized=normalized.replace(/(?:\bP\s*\.?\s*O\s*\.?\s*S\.?|\bTERMINAL\b|เครื่อง)\s*[:#=\-]?\s*(?:(?:N\s*[O0]|NO|NUMBER)\s*\.?\s*)?([0-9OoIl|]{1,3})/ig,(_whole,digits)=>{
+      const value=normalizeOcrDigits(digits).replace(/\D/g,"").padStart(2,"0");
+      return value?`POS N${value}`:_whole;
+    });
+    return normalized.replace(/\s*([:/.-])\s*/g,"$1");
+  }
+
+  function normalizeOcrDigits(value){
+    return String(value||"").replace(/[Oo]/g,"0").replace(/[Iil|]/g,"1");
   }
 
   function escapeRegex(value){
@@ -146,13 +154,12 @@
   }
 
   function normalizeCaptured(type,raw){
-    const normalizeDigits=value=>String(value).replace(/[Oo]/g,"0").replace(/[Iil|]/g,"1");
     if(/^(BILL_DATE|BILL_TIME|YEAR_VALUE|MONTH_VALUE|DAY_VALUE|STORE_ID|CUSTOMER_VALUE)(?:_\d+)?$/.test(type)){
-      return normalizeDigits(raw);
+      return normalizeOcrDigits(raw);
     }
     if(/^POS_NUMBER(?:_\d+)?$/.test(type)){
       const match=String(raw).match(/^([A-HJ-NP-Z]*)(.*)$/i);
-      return (match?.[1]||"")+normalizeDigits(match?.[2]??raw);
+      return (match?.[1]||"")+normalizeOcrDigits(match?.[2]??raw);
     }
     return raw;
   }

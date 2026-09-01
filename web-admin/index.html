@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ReceiptOCR Admin - รูปแบบบิล</title>
-  <link rel="stylesheet" href="styles.css?v=65">
+  <link rel="stylesheet" href="styles.css?v=67">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
@@ -113,7 +113,7 @@
           <input id="fieldExample" placeholder="เช่น 1705">
         </label>
         <label>ลักษณะข้อมูล
-          <select id="fieldFormat">
+          <select id="fieldFormat" disabled>
             <option value="DATE">วันที่</option>
             <option value="TIME">เวลา</option>
             <option value="DIGITS">ตัวเลข</option>
@@ -194,8 +194,8 @@
 
       <div class="validationGrid">
         <label class="validationItem"><input id="mustMatchStore" type="checkbox" checked><span><strong>ร้านต้องตรง</strong><small>รหัสร้านต้องตรงกับแผนงาน</small></span></label>
-        <label class="validationItem"><input id="mustMatchPos" type="checkbox" checked><span><strong>เครื่องต้องตรง</strong><small>หมายเลขเครื่องต้องมีในร้าน</small></span></label>
-        <label class="validationItem"><input id="noDuplicatePos" type="checkbox" checked><span><strong>เครื่องห้ามซ้ำ</strong><small>ห้ามใช้ POS เดิมซ้ำในงานเดียวกัน</small></span></label>
+        <label class="validationItem"><input id="mustMatchPos" type="checkbox" checked disabled><span><strong>เครื่องต้องตรง</strong><small>APK ใช้เฉพาะหมายเลขเครื่องในแผนงานเสมอ</small></span></label>
+        <label class="validationItem"><input id="noDuplicatePos" type="checkbox" checked disabled><span><strong>เครื่องห้ามซ้ำ</strong><small>APK เลือกผลที่ดีที่สุดเพียงชุดเดียวต่อ POS</small></span></label>
         <label class="validationItem"><input id="mustHaveDate" type="checkbox" checked><span><strong>ต้องมีวันที่</strong><small>ต้องอ่านวันที่ในบิลได้</small></span></label>
         <label class="validationItem"><input id="mustHaveTime" type="checkbox" checked><span><strong>ต้องมีเวลา</strong><small>ต้องอ่านเวลาในบิลได้</small></span></label>
         <label class="validationItem"><input id="mustHaveCustomer" type="checkbox" checked><span><strong>ต้องมียอดลูกค้า</strong><small>ต้องอ่านยอด/เลขลูกค้าได้</small></span></label>
@@ -216,7 +216,7 @@
     <section class="simpleTestPanel">
       <div class="testPanelHead">
         <div>
-          <h4>ทดสอบรูปแบบที่สร้าง <span class="readerVersion">ตัวอ่านรุ่น 43</span></h4>
+          <h4>ทดสอบรูปแบบที่สร้าง <span class="readerVersion">ตัวอ่านรุ่น 67</span></h4>
           <div class="small">วางข้อความที่อ่านจากบิล ระบบจะแสดงทุกชุดข้อมูลที่พบและแจ้งเตือนเฉพาะเงื่อนไขที่ไม่ตรง</div>
         </div>
         <button id="runPatternTestBtn" class="primary">ทดสอบ</button>
@@ -245,9 +245,10 @@
 </div>
 
 <script src="config.js"></script>
-<script src="admin-auth.js?v=65"></script>
+<script src="admin-auth.js?v=67"></script>
 <script src="content-page.js"></script>
-<script src="ocr-pattern-engine.js?v=43"></script>
-<script src="ocr-simple.js?v=43"></script>
+<script src="ocr-template-contract.js?v=67"></script>
+<script src="ocr-pattern-engine.js?v=67"></script>
+<script src="ocr-simple.js?v=67"></script>
 </body>
 </html>
