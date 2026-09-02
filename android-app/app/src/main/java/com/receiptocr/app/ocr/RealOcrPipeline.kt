@@ -88,6 +88,7 @@ object RealOcrPipeline {
                 rawTexts = mlTexts.map { it.text },
                 records = records,
                 work = work,
+                workDate = workDate,
                 imagePath = imagePath,
                 templates = templates
             )
@@ -166,13 +167,16 @@ object RealOcrPipeline {
             val currentImagePos = record.posNumber in currentDetectedSet
             val rawCandidateDate = record.billDate.trim()
             val rawCandidateTime = record.billTime.trim()
-            val recordDateField = dateFieldForRecord(record, templates) ?: defaultDateField
             val dateResult = if (currentImagePos && rawCandidateDate.isNotBlank()) {
-                ReceiptDateOcrNormalizer.normalizeForField(
+                TemplateAwareDateResolver.resolve(
                     raw = rawCandidateDate,
-                    field = recordDateField,
+                    templateName = record.ocrTemplateName,
+                    templates = templates,
                     referenceDate = workDate,
-                    allowCanonicalInput = record.source.equals("OCR-EVIDENCE", ignoreCase = true)
+                    // All OCR parsers are required to store accepted values internally as dd/MM/yyyy.
+                    // Therefore a canonical value from OCR-TEMPLATE/OCR-SEQUENCE/OCR-EVIDENCE
+                    // must pass the second stage without being reinterpreted as source MDY/YMD.
+                    allowCanonicalInput = record.source.startsWith("OCR", ignoreCase = true)
                 )
             } else null
             val timeResult = if (currentImagePos && rawCandidateTime.isNotBlank()) {

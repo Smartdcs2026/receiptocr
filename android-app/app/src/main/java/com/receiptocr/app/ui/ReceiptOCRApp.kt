@@ -1046,12 +1046,12 @@ private fun StoreWorkScreen(
                 } else {
                     ocrReadDetailsOpen = true
                 }
-                message = proposal.message
+                message = UserFacingOcrMessages.summary(proposal.message)
                 ocrBusy = false
             }
             .addOnFailureListener { error ->
                 ocrBusy = false
-                message = "อ่านบิลไม่สำเร็จ: ${error.message ?: "ไม่สามารถอ่านข้อความจากภาพได้"}"
+                message = "อ่านบิลไม่สำเร็จ กรุณาตรวจความชัดของภาพแล้วลองอีกครั้ง"
             }
     }
 
@@ -1228,110 +1228,48 @@ private fun StoreWorkScreen(
 
 
     if (ocrReadDetailsOpen) {
-        ocrReadDetails?.let { details ->
-            AlertDialog(
-                modifier = Modifier
-                    .fillMaxWidth(0.96f)
-                    .widthIn(max = 560.dp),
-                properties = DialogProperties(usePlatformDefaultWidth = false),
-                onDismissRequest = { ocrReadDetailsOpen = false },
-                icon = {
-                    Icon(
-                        Icons.Outlined.ReceiptLong,
-                        contentDescription = null,
-                        tint = Primary
-                    )
-                },
-                title = {
+        AlertDialog(
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .widthIn(max = 520.dp),
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            onDismissRequest = { ocrReadDetailsOpen = false },
+            icon = {
+                Icon(
+                    Icons.Outlined.ErrorOutline,
+                    contentDescription = null,
+                    tint = WarningOrange
+                )
+            },
+            title = {
+                Text(
+                    "ยังอ่านบิลไม่ครบ",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "รายละเอียดการอ่าน",
-                        fontSize = 21.sp,
+                        "ระบบยังอ่านข้อมูลที่จำเป็นจากภาพนี้ไม่ครบ",
+                        color = TextMain,
                         fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        fontSize = 14.sp
                     )
-                },
-                text = {
-                    Column(
-                        modifier = Modifier
-                            .heightIn(max = 620.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp),
-                            color = PrimarySoft,
-                            border = BorderStroke(1.dp, Border)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(10.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text("รูปแบบบิลที่ใช้", color = TextSub, fontSize = 11.sp)
-                                Text(
-                                    details.templateNames.ifBlank { "ยังไม่พบรูปแบบบิล" },
-                                    color = TextMain,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                                Text("ข้อมูลเงื่อนไข: ${details.sourceLabel}", color = TextSub, fontSize = 11.sp)
-                                if (details.updatedAt.isNotBlank()) {
-                                    Text("ปรับปรุงล่าสุด: ${details.updatedAt}", color = TextSub, fontSize = 10.sp)
-                                }
-                            }
-                        }
-
-                        if (details.diagnostics.isNotEmpty()) {
-                            Text("ตรวจลำดับข้อมูล", color = TextMain, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            details.diagnostics.forEach { line ->
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(9.dp),
-                                    color = Color(0xFFFFF8E8),
-                                    border = BorderStroke(1.dp, WarningOrange.copy(alpha = 0.35f))
-                                ) {
-                                    Text(
-                                        line,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                        color = Color(0xFF7A4B00),
-                                        fontSize = 12.sp,
-                                        lineHeight = 17.sp
-                                    )
-                                }
-                            }
-                        }
-
-                        Text("ข้อความที่เครื่องอ่านได้จากภาพ", color = TextMain, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        Text(
-                            "ข้อความด้านล่างแสดงผลจากแต่ละรอบที่เครื่องอ่านภาพ ใช้สำหรับตรวจว่าตัวอักษรหรือเลขตัวใดถูกอ่านต่างจากบิลจริง",
-                            color = TextSub,
-                            fontSize = 11.sp,
-                            lineHeight = 16.sp
-                        )
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFFF7F8FA),
-                            border = BorderStroke(1.dp, Border)
-                        ) {
-                            Text(
-                                details.rawText.ifBlank { "ไม่พบข้อความที่อ่านได้" },
-                                modifier = Modifier.padding(10.dp),
-                                color = TextMain,
-                                fontSize = 10.5.sp,
-                                lineHeight = 15.sp
-                            )
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { ocrReadDetailsOpen = false }) {
-                        Text("ปิด")
-                    }
+                    Text(
+                        "กรุณาตรวจว่าภาพเห็นวันที่ เวลา เลข/ยอดลูกค้า และหมายเลขเครื่องชัดเจน แล้วลองอ่านอีกครั้ง",
+                        color = TextSub,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp
+                    )
                 }
-            )
-        }
+            },
+            confirmButton = {
+                TextButton(onClick = { ocrReadDetailsOpen = false }) { Text("ปิด") }
+            }
+        )
     }
 
     pendingOcrResult?.let { proposal ->
@@ -1586,7 +1524,7 @@ private fun StoreWorkScreen(
                                 }
                                 if (record.ocrWarnings.isNotBlank()) {
                                     Text(
-                                        record.ocrWarnings,
+                                        UserFacingOcrMessages.warning(record.ocrWarnings),
                                         fontSize = 10.sp,
                                         color = MaterialTheme.colorScheme.error
                                     )
@@ -1594,9 +1532,14 @@ private fun StoreWorkScreen(
                             }
                         }
                     }
-                    proposal.warnings.filterNot { it in dateWarningMessages }.forEach { warning ->
-                        Text("• $warning", fontSize = 11.sp, color = WarningOrange)
-                    }
+                    proposal.warnings
+                        .filterNot { it in dateWarningMessages }
+                        .map(UserFacingOcrMessages::warning)
+                        .filter { it.isNotBlank() }
+                        .distinct()
+                        .forEach { warning ->
+                            Text("• $warning", fontSize = 11.sp, color = WarningOrange)
+                        }
                     Text(
                         if (hasDateWarning) {
                             "เลือกใช้ชุดวันที่ให้ตรงกันก่อนส่ง"
@@ -1618,7 +1561,7 @@ private fun StoreWorkScreen(
                         message = if (hasDateWarning) {
                             "วันที่แต่ละ POS ใช้ได้ แต่ชุดวันที่ยังใช้ร่วมกันไม่ได้"
                         } else {
-                            "ยืนยันผลอ่านบิลแล้ว • ${proposal.confidence.label}"
+                            "บันทึกข้อมูลจากบิลแล้ว"
                         }
                         pendingOcrResult = null
                     },
@@ -1626,10 +1569,7 @@ private fun StoreWorkScreen(
                 ) { Text(if (hasDateWarning) "นำข้อมูลไปแก้ไข" else "ใช้ข้อมูลนี้") }
             },
             dismissButton = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { ocrReadDetailsOpen = true }) { Text("ดูข้อความที่อ่านได้") }
-                    TextButton(onClick = { pendingOcrResult = null }) { Text("ยกเลิก") }
-                }
+                TextButton(onClick = { pendingOcrResult = null }) { Text("ยกเลิก") }
             }
         )
     }
@@ -2146,7 +2086,7 @@ private fun PosCard(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                         ) {
                             Text(
-                                record.ocrWarnings,
+                                UserFacingOcrMessages.warning(record.ocrWarnings),
                                 modifier = Modifier.padding(9.dp),
                                 color = MaterialTheme.colorScheme.error,
                                 fontSize = 10.5.sp
