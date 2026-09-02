@@ -24,12 +24,12 @@ class DenseReceiptCodeNormalizerRound82Test {
     @Test
     fun restoresCommonDigitLikeCharactersOnlyInsideNumberRuns() {
         assertEquals(
-            "R202039030U400072 20/08/69 17:18",
-            OcrTextNormalizer.normalizeLine("R20203903OU400O72 20/08/69 17:18")
-        )
-        assertEquals(
             "R202039530U400072 20/08/69 17:18",
             OcrTextNormalizer.normalizeLine("R202039S30U400072 20/08/69 17:18")
+        )
+        assertEquals(
+            "R202038930U400072 20/08/69 17:18",
+            OcrTextNormalizer.normalizeLine("R20203B930U400072 20/08/69 17:18")
         )
     }
 
