@@ -7,6 +7,7 @@ on:
       - round76-ocr-correction-store-identity
       - round77-workplan-store-normalization
       - round78-ocr-robustness-multi-image-admin-ux
+      - round90-unified-date-admin-receipt-line
     paths:
       - 'android-app/**'
       - 'web-admin/**'
@@ -34,8 +35,14 @@ jobs:
       - name: Work-plan store normalization tests
         run: node tests/workplan-store-normalizer.test.js
 
-      - name: Admin OCR UX syntax
-        run: node --check web-admin/ocr-admin-ux.js
+      - name: Admin OCR pattern tests
+        run: node tests/ocr-pattern-engine.test.js
+
+      - name: Admin OCR syntax
+        run: |
+          node --check web-admin/ocr-admin-ux.js
+          node --check web-admin/ocr-pattern-engine.js
+          node --check web-admin/ocr-simple.js
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
