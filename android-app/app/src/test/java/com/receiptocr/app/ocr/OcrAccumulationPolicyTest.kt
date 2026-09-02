@@ -8,16 +8,26 @@ import org.junit.Test
 class OcrAccumulationPolicyTest {
     private fun blank(pos: Int) = PosRecord(posNumber = pos)
 
+    private fun filled(pos: Int, customer: String, date: String, time: String, source: String = "OCR-TEMPLATE") =
+        PosRecord(
+            posNumber = pos,
+            customerNo = customer,
+            billDate = date,
+            billTime = time,
+            source = source
+        )
+
     @Test
     fun secondImageFillsOnlyMissingPos() {
         val original = listOf(
-            PosRecord(1, "001111", "22/08/2026", "10:00", source = "OCR-TEMPLATE"),
-            PosRecord(2, "002222", "22/08/2026", "11:00", source = "OCR-TEMPLATE"),
-            PosRecord(3, "003333", "22/08/2026", "12:00", source = "OCR-TEMPLATE"),
+            filled(1, "001111", "22/08/2026", "10:00"),
+            filled(2, "002222", "22/08/2026", "11:00"),
+            filled(3, "003333", "22/08/2026", "12:00"),
             blank(4)
         )
         val candidate = original.map {
             if (it.posNumber == 4) it.copy(
+                receiptPosNumber = "104",
                 customerNo = "004444", billDate = "22/08/2026", billTime = "13:00",
                 source = "OCR-TEMPLATE", ocrSourceImagePath = "bill-2.jpg"
             ) else it
@@ -27,6 +37,7 @@ class OcrAccumulationPolicyTest {
 
         assertEquals("001111", result.records[0].customerNo)
         assertEquals("004444", result.records[3].customerNo)
+        assertEquals("104", result.records[3].receiptPosNumber)
         assertEquals(setOf(4), result.improvedPos)
         assertTrue(result.conflictsByPos.isEmpty())
     }
@@ -35,7 +46,11 @@ class OcrAccumulationPolicyTest {
     fun laterImageCanRepairWarnedOcrField() {
         val original = listOf(
             PosRecord(
-                2, "002766", "20/28/2026", "15:33",
+                posNumber = 2,
+                receiptPosNumber = "102",
+                customerNo = "002766",
+                billDate = "20/28/2026",
+                billTime = "15:33",
                 source = "OCR-TEMPLATE",
                 ocrWarnings = "วันที่อ่านได้ไม่ถูกต้อง"
             )
@@ -47,6 +62,7 @@ class OcrAccumulationPolicyTest {
         val result = OcrAccumulationPolicy.merge(original, candidate, emptyList(), setOf(2))
 
         assertEquals("20/08/2026", result.records.single().billDate)
+        assertEquals("102", result.records.single().receiptPosNumber)
         assertEquals("", result.records.single().ocrWarnings)
         assertEquals(setOf(2), result.improvedPos)
     }
@@ -55,7 +71,11 @@ class OcrAccumulationPolicyTest {
     fun laterImageCanRepairPreviouslyFlaggedDateWindow() {
         val original = listOf(
             PosRecord(
-                4, "004477", "20/08/2026", "22:22",
+                posNumber = 4,
+                receiptPosNumber = "104",
+                customerNo = "004477",
+                billDate = "20/08/2026",
+                billTime = "22:22",
                 source = "OCR-TEMPLATE",
                 ocrWarnings = "ก่อนวันงาน 3 วัน • ย้อนหลังได้ไม่เกิน 2 วัน"
             )
@@ -73,7 +93,7 @@ class OcrAccumulationPolicyTest {
     @Test
     fun laterImageDoesNotSilentlyOverwriteGoodOcr() {
         val original = listOf(
-            PosRecord(1, "001111", "22/08/2026", "10:00", source = "OCR-TEMPLATE")
+            filled(1, "001111", "22/08/2026", "10:00")
         )
         val candidate = listOf(
             original[0].copy(customerNo = "009999", billTime = "19:30", ocrSourceImagePath = "bill-2.jpg")
@@ -88,7 +108,7 @@ class OcrAccumulationPolicyTest {
 
     @Test
     fun manualValueIsNeverOverwrittenByOcr() {
-        val original = listOf(PosRecord(1, "001111", "22/08/2026", "10:00", source = "MANUAL"))
+        val original = listOf(filled(1, "001111", "22/08/2026", "10:00", source = "MANUAL"))
         val candidate = listOf(original[0].copy(customerNo = "009999", source = "OCR-TEMPLATE"))
 
         val result = OcrAccumulationPolicy.merge(original, candidate, emptyList(), setOf(1))
