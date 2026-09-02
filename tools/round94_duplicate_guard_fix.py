@@ -11,11 +11,13 @@ def write(rel: str, text: str) -> None:
 
 # A different interpretation from another OCR pass is NOT proof of a second
 # physical receipt. Only warn when two distinct complete receipt signatures for
-# the same POS are visible as separate source lines within the same OCR pass.
+# the same mapped work POS are visible as separate source lines within the same
+# OCR pass. Keep Round94 brand POS identity mapping (N01/B01) intact.
 write(
     "android-app/app/src/main/java/com/receiptocr/app/ocr/DuplicatePosEvidenceDetector.kt",
     r'''package com.receiptocr.app.ocr
 
+import com.receiptocr.app.config.PosIdentityRule
 import com.receiptocr.app.config.UniversalOcrTemplate
 
 /**
@@ -24,8 +26,9 @@ import com.receiptocr.app.config.UniversalOcrTemplate
  * หลัก Round94:
  * - OCR หลาย pass คือการอ่าน "ภาพเดียวกัน" หลายแบบ จึงห้ามใช้ความต่างระหว่าง pass เป็นหลักฐานว่ามีบิลซ้ำ
  * - การแตก candidate/การเว้นวรรค/ตัวคั่นต่างกันก็ไม่ใช่บิลซ้ำ
+ * - N01/B01 ต้องผ่าน Brand POS Mapping ก่อนตัดสินว่าเป็น POS งานเดียวกันหรือไม่
  * - เตือนเฉพาะเมื่อใน pass เดียวกัน พบข้อมูลสมบูรณ์คนละชุดจากคนละบรรทัดต้นทาง
- *   สำหรับ POS เดียวกันและ Template เดียวกัน
+ *   สำหรับ POS งานเดียวกันและ Template เดียวกัน
  *
  * ถ้ายังพิสูจน์ไม่ได้ว่ามีบิลจริงสองใบ ให้เงียบไว้ก่อน เพื่อไม่ให้ผู้ใช้ได้รับ false warning
  */
@@ -40,7 +43,8 @@ object DuplicatePosEvidenceDetector {
     fun detect(
         rawTexts: List<String>,
         templates: List<UniversalOcrTemplate>,
-        allowedPos: Set<Int>
+        allowedPos: Set<Int>,
+        posIdentityRule: PosIdentityRule = PosIdentityRule()
     ): Map<Int, String> {
         if (rawTexts.isEmpty() || templates.none { it.active }) return emptyMap()
 
@@ -60,8 +64,11 @@ object DuplicatePosEvidenceDetector {
                     .forEach { template ->
                         val lineSightings = TemplateSequenceFallback.parseText(line, template)
                             .mapNotNull { fields ->
-                                val pos = OcrTextNormalizer.parsePosNumber(fields["POS_NUMBER"].orEmpty())
-                                    ?: return@mapNotNull null
+                                val resolved = PosIdentityResolver.resolve(
+                                    fields["POS_NUMBER"].orEmpty(),
+                                    posIdentityRule
+                                ) ?: return@mapNotNull null
+                                val pos = resolved.workPos
                                 if (allowedPos.isNotEmpty() && pos !in allowedPos) return@mapNotNull null
                                 val signature = signature(fields)
                                 if (signature.isBlank()) return@mapNotNull null
@@ -123,6 +130,8 @@ write(
 import com.receiptocr.app.config.OcrTemplateField
 import com.receiptocr.app.config.OcrTemplateRecognition
 import com.receiptocr.app.config.OcrTemplateRow
+import com.receiptocr.app.config.PosIdentityMapping
+import com.receiptocr.app.config.PosIdentityRule
 import com.receiptocr.app.config.UniversalOcrTemplate
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -140,8 +149,8 @@ class DuplicatePosEvidenceDetectorTest {
                     fields = listOf(
                         OcrTemplateField(1, "LITERAL", example = "R", literal = "R"),
                         OcrTemplateField(2, "NUMBER_TEXT", example = "20", minLength = 2, maxLength = 2),
-                        OcrTemplateField(3, "POS_NUMBER", example = "1", minLength = 1, maxLength = 1, posDigits = 1),
-                        OcrTemplateField(4, "CUSTOMER_VALUE", example = "657846", minLength = 6, maxLength = 6),
+                        OcrTemplateField(3, "POS_NUMBER", example = "1", minLength = 1, maxLength = 3, posDigits = 1),
+                        OcrTemplateField(4, "CUSTOMER_VALUE", example = "657846", minLength = 6, maxLength = 7),
                         OcrTemplateField(5, "EMPLOYEE_CODE", example = "U110030", minLength = 7, maxLength = 7),
                         OcrTemplateField(
                             6, "BILL_DATE", example = "20/08/69", minLength = 8, maxLength = 8,
@@ -250,6 +259,36 @@ class DuplicatePosEvidenceDetectorTest {
             allowedPos = setOf(1, 2, 3)
         )
         assertFalse(warnings.containsKey(1))
+    }
+
+    @Test
+    fun mappedN01AndB01AreDifferentWorkPosAndNotDuplicate() {
+        val prefixed = UniversalOcrTemplate(
+            templateId = "prefix-test",
+            brandId = "P",
+            templateName = "Prefix",
+            recognition = OcrTemplateRecognition(
+                rows = listOf(OcrTemplateRow(row = 1, fields = listOf(
+                    OcrTemplateField(1, "POS_NUMBER", example = "N01", minLength = 3, maxLength = 3),
+                    OcrTemplateField(2, "CUSTOMER_VALUE", example = "123456", minLength = 6, maxLength = 6),
+                    OcrTemplateField(3, "BILL_DATE", example = "03/09/26", minLength = 8, maxLength = 8, dateOrder = "DMY", dateCalendar = "GREGORIAN", dateYearDigits = 2),
+                    OcrTemplateField(4, "BILL_TIME", example = "10:00", minLength = 5, maxLength = 5)
+                )))
+            )
+        )
+        val rule = PosIdentityRule(
+            enabled = true,
+            allowedPrefixes = listOf("N", "B"),
+            mappings = listOf(PosIdentityMapping("N01", 1), PosIdentityMapping("B01", 2))
+        )
+        val warnings = DuplicatePosEvidenceDetector.detect(
+            rawTexts = listOf("N01 123456 03/09/26 10:00\nB01 654321 03/09/26 10:05"),
+            templates = listOf(prefixed),
+            allowedPos = setOf(1, 2),
+            posIdentityRule = rule
+        )
+        assertFalse(warnings.containsKey(1))
+        assertFalse(warnings.containsKey(2))
     }
 }
 '''
