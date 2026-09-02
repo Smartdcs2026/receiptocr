@@ -92,6 +92,11 @@ object RealOcrPipeline {
             )
         } else null
         val templateResult = mergeUniversalTemplateResults(records, afterFusion, sequenceFallback)
+        val duplicatePosWarnings = DuplicatePosEvidenceDetector.detect(
+            rawTexts = mlTexts.map { it.text },
+            templates = templates,
+            allowedPos = expectedPosSet
+        )
 
         // เมื่อรูปแบบจาก Admin จับข้อมูลได้แล้ว ห้าม profile แบบตำแหน่งเก่ามาผสมลูกค้า/วันที่/เวลา
         // เพราะสามารถทำให้ข้อมูลจากคนละส่วนของบิลเลื่อนไปอยู่ POS เดียวกันได้
@@ -255,6 +260,7 @@ object RealOcrPipeline {
                             .forEach(::add)
                         accumulation.conflictsByPos[record.posNumber]?.let(::add)
                     }
+                    duplicatePosWarnings[record.posNumber]?.let(::add)
                     storeAssessment?.warningsByPos?.get(record.posNumber)?.let(::add)
                     if (record.posNumber in missingStorePos && requiresStoreMatch) {
                         add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามตำแหน่งที่กำหนด")
@@ -282,6 +288,7 @@ object RealOcrPipeline {
                     items.filterNot(::isLegacyInterpreterWarning).forEach { add("POS $pos: $it") }
                 }
                 accumulation.conflictsByPos.toSortedMap().forEach { (pos, warning) -> add("POS $pos: $warning") }
+                duplicatePosWarnings.toSortedMap().forEach { (_, warning) -> add(warning) }
                 storeAssessment?.warningsByPos?.toSortedMap()?.forEach { (pos, warning) -> add("POS $pos: $warning") }
                 storeAssessment?.summaryWarnings?.let(::addAll)
                 if (expectsStoreId && allStoreIdsByPos.isEmpty() && requiresStoreMatch) {

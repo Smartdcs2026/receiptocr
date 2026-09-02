@@ -121,6 +121,7 @@ object ReceiptValidationEngine {
         val issues = mutableListOf<ValidationIssue>()
 
         validateRequiredFields(records, issues)
+        validateOcrEvidenceWarnings(records, issues)
         validateReceiptStoreIds(work, records, issues)
         if (rule.groupDateRule.enabled) {
             issues += groupDateIssues(records, workDate, rule.groupDateRule)
@@ -175,6 +176,21 @@ object ReceiptValidationEngine {
                         issues += block("TIME_FORMAT_POS_${record.posNumber}", "POS ${record.posNumber}: เวลาไม่อยู่ในรูปแบบ HH:mm")
                     }
                 }
+            }
+        }
+    }
+
+    /** หลักฐานว่าภาพมีบิลคนละชุดแต่ชี้มาที่ POS เดียวกัน ต้องไม่ถูกกลืนเงียบ ๆ */
+    private fun validateOcrEvidenceWarnings(
+        records: List<PosRecord>,
+        issues: MutableList<ValidationIssue>
+    ) {
+        records.filter { !it.noReceipt }.forEach { record ->
+            if (record.ocrWarnings.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS")) {
+                issues += block(
+                    "DUPLICATE_POS_EVIDENCE_POS_${record.posNumber}",
+                    "POS ${record.posNumber}: พบหลักฐานบิลมากกว่าหนึ่งชุดสำหรับเครื่องเดียวกัน • กรุณาตรวจบิลก่อนส่ง"
+                )
             }
         }
     }
