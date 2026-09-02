@@ -48,9 +48,51 @@ new = '''        // Round86: ถ้า strict ไม่ผ่าน ให้ร
             ?: sequenceFallback?.takeIf { it.detectedPos.isNotEmpty() }
             ?: strictTemplateResult
 '''
-if old not in text:
+if old in text:
+    text = text.replace(old, new)
+elif new not in text:
     raise SystemExit("RealOcrPipeline integration block not found")
-pipeline.write_text(text.replace(old, new), encoding="utf-8")
+pipeline.write_text(text, encoding="utf-8")
+
+fusion = ROOT / "android-app/app/src/main/java/com/receiptocr/app/ocr/PosEvidenceFusion.kt"
+fusion_text = fusion.read_text(encoding="utf-8")
+old_boundary = '''        val results = mutableListOf<Evidence>()
+        candidates.forEach { candidate ->
+            compiled.forEach { prefix ->
+'''
+new_boundary = '''        // ใช้ prefix ถึง POS เป็นขอบเขตของ record ถัดไป เพื่อห้ามวันที่/เวลาไหลข้าม POS
+        val recordBoundary = compilePrefix(ordered, posIndex + 1)
+
+        val results = mutableListOf<Evidence>()
+        candidates.forEach { candidate ->
+            compiled.forEach { prefix ->
+'''
+if old_boundary in fusion_text:
+    fusion_text = fusion_text.replace(old_boundary, new_boundary)
+elif new_boundary not in fusion_text:
+    raise SystemExit("record boundary insertion point not found")
+
+old_window = '''                    val anchorStart = match.range.first.coerceAtLeast(0)
+                    val anchorEndExclusive = (match.range.last + 1).coerceAtMost(candidate.text.length)
+                    val localEnd = (anchorEndExclusive + LOCAL_AFTER_ANCHOR).coerceAtMost(candidate.text.length)
+                    val localText = candidate.text.substring(anchorStart, localEnd)
+'''
+new_window = '''                    val anchorStart = match.range.first.coerceAtLeast(0)
+                    val anchorEndExclusive = (match.range.last + 1).coerceAtMost(candidate.text.length)
+                    val distanceEnd = (anchorEndExclusive + LOCAL_AFTER_ANCHOR).coerceAtMost(candidate.text.length)
+                    val nextRecordStart = recordBoundary?.regex
+                        ?.find(candidate.text, anchorEndExclusive)
+                        ?.range
+                        ?.first
+                        ?.takeIf { it > anchorStart }
+                    val localEnd = nextRecordStart?.coerceAtMost(distanceEnd) ?: distanceEnd
+                    val localText = candidate.text.substring(anchorStart, localEnd)
+'''
+if old_window in fusion_text:
+    fusion_text = fusion_text.replace(old_window, new_window)
+elif new_window not in fusion_text:
+    raise SystemExit("local evidence window block not found")
+fusion.write_text(fusion_text, encoding="utf-8")
 
 build = ROOT / "android-app/app/build.gradle.kts"
 build_text = build.read_text(encoding="utf-8")
