@@ -88,6 +88,10 @@ object OcrAccumulationPolicy {
                 noReceiptReason = "",
                 source = candidateSource.source.ifBlank { "OCR-ACCUMULATED" },
                 ocrSourceImagePath = candidateSource.ocrSourceImagePath.ifBlank { original.ocrSourceImagePath },
+                // ต้องรักษาว่าค่าแต่ละ POS มาจากรูปแบบบิลใด เพราะแบรนด์เดียวกันอาจมี
+                // Mb_01/Mb_02 ที่ใช้ลำดับวันที่หรือระบบปีต่างกัน
+                ocrTemplateName = candidateSource.ocrTemplateName.ifBlank { original.ocrTemplateName },
+                ocrCounterCycle = candidateSource.ocrCounterCycle.ifBlank { original.ocrCounterCycle },
                 ocrWarnings = ""
             )
         }
