@@ -153,7 +153,6 @@ object TemplateSequenceFallback {
             .distinct()
     }
 
-
     /**
      * Round85: อธิบายว่าข้อความจากภาพจริงไปได้ถึงช่องใดของรูปแบบที่ Admin กำหนด
      * ฟังก์ชันนี้ไม่มีผลต่อการตัดสินผล OCR ใช้เพื่อแสดงรายละเอียดเมื่ออ่านไม่สำเร็จเท่านั้น
@@ -296,7 +295,7 @@ object TemplateSequenceFallback {
                 val length = sampleDigits.takeIf { it > 0 } ?: min.takeIf { min == max }
                 capture("CUSTOMER_VALUE", length?.let(::fixedDigits) ?: rangedDigits(min, max))
             }
-            "BILL_DATE" -> capture("BILL_DATE", datePattern(sample))
+            "BILL_DATE" -> capture("BILL_DATE", datePattern(field))
             "BILL_TIME" -> capture("BILL_TIME", timePattern(sample))
             "STORE_ID" -> {
                 val length = sampleDigits.takeIf { it > 0 } ?: min.takeIf { min == max } ?: min
@@ -399,12 +398,28 @@ object TemplateSequenceFallback {
         return "$prefix${fixedDigits(digits)}"
     }
 
-    private fun datePattern(sample: String): String {
-        val groups = Regex("\\d+").findAll(sample).map { it.value.length }.toList()
-        val lengths = if (groups.size == 3) groups else listOf(2, 2, 4)
-        return "${fixedDigits(lengths[0])}\\s*[./-]\\s*" +
-            "${fixedDigits(lengths[1])}\\s*[./-]\\s*" +
-            fixedDigits(lengths[2])
+    /**
+     * Round90: รูปร่างวันที่ของ sequence fallback ต้องมาจาก Admin เช่นเดียวกับตัวอ่านหลัก
+     * ไม่ใช้จำนวนหลักจาก example เป็นตัวตัดสินปีอีกต่อไป เพราะ example เป็นเพียงตัวอย่างข้อความ
+     * ส่วนความหมาย พ.ศ./ค.ศ. และวันที่จริงจะตรวจอีกครั้งด้วย ReceiptDateOcrNormalizer ใน pipeline กลาง
+     */
+    private fun datePattern(field: OcrTemplateField): String {
+        val order = field.dateOrder.trim().uppercase().let {
+            if (it in setOf("DMY", "MDY", "YMD")) it else "DMY"
+        }
+        val day = rangedDigits(1, 2)
+        val month = rangedDigits(1, 2)
+        val year = when (field.dateYearDigits) {
+            2 -> fixedDigits(2)
+            4 -> fixedDigits(4)
+            else -> "(?:${fixedDigits(2)}|${fixedDigits(4)})"
+        }
+        val parts = when (order) {
+            "MDY" -> listOf(month, day, year)
+            "YMD" -> listOf(year, month, day)
+            else -> listOf(day, month, year)
+        }
+        return parts.joinToString("\\s*[./-]\\s*")
     }
 
     private fun timePattern(sample: String): String {
@@ -522,7 +537,6 @@ object TemplateSequenceFallback {
         if (second != null && second !in 0..59) return false
         return true
     }
-
 
     private fun plausibilityIssue(
         fields: Map<String, String>,
