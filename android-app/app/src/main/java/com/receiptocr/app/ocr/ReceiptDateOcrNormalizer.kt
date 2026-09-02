@@ -60,12 +60,17 @@ object ReceiptDateOcrNormalizer {
         }
 
         val day = dayToken.toIntOrNull() ?: return Result(null, original = cleaned)
-        val year = normalizeYear(yearToken) ?: return Result(null, original = cleaned)
+        val year = normalizeYear(yearToken, referenceDate) ?: return Result(null, original = cleaned)
         val month = monthToken.toIntOrNull() ?: return Result(null, original = cleaned)
 
-        // ค่าที่ถูกต้องอยู่แล้ว ต้องใช้ทันที ไม่ต้องแก้หรือเดา
-        buildDate(year, month, day)?.let {
-            return Result(it.format(output), corrected = false, original = cleaned)
+        // แม้เป็นวันที่จริงในปฏิทิน ก็ยังต้องอยู่ใกล้วันงานพอที่จะเป็นวันที่จากบิลนี้
+        // ป้องกัน OCR อ่านปี 69/61 แล้วกลายเป็น 2069/2061 และถูกนำไปใช้ต่อ
+        buildDate(year, month, day)?.let { date ->
+            val distance = abs(ChronoUnit.DAYS.between(referenceDate, date))
+            if (distance > maxAutoCorrectionDistanceDays) {
+                return Result(null, original = cleaned)
+            }
+            return Result(date.format(output), corrected = false, original = cleaned)
         }
 
         // ถ้า "เดือน" เป็นไปไม่ได้ ให้ใช้ข้อเท็จจริงว่าตำแหน่งนี้คือเดือนช่วยแก้ OCR
@@ -91,11 +96,19 @@ object ReceiptDateOcrNormalizer {
         return last.takeIf { it in 1..9 }
     }
 
-    private fun normalizeYear(token: String): Int? {
-        var year = token.filter(Char::isDigit).toIntOrNull() ?: return null
-        if (year in 2400..2999) year -= 543
-        if (year < 100) year += if (year >= 70) 1900 else 2000
-        return year.takeIf { it in 1900..2200 }
+    private fun normalizeYear(token: String, referenceDate: LocalDate): Int? {
+        val raw = token.filter(Char::isDigit).toIntOrNull() ?: return null
+        if (raw in 2400..2999) return (raw - 543).takeIf { it in 1900..2200 }
+        if (raw >= 100) return raw.takeIf { it in 1900..2200 }
+
+        // ใบเสร็จไทยพบทั้ง ค.ศ. 2 หลัก (26 = 2026) และ พ.ศ. 2 หลัก (69 = 2569 = 2026)
+        // เลือกปีที่ใกล้วันงานที่สุด แทนการบังคับว่าเลข < 70 ต้องเป็น 20xx เสมอ
+        val candidates = listOf(
+            2000 + raw,
+            1900 + raw,
+            2500 + raw - 543
+        ).filter { it in 1900..2200 }.distinct()
+        return candidates.minByOrNull { abs(it - referenceDate.year) }
     }
 
     private fun buildDate(year: Int, month: Int, day: Int): LocalDate? =

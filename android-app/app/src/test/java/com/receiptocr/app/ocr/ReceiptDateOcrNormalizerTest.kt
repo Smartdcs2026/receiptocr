@@ -80,4 +80,27 @@ class ReceiptDateOcrNormalizerTest {
         assertEquals("20/08/2026", result.value)
         assertFalse(result.corrected)
     }
+
+    @Test
+    fun thaiTwoDigitBuddhistYear69MapsTo2026NearWorkDate() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "20/08/69",
+            configuredFormat = "DD/MM/YY",
+            referenceDate = LocalDate.of(2026, 9, 2)
+        )
+
+        assertEquals("20/08/2026", result.value)
+        assertFalse(result.corrected)
+    }
+
+    @Test
+    fun distantTwoDigitYearMisreadIsRejectedInsteadOfBecoming2061() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "20/06/61",
+            configuredFormat = "DD/MM/YY",
+            referenceDate = LocalDate.of(2026, 9, 2)
+        )
+
+        assertNull(result.value)
+    }
 }
