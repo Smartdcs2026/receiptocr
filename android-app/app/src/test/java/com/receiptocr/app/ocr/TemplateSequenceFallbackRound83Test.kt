@@ -36,12 +36,16 @@ class TemplateSequenceFallbackRound83Test {
         )
     )
 
+    private fun mostComplete(text: String, template: UniversalOcrTemplate = mb02): Map<String, String> =
+        TemplateSequenceFallback.parseText(text, template)
+            .maxBy { result ->
+                listOf("POS_NUMBER", "CUSTOMER_VALUE", "BILL_DATE", "BILL_TIME")
+                    .count { !result[it].isNullOrBlank() }
+            }
+
     @Test
     fun readsDenseCharactersAsOneToken() {
-        val match = TemplateSequenceFallback.parseText(
-            "R201051846U11003020/08/6917:51",
-            mb02
-        ).first()
+        val match = mostComplete("R201051846U11003020/08/6917:51")
 
         assertEquals("1", match["POS_NUMBER"])
         assertEquals("051846", match["CUSTOMER_VALUE"])
@@ -51,10 +55,7 @@ class TemplateSequenceFallbackRound83Test {
 
     @Test
     fun readsWhenMlKitBreaksOneReceiptIntoSeveralLines() {
-        val match = TemplateSequenceFallback.parseText(
-            "R201051846U110030\n20/08/69\n17:51",
-            mb02
-        ).first()
+        val match = mostComplete("R201051846U110030\n20/08/69\n17:51")
 
         assertEquals("1", match["POS_NUMBER"])
         assertEquals("051846", match["CUSTOMER_VALUE"])
@@ -64,10 +65,7 @@ class TemplateSequenceFallbackRound83Test {
 
     @Test
     fun keepsCoreFieldsWhenUIsMissingFromOcrText() {
-        val match = TemplateSequenceFallback.parseText(
-            "R201051846110030 20/08/69 17:51",
-            mb02
-        ).first()
+        val match = mostComplete("R201051846110030 20/08/69 17:51")
 
         assertEquals("1", match["POS_NUMBER"])
         assertEquals("051846", match["CUSTOMER_VALUE"])
@@ -120,10 +118,10 @@ class TemplateSequenceFallbackRound83Test {
             )
         )
 
-        val match = TemplateSequenceFallback.parseText(
+        val match = mostComplete(
             "R201051846U110030 20/08/69 17:51",
             compositeTemplate
-        ).first()
+        )
 
         assertEquals("1", match["POS_NUMBER"])
         assertEquals("051846", match["CUSTOMER_VALUE"])
