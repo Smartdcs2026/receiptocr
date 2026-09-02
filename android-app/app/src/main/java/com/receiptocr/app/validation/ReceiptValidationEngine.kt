@@ -9,6 +9,7 @@ import com.receiptocr.app.config.RuleAction
 import com.receiptocr.app.data.DemoRepository
 import com.receiptocr.app.model.PosRecord
 import com.receiptocr.app.model.WorkItem
+import com.receiptocr.app.ocr.ReceiptTimeOcrNormalizer
 import java.io.File
 import java.security.MessageDigest
 import java.time.LocalDate
@@ -166,7 +167,14 @@ object ReceiptValidationEngine {
             } else {
                 if (record.customerNo.isBlank()) issues += block("CUSTOMER_REQUIRED", "POS ${record.posNumber}: ยังไม่มีเลข/ยอดลูกค้า")
                 if (record.billDate.isBlank()) issues += block("DATE_REQUIRED", "POS ${record.posNumber}: ยังไม่มีวันที่")
-                if (record.billTime.isBlank()) issues += block("TIME_REQUIRED", "POS ${record.posNumber}: ยังไม่มีเวลา")
+                if (record.billTime.isBlank()) {
+                    issues += block("TIME_REQUIRED", "POS ${record.posNumber}: ยังไม่มีเวลา")
+                } else {
+                    val normalizedTime = ReceiptTimeOcrNormalizer.normalize(record.billTime)
+                    if (normalizedTime.value == null || normalizedTime.value != record.billTime) {
+                        issues += block("TIME_FORMAT_POS_${record.posNumber}", "POS ${record.posNumber}: เวลาไม่อยู่ในรูปแบบ HH:mm")
+                    }
+                }
             }
         }
     }

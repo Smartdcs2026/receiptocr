@@ -106,7 +106,11 @@ object PosEvidenceFusion {
             val template = resolved.template
             val customer = resolved.values["CUSTOMER_VALUE"]
             val date = resolved.values["BILL_DATE"]
-            val time = resolved.values["BILL_TIME"]
+            val time = resolved.values["BILL_TIME"]?.let { resolvedTime ->
+                ReceiptTimeOcrNormalizer.normalize(resolvedTime.value).value?.let {
+                    resolvedTime.copy(value = it)
+                }
+            }
             val store = resolved.values["STORE_ID"]
 
             val index = updated.indexOfFirst { it.posNumber == pos }

@@ -151,6 +151,38 @@
         </label>
       </div>
 
+      <div id="dateBox" class="hidden fieldSpecialBox">
+        <div class="subSectionTitle">เงื่อนไขวันที่บนบิล</div>
+        <div class="simpleFormGrid two">
+          <label>ลำดับวัน เดือน ปี
+            <select id="dateOrder">
+              <option value="DMY">วัน / เดือน / ปี</option>
+              <option value="MDY">เดือน / วัน / ปี</option>
+              <option value="YMD">ปี / เดือน / วัน</option>
+            </select>
+          </label>
+          <label>ระบบปีบนบิล
+            <select id="dateCalendar">
+              <option value="AUTO">รับทั้ง พ.ศ. และ ค.ศ.</option>
+              <option value="BUDDHIST">พ.ศ. เท่านั้น</option>
+              <option value="GREGORIAN">ค.ศ. เท่านั้น</option>
+            </select>
+          </label>
+          <label>จำนวนหลักของปี
+            <select id="dateYearDigits">
+              <option value="0">รับทั้ง 2 และ 4 หลัก</option>
+              <option value="2">2 หลักเท่านั้น</option>
+              <option value="4">4 หลักเท่านั้น</option>
+            </select>
+          </label>
+        </div>
+        <div class="small">ตัวอย่าง: พ.ศ. 2569 / 69 และ ค.ศ. 2026 / 26 • เมื่ออ่านผ่าน ระบบจะเก็บเป็น dd/MM/yyyy เสมอ</div>
+      </div>
+
+      <div id="timeBox" class="hidden fieldSpecialBox">
+        <div class="small">เวลาที่อ่านผ่านจะเก็บเป็น HH:mm เสมอ เช่น 7:05 หรือ 07:05:33 จะเก็บเป็น 07:05</div>
+      </div>
+
       <div id="posBox" class="hidden fieldSpecialBox">
         <div class="simpleFormGrid two">
           <label>ตัวอักษรนำหน้าที่อนุญาต
@@ -281,6 +313,6 @@
 <script src="ocr-template-contract.js?v=68"></script>
 <script src="ocr-pattern-engine.js?v=68"></script>
 <script src="receipt-date-rules.js?v=68"></script>
-<script src="ocr-simple.js?v=88"></script>
+<script src="ocr-simple.js?v=89"></script>
 </body>
 </html>

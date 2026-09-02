@@ -149,8 +149,21 @@ object UniversalTemplateInterpreter {
             }
 
             val dateRaw = match.fields["BILL_DATE"]
-            val normalizedDate = dateRaw?.let { normalizeDate(it, workDate) }
-            val time = match.fields["BILL_TIME"]?.replace('.', ':')
+            val dateField = match.template.recognition.rows.asSequence()
+                .flatMap { it.fields.asSequence() }
+                .firstOrNull { it.type == "BILL_DATE" }
+            val dateResult = dateRaw?.let {
+                ReceiptDateOcrNormalizer.normalize(
+                    raw = it,
+                    configuredFormat = dateField?.format,
+                    referenceDate = workDate,
+                    dateOrder = dateField?.dateOrder,
+                    dateCalendar = dateField?.dateCalendar,
+                    dateYearDigits = dateField?.dateYearDigits ?: 0
+                )
+            }
+            val normalizedDate = dateResult?.value
+            val time = match.fields["BILL_TIME"]?.let(ReceiptTimeOcrNormalizer::normalize)?.value
             val customer = match.fields["CUSTOMER_VALUE"]?.filter(Char::isDigit)
 
             val core = match.template.validation.requiredCore
@@ -161,7 +174,9 @@ object UniversalTemplateInterpreter {
             if (!customer.isNullOrBlank() && customerLength != null && customer.length !in customerLength) {
                 posWarnings += "ยอด/เลขลูกค้ามี ${customer.length} หลัก แต่กำหนดไว้ ${customerLength.first}-${customerLength.last} หลัก"
             }
-            if (dateRaw != null && normalizedDate == null) posWarnings += "วันที่ที่อ่านได้มีรูปแบบไม่ถูกต้อง ($dateRaw)"
+            if (dateRaw != null && normalizedDate == null) {
+                posWarnings += dateResult?.warning ?: "วันที่ที่อ่านได้ไม่ตรงเงื่อนไขที่กำหนด ($dateRaw)"
+            }
             posWarnings += comparisonWarnings(match.template, match.fields, normalizedDate, workDate)
 
             if (dateRaw.isNullOrBlank() && time.isNullOrBlank() && customer.isNullOrBlank()) return@forEach
@@ -175,6 +190,7 @@ object UniversalTemplateInterpreter {
                 noReceiptReason = "",
                 source = "OCR-TEMPLATE",
                 ocrSourceImagePath = imagePath,
+                ocrTemplateName = match.template.templateName,
                 ocrWarnings = posWarnings.distinct().joinToString(" • "),
                 ocrCounterCycle = match.template.duplicatePolicy.customerCounterCycle.uppercase()
             )

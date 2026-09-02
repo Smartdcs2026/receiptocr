@@ -5,6 +5,7 @@ import com.receiptocr.app.config.BrandReceiptRule
 import com.receiptocr.app.config.OcrFieldType
 import com.receiptocr.app.config.TemplateSource
 import com.receiptocr.app.config.UniversalOcrTemplate
+import com.receiptocr.app.config.OcrTemplateField
 import com.receiptocr.app.model.PosRecord
 import com.receiptocr.app.model.WorkItem
 import com.receiptocr.app.validation.ReceiptValidationEngine
@@ -127,7 +128,7 @@ object RealOcrPipeline {
         val currentDetectedPos = (templateResult.detectedPos + profileFilledPos).distinct().sorted()
         val currentDetectedSet = currentDetectedPos.toSet()
         val currentStoreIdsByPos = buildStoreIdsByPos(templateResult, profileResult)
-        val dateFormat = configuredDateFormat(templates)
+        val defaultDateField = configuredDateField(templates)
 
         val priorDateWarningsByPos = ReceiptValidationEngine.groupDateIssues(
             records = records,
@@ -158,11 +159,15 @@ object RealOcrPipeline {
             val original = recordsForAccumulation.firstOrNull { it.posNumber == record.posNumber } ?: record
             val currentImagePos = record.posNumber in currentDetectedSet
             val rawCandidateDate = record.billDate.trim()
+            val recordDateField = dateFieldForRecord(record, templates) ?: defaultDateField
             val dateResult = if (currentImagePos && rawCandidateDate.isNotBlank()) {
                 ReceiptDateOcrNormalizer.normalize(
                     raw = rawCandidateDate,
-                    configuredFormat = dateFormat,
-                    referenceDate = workDate
+                    configuredFormat = recordDateField?.format,
+                    referenceDate = workDate,
+                    dateOrder = recordDateField?.dateOrder,
+                    dateCalendar = recordDateField?.dateCalendar,
+                    dateYearDigits = recordDateField?.dateYearDigits ?: 0
                 )
             } else null
             val storeId = mergeStoreId(
@@ -173,20 +178,25 @@ object RealOcrPipeline {
             val safeExistingDate = if (!original.source.startsWith("OCR", ignoreCase = true)) original.billDate else ""
             val acceptedDate = when {
                 dateResult?.value != null -> dateResult.value
+                currentImagePos && rawCandidateDate.isNotBlank() -> rawCandidateDate
                 currentImagePos -> safeExistingDate
                 else -> record.billDate
             }
             val dateWarning = when {
                 !currentImagePos || rawCandidateDate.isBlank() -> ""
                 dateResult?.value == null ->
-                    "วันที่ที่อ่านจากภาพ ($rawCandidateDate) ห่างจากวันงานมากผิดปกติหรือไม่ใช่วันที่จริง จึงยังไม่นำมาใช้"
+                    (dateResult?.warning ?: "วันที่ที่อ่านจากภาพ ($rawCandidateDate) ไม่ตรงเงื่อนไขที่กำหนด") + " • แสดงค่าที่อ่านได้ไว้ให้ตรวจแก้"
                 dateResult.corrected ->
-                    "วันที่ที่อ่านจากภาพ ${dateResult.original} ถูกปรับเป็น ${dateResult.value} ตามตำแหน่งวัน/เดือน กรุณาตรวจเทียบกับภาพ"
+                    "วันที่ที่อ่านจากภาพ ${dateResult.original} ถูกปรับเป็น ${dateResult.value} ตามเงื่อนไขวันที่ กรุณาตรวจเทียบกับภาพ"
                 else -> ""
             }
             val inheritedWarning = sanitizeLegacyOcrWarnings(record.ocrWarnings)
+            val standardizedTime = if (currentImagePos && record.billTime.isNotBlank()) {
+                ReceiptTimeOcrNormalizer.normalize(record.billTime).value ?: record.billTime
+            } else record.billTime
             record.copy(
                 billDate = acceptedDate,
+                billTime = standardizedTime,
                 ocrStoreId = storeId,
                 ocrWarnings = listOf(inheritedWarning, dateWarning)
                     .map { it.trim() }
@@ -547,18 +557,23 @@ object RealOcrPipeline {
     private fun validationPos(code: String): Int? =
         Regex("_POS_(\\d+)$").find(code)?.groupValues?.getOrNull(1)?.toIntOrNull()
 
-    private fun configuredDateFormat(templates: List<UniversalOcrTemplate>): String {
-        val formats = templates.asSequence()
+    private fun configuredDateField(templates: List<UniversalOcrTemplate>): OcrTemplateField? =
+        templates.asSequence()
             .filter { it.active }
             .flatMap { it.recognition.rows.asSequence() }
             .flatMap { it.fields.asSequence() }
-            .filter { it.type == "BILL_DATE" }
-            .map { it.format.trim() }
-            .filter { it.isNotBlank() }
-            .toList()
-        return formats.firstOrNull { it.uppercase() !in setOf("DATE", "ANY") }
-            ?: formats.firstOrNull()
-            ?: "DD/MM/YYYY"
+            .firstOrNull { it.type == "BILL_DATE" }
+
+    private fun dateFieldForRecord(
+        record: PosRecord,
+        templates: List<UniversalOcrTemplate>
+    ): OcrTemplateField? {
+        val name = record.ocrTemplateName.trim()
+        val template = templates.firstOrNull { it.active && name.isNotBlank() && it.templateName == name }
+            ?: return null
+        return template.recognition.rows.asSequence()
+            .flatMap { it.fields.asSequence() }
+            .firstOrNull { it.type == "BILL_DATE" }
     }
 
     private fun templateHasStoreId(template: UniversalOcrTemplate): Boolean =

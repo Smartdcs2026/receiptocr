@@ -26,7 +26,7 @@ let brandReceiptRule=ReceiptDateRules.defaultRule("");
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 function makeField(type){
   const m=META[type]||META.IGNORE;
-  return {id:crypto.randomUUID(),type,example:"",minLength:m.min,maxLength:m.max,format:m.format,required:type!=="IGNORE",literal:"",prefix:"",separator:"",segments:[],compareTo:"NONE",posPrefixes:"",posDigits:2,separatorValue:""};
+  return {id:crypto.randomUUID(),type,example:"",minLength:m.min,maxLength:m.max,format:m.format,required:type!=="IGNORE",literal:"",prefix:"",separator:"",segments:[],compareTo:"NONE",posPrefixes:"",posDigits:2,separatorValue:"",dateOrder:"DMY",dateCalendar:"AUTO",dateYearDigits:0};
 }
 function makePattern(rowCount=1){
   return {templateId:"",templateName:"",version:1,priority:100,active:true,sampleText:"",rows:Array.from({length:rowCount},()=>[]),validation:{mustMatchStore:true,mustMatchPos:true,noDuplicatePos:true,mustHaveDate:true,mustHaveTime:true,mustHaveCustomer:true,counterCycle:"CONTINUOUS"}};
@@ -106,7 +106,7 @@ function normalize(p){
   if(p.recognition?.rows){
     return {
       templateId:p.templateId||"",templateName:p.templateName||"",version:p.version||1,priority:p.priority||100,active:p.active!==false,sampleText:p.sampleText||"",
-      rows:p.recognition.rows.map(r=>(r.fields||[]).map(f=>({id:crypto.randomUUID(),type:f.type,example:f.example||"",minLength:f.minLength??META[f.type]?.min??1,maxLength:f.maxLength??META[f.type]?.max??12,format:f.format||META[f.type]?.format||"ANY",required:f.required!==false,literal:f.literal||"",prefix:f.composite?.prefix||"",separator:f.composite?.separator||"",segments:(f.composite?.segments||[]).map(s=>({...s})),compareTo:f.compareTo||"NONE",posPrefixes:f.posPrefixes||"",posDigits:f.posDigits||2,separatorValue:f.separatorValue||""}))),
+      rows:p.recognition.rows.map(r=>(r.fields||[]).map(f=>({id:crypto.randomUUID(),type:f.type,example:f.example||"",minLength:f.minLength??META[f.type]?.min??1,maxLength:f.maxLength??META[f.type]?.max??12,format:f.format||META[f.type]?.format||"ANY",required:f.required!==false,literal:f.literal||"",prefix:f.composite?.prefix||"",separator:f.composite?.separator||"",segments:(f.composite?.segments||[]).map(s=>({...s})),compareTo:f.compareTo||"NONE",posPrefixes:f.posPrefixes||"",posDigits:f.posDigits||2,separatorValue:f.separatorValue||"",dateOrder:f.dateOrder||"DMY",dateCalendar:f.dateCalendar||"AUTO",dateYearDigits:Number(f.dateYearDigits||0)}))),
       validation:{mustMatchStore:p.validation?.store?.mustMatchWorkPlan!==false,mustMatchPos:p.validation?.pos?.mustExistInStorePlan!==false,noDuplicatePos:p.validation?.pos?.mustBeUnique!==false,mustHaveDate:p.validation?.requiredCore?.date!==false,mustHaveTime:p.validation?.requiredCore?.time!==false,mustHaveCustomer:p.validation?.requiredCore?.customerValue!==false,counterCycle:p.duplicatePolicy?.customerCounterCycle||"CONTINUOUS"}
     };
   }
@@ -190,6 +190,11 @@ function renderFieldEditor(){
   $("literalBox").classList.toggle("hidden",f.type!=="LITERAL");$("fieldLiteral").value=f.literal||"";
   $("yearMonthBox").classList.toggle("hidden",!["YEAR_VALUE","MONTH_VALUE","DAY_VALUE"].includes(f.type));
   $("fieldCompareTo").value=f.compareTo||"NONE";
+  $("dateBox").classList.toggle("hidden",f.type!=="BILL_DATE");
+  $("timeBox").classList.toggle("hidden",f.type!=="BILL_TIME");
+  $("dateOrder").value=f.dateOrder||"DMY";
+  $("dateCalendar").value=f.dateCalendar||"AUTO";
+  $("dateYearDigits").value=String(Number(f.dateYearDigits||0));
   $("posBox").classList.toggle("hidden",f.type!=="POS_NUMBER");
   $("posPrefixes").value=f.posPrefixes||"";
   $("posDigits").value=f.posDigits||2;
@@ -201,11 +206,11 @@ function renderFieldEditor(){
 }
 function updateField(){
   const f=currentField();if(!f)return;
-  f.example=$("fieldExample").value.trim();f.format=$("fieldFormat").value;f.minLength=+$("fieldMinLength").value||0;f.maxLength=+$("fieldMaxLength").value||1;f.required=$("fieldRequired").checked;f.literal=$("fieldLiteral").value;f.compareTo=$("fieldCompareTo").value;f.posPrefixes=$("posPrefixes").value.trim();f.posDigits=+$("posDigits").value||2;f.separatorValue=$("separatorValue").value;
+  f.example=$("fieldExample").value.trim();f.format=$("fieldFormat").value;f.minLength=+$("fieldMinLength").value||0;f.maxLength=+$("fieldMaxLength").value||1;f.required=$("fieldRequired").checked;f.literal=$("fieldLiteral").value;f.compareTo=$("fieldCompareTo").value;f.posPrefixes=$("posPrefixes").value.trim();f.posDigits=+$("posDigits").value||2;f.separatorValue=$("separatorValue").value;f.dateOrder=$("dateOrder").value;f.dateCalendar=$("dateCalendar").value;f.dateYearDigits=+$("dateYearDigits").value||0;
   if(f.type==="COMPOSITE_CODE"){f.prefix=$("compositePrefix").value;f.separator=$("compositeSeparator").value}
   renderRows();
 }
-["fieldExample","fieldFormat","fieldMinLength","fieldMaxLength","fieldRequired","fieldLiteral","fieldCompareTo","posPrefixes","posDigits","separatorValue","compositePrefix","compositeSeparator"].forEach(id=>{$(id).oninput=updateField;$(id).onchange=updateField});
+["fieldExample","fieldFormat","fieldMinLength","fieldMaxLength","fieldRequired","fieldLiteral","fieldCompareTo","dateOrder","dateCalendar","dateYearDigits","posPrefixes","posDigits","separatorValue","compositePrefix","compositeSeparator"].forEach(id=>{$(id).oninput=updateField;$(id).onchange=updateField});
 $("removeFieldBtn").onclick=()=>{editing.rows=editing.rows.map(r=>r.filter(x=>x.id!==selectedFieldId));selectedFieldId=null;renderRows();renderFieldEditor()};
 
 function renderSegments(f){
@@ -229,7 +234,7 @@ function build(){
   editing.validation={mustMatchStore:$("mustMatchStore").checked,mustMatchPos:true,noDuplicatePos:true,mustHaveDate:$("mustHaveDate").checked,mustHaveTime:$("mustHaveTime").checked,mustHaveCustomer:$("mustHaveCustomer").checked,counterCycle:$("counterCycle").value};
   return {
     schemaVersion:4,templateId:editing.templateId,brandId:$("brandId").value,templateName:editing.templateName,version:editing.version||1,priority:editing.priority||100,active:true,sampleText:editing.sampleText,
-    recognition:{rowCount:editing.rows.length,groupAsSingleRecord:true,rows:editing.rows.map((r,ri)=>({row:ri+1,fields:r.map((f,fi)=>({order:fi+1,type:f.type,example:f.example||null,required:f.required,minLength:f.minLength,maxLength:f.maxLength,format:f.format,literal:f.literal||null,compareTo:f.compareTo||"NONE",posPrefixes:f.posPrefixes||null,posDigits:f.posDigits||null,separatorValue:f.separatorValue||null,composite:f.type==="COMPOSITE_CODE"?{prefix:f.prefix||null,separator:f.separator||null,segments:f.segments.map((s,i)=>({order:i+1,...s}))}:null}))}))},
+    recognition:{rowCount:editing.rows.length,groupAsSingleRecord:true,rows:editing.rows.map((r,ri)=>({row:ri+1,fields:r.map((f,fi)=>({order:fi+1,type:f.type,example:f.example||null,required:f.required,minLength:f.minLength,maxLength:f.maxLength,format:f.format,dateOrder:f.dateOrder||"DMY",dateCalendar:f.dateCalendar||"AUTO",dateYearDigits:Number(f.dateYearDigits||0),literal:f.literal||null,compareTo:f.compareTo||"NONE",posPrefixes:f.posPrefixes||null,posDigits:f.posDigits||null,separatorValue:f.separatorValue||null,composite:f.type==="COMPOSITE_CODE"?{prefix:f.prefix||null,separator:f.separator||null,segments:f.segments.map((s,i)=>({order:i+1,...s}))}:null}))}))},
     validation:{requiredCore:{date:editing.validation.mustHaveDate,time:editing.validation.mustHaveTime,customerValue:editing.validation.mustHaveCustomer},store:{mustMatchWorkPlan:editing.validation.mustMatchStore,sameStoreAcrossAllMatches:true},pos:{mustExistInStorePlan:editing.validation.mustMatchPos,mustBeUnique:editing.validation.noDuplicatePos}},
     duplicatePolicy:{customerCounterCycle:editing.validation.counterCycle,preventSameImageHash:true,preventSameReceiptKey:true}
   };
@@ -468,10 +473,74 @@ function runPatternTest(){
   renderTestResult(result);
 }
 
+function normalizeTestTime(raw){
+  const m=String(raw||"").trim().replace(/\./g,":").match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if(!m)return {value:null,warning:"รูปแบบเวลาไม่ถูกต้อง"};
+  const h=Number(m[1]),mi=Number(m[2]),s=m[3]===undefined?0:Number(m[3]);
+  if(h>23||mi>59||s>59)return {value:null,warning:"เวลาไม่มีอยู่จริง"};
+  return {value:`${String(h).padStart(2,"0")}:${String(mi).padStart(2,"0")}`,warning:""};
+}
+function normalizeTestDate(raw,field,workDateRaw){
+  const cleaned=String(raw||"").trim().replace(/[.\-]/g,"/");
+  const parts=cleaned.split("/").map(x=>x.trim());
+  if(parts.length!==3)return {value:null,warning:"รูปแบบวันที่ไม่ตรงเงื่อนไข"};
+  const order=String(field?.dateOrder||"DMY").toUpperCase();
+  let d,m,yToken;
+  if(order==="MDY"){m=parts[0];d=parts[1];yToken=parts[2]}
+  else if(order==="YMD"){yToken=parts[0];m=parts[1];d=parts[2]}
+  else {d=parts[0];m=parts[1];yToken=parts[2]}
+  const yearDigits=Number(field?.dateYearDigits||0);
+  const yd=String(yToken).replace(/\D/g,"");
+  if(yearDigits&&yd.length!==yearDigits)return {value:null,warning:`ปีบนบิลต้องมี ${yearDigits} หลัก`};
+  const day=Number(d),month=Number(m),rawYear=Number(yd);
+  if(!Number.isInteger(day)||!Number.isInteger(month)||!Number.isInteger(rawYear))return {value:null,warning:"วันที่มีตัวเลขไม่ครบ"};
+  const calendar=String(field?.dateCalendar||"AUTO").toUpperCase();
+  const ref=workDateRaw?new Date(`${workDateRaw}T00:00:00`):new Date();
+  const refYear=ref.getFullYear();
+  let years=[];
+  if(calendar==="BUDDHIST"){
+    if(yd.length===4&&rawYear>=2400&&rawYear<=2999)years=[rawYear-543];
+    else if(yd.length===2)years=[2500+rawYear-543];
+  }else if(calendar==="GREGORIAN"){
+    if(yd.length===4&&rawYear>=1900&&rawYear<=2200)years=[rawYear];
+    else if(yd.length===2)years=[2000+rawYear,1900+rawYear];
+  }else{
+    if(yd.length===4){
+      if(rawYear>=2400&&rawYear<=2999)years=[rawYear-543];
+      else if(rawYear>=1900&&rawYear<=2200)years=[rawYear];
+    }else if(yd.length===2)years=[2000+rawYear,1900+rawYear,2500+rawYear-543];
+  }
+  years=[...new Set(years)].filter(y=>y>=1900&&y<=2200).sort((a,b)=>Math.abs(a-refYear)-Math.abs(b-refYear));
+  if(!years.length)return {value:null,warning:`ระบบปีบนบิลไม่ตรงเงื่อนไข (${calendar==="BUDDHIST"?"พ.ศ.":calendar==="GREGORIAN"?"ค.ศ.":"พ.ศ./ค.ศ."})`};
+  for(const year of years){
+    const dt=new Date(year,month-1,day);
+    if(dt.getFullYear()===year&&dt.getMonth()===month-1&&dt.getDate()===day){
+      return {value:`${String(day).padStart(2,"0")}/${String(month).padStart(2,"0")}/${year}`,warning:""};
+    }
+  }
+  return {value:null,warning:"วันที่ไม่มีอยู่จริงตามปฏิทิน"};
+}
 function validateParsedRecord(fields,configuredRows,recordNumber){
+  fields={...fields};
   const checks=[];
   let validationPassed=true;
   const label=`ชุดที่ ${recordNumber}`;
+  const dateField=configuredRows.flat().find(field=>field.type==="BILL_DATE");
+  if(fields.BILL_DATE&&dateField){
+    const normalized=normalizeTestDate(fields.BILL_DATE,dateField,$("testWorkDate").value);
+    if(normalized.value){
+      fields.BILL_DATE=normalized.value;
+      checks.push({ok:true,text:`${label}: วันที่ตรงรูปแบบที่กำหนด (${normalized.value})`});
+    }else{
+      checks.push({ok:false,text:`${label}: ${normalized.warning} • อ่านได้ ${fields.BILL_DATE}`});
+      validationPassed=false;
+    }
+  }
+  if(fields.BILL_TIME){
+    const normalized=normalizeTestTime(fields.BILL_TIME);
+    if(normalized.value){fields.BILL_TIME=normalized.value;checks.push({ok:true,text:`${label}: เวลาใช้รูปแบบมาตรฐาน (${normalized.value})`})}
+    else {checks.push({ok:false,text:`${label}: ${normalized.warning} • อ่านได้ ${fields.BILL_TIME}`});validationPassed=false}
+  }
   const expectedStore=$("testStoreCode").value.trim();
   if(editing.validation.mustMatchStore&&expectedStore&&fields.STORE_ID){
     const ok=String(fields.STORE_ID).padStart(expectedStore.length,"0")===expectedStore;

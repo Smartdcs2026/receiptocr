@@ -103,4 +103,71 @@ class ReceiptDateOcrNormalizerTest {
 
         assertNull(result.value)
     }
+
+    @Test
+    fun buddhistTwoDigitRuleMaps69To2026() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "20/08/69",
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = "DMY",
+            dateCalendar = "BUDDHIST",
+            dateYearDigits = 2
+        )
+        assertEquals("20/08/2026", result.value)
+    }
+
+    @Test
+    fun buddhistFourDigitRuleMaps2569To2026() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "20/08/2569",
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = "DMY",
+            dateCalendar = "BUDDHIST",
+            dateYearDigits = 4
+        )
+        assertEquals("20/08/2026", result.value)
+    }
+
+    @Test
+    fun gregorianTwoDigitRuleMaps26To2026() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "20/08/26",
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = "DMY",
+            dateCalendar = "GREGORIAN",
+            dateYearDigits = 2
+        )
+        assertEquals("20/08/2026", result.value)
+    }
+
+    @Test
+    fun mdyGregorianFourDigitRuleNormalizesToDmyStorage() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "08/20/2026",
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = "MDY",
+            dateCalendar = "GREGORIAN",
+            dateYearDigits = 4
+        )
+        assertEquals("20/08/2026", result.value)
+    }
+
+    @Test
+    fun wrongCalendarRuleIsRejectedButRawRemainsAvailable() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "20/08/69",
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = "DMY",
+            dateCalendar = "GREGORIAN",
+            dateYearDigits = 2
+        )
+        assertNull(result.value)
+        assertEquals("20/08/69", result.original)
+        assertTrue(result.warning.orEmpty().isNotBlank())
+    }
 }

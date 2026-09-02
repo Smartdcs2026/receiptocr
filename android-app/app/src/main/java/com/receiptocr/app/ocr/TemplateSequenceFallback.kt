@@ -106,7 +106,7 @@ object TemplateSequenceFallback {
             val date = candidate.fields["BILL_DATE"].orEmpty()
                 .replace('.', '/')
                 .replace('-', '/')
-            val time = candidate.fields["BILL_TIME"].orEmpty().replace('.', ':')
+            val time = ReceiptTimeOcrNormalizer.normalize(candidate.fields["BILL_TIME"].orEmpty()).value.orEmpty()
 
             updated[index] = current.copy(
                 customerNo = customer.ifBlank { current.customerNo },
@@ -116,6 +116,7 @@ object TemplateSequenceFallback {
                 noReceiptReason = "",
                 source = "OCR-SEQUENCE",
                 ocrSourceImagePath = imagePath,
+                ocrTemplateName = candidate.template.templateName,
                 ocrWarnings = "",
                 ocrCounterCycle = candidate.template.duplicatePolicy.customerCounterCycle.uppercase()
             )
