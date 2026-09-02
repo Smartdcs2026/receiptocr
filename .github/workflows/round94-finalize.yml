@@ -6,6 +6,7 @@ on:
       - round94-multitemplate-pos-identity-integrity-ui
     paths:
       - 'tools/round94_apply.py'
+      - 'tools/round94_escape_fix.py'
       - '.github/workflows/round94-finalize.yml'
   workflow_dispatch:
 
@@ -29,7 +30,9 @@ jobs:
           echo "Round93 baseline is preserved"
 
       - name: Apply Round94 production source
-        run: python tools/round94_apply.py
+        run: |
+          python tools/round94_apply.py
+          python tools/round94_escape_fix.py
 
       - name: Set up Node
         uses: actions/setup-node@v4
