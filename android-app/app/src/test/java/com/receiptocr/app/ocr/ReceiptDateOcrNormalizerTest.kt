@@ -47,6 +47,30 @@ class ReceiptDateOcrNormalizerTest {
     }
 
     @Test
+    fun thaiShortYear69IsResolvedTo2026NearWorkDate() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "22/08/69",
+            configuredFormat = "DD/MM/YYYY",
+            referenceDate = workDate
+        )
+
+        assertEquals("22/08/2026", result.value)
+        assertTrue(result.corrected)
+    }
+
+    @Test
+    fun gregorianShortYear26IsResolvedTo2026NearWorkDate() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "22/08/26",
+            configuredFormat = "DD/MM/YYYY",
+            referenceDate = workDate
+        )
+
+        assertEquals("22/08/2026", result.value)
+        assertTrue(result.corrected)
+    }
+
+    @Test
     fun invalidCalendarDayIsNotInvented() {
         val result = ReceiptDateOcrNormalizer.normalize(
             raw = "31/02/2026",
