@@ -1,0 +1,140 @@
+name: Round80 align Admin rules with APK
+
+on:
+  push:
+    branches: [round80-admin-apk-rule-alignment]
+
+permissions:
+  contents: write
+
+jobs:
+  align:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Bring latest Admin pages into Round80
+        run: |
+          git fetch origin main
+          for f in web-admin/admin-spa.js web-admin/ocr-simple.js web-admin/ocr-pattern-engine.js web-admin/ocr-admin-ux.js web-admin/ocr-admin-ux.css; do
+            if git cat-file -e origin/main:$f 2>/dev/null; then
+              git checkout origin/main -- "$f"
+            fi
+          done
+      - name: Apply Round80 Android fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p=Path(path)
+              s=p.read_text()
+              if old not in s:
+                  raise SystemExit(f'Expected block not found in {path}: {old[:120]!r}')
+              p.write_text(s.replace(old,new,1))
+
+          # Version 80
+          replace_once('android-app/app/build.gradle.kts','versionCode = 78\n        versionName = "0.78.0"','versionCode = 80\n        versionName = "0.80.0"')
+
+          # Load the latest usable form from both full brand name and abbreviation.
+          repo='android-app/app/src/main/java/com/receiptocr/app/data/remote/OcrTemplateRepository.kt'
+          old='''    fun load(context: Context, brand: String, brandAbbr: String = ""): LoadedOcrTemplates {\n        val candidates = listOf(brand, brandAbbr).map { it.trim() }.filter { it.isNotBlank() }.distinct()\n        candidates.forEach { candidate ->\n            val cloud = runCatching { fetchCloud(candidate) }.getOrNull()\n            if (!cloud.isNullOrBlank()) {\n                saveCache(context, brand, cloud)\n                val parsed = runCatching { parse(cloud, TemplateSource.CLOUD) }.getOrNull()\n                if (parsed != null && (parsed.templates.isNotEmpty() || parsed.receiptRule != null)) return parsed\n            }\n        }\n        val cached = readCache(context, brand)\n        if (!cached.isNullOrBlank()) {\n            val parsed = runCatching { parse(cached, TemplateSource.CACHE) }.getOrNull()\n            if (parsed != null) return parsed\n        }\n        return candidates.asSequence().map(::referenceTemplates).firstOrNull { it.templates.isNotEmpty() }\n            ?: LoadedOcrTemplates(emptyList(), TemplateSource.NONE)\n    }'''
+          new='''    fun load(context: Context, brand: String, brandAbbr: String = ""): LoadedOcrTemplates {\n        val candidates = listOf(brand, brandAbbr).map { it.trim() }.filter { it.isNotBlank() }.distinct()\n        var receiptRuleFallback: BrandReceiptRule? = null\n\n        candidates.forEach { candidate ->\n            val cloud = runCatching { fetchCloud(candidate) }.getOrNull()\n            if (!cloud.isNullOrBlank()) {\n                val parsed = runCatching { parse(cloud, TemplateSource.CLOUD) }.getOrNull()\n                if (parsed != null) {\n                    if (receiptRuleFallback == null) receiptRuleFallback = parsed.receiptRule\n                    if (parsed.templates.isNotEmpty()) {\n                        // เก็บเฉพาะคำตอบที่มีรูปแบบบิลจริง ป้องกันข้อมูลกฎอย่างเดียวทับรูปแบบที่ใช้งานได้\n                        saveCache(context, brand, cloud)\n                        return if (parsed.receiptRule != null || receiptRuleFallback == null) parsed\n                        else parsed.copy(receiptRule = receiptRuleFallback)\n                    }\n                }\n            }\n        }\n\n        val cached = readCache(context, brand)\n        if (!cached.isNullOrBlank()) {\n            val parsed = runCatching { parse(cached, TemplateSource.CACHE) }.getOrNull()\n            if (parsed != null && parsed.templates.isNotEmpty()) {\n                return if (parsed.receiptRule != null || receiptRuleFallback == null) parsed\n                else parsed.copy(receiptRule = receiptRuleFallback)\n            }\n        }\n\n        val reference = candidates.asSequence().map(::referenceTemplates).firstOrNull { it.templates.isNotEmpty() }\n            ?: LoadedOcrTemplates(emptyList(), TemplateSource.NONE)\n        return if (reference.receiptRule != null || receiptRuleFallback == null) reference\n        else reference.copy(receiptRule = receiptRuleFallback)\n    }'''
+          replace_once(repo,old,new)
+
+          # Keep actual POS numbers across app restarts instead of recreating 1..count every time.
+          demo='android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt'
+          replace_once(demo,
+          '''        return (1..work.posCount).map { n ->\n            val k = "${work.id}_${date}_$n"''',
+          '''        val savedPosNumbers = prefs.getString("${work.id}_${date}.posNumbers", "")\n            .orEmpty().split(',').mapNotNull { it.toIntOrNull() }\n        val posNumbers = if (savedPosNumbers.size == work.posCount) savedPosNumbers else (1..work.posCount).toList()\n        return posNumbers.map { n ->\n            val k = "${work.id}_${date}_$n"''')
+          replace_once(demo,
+          '''        val editor = context.getSharedPreferences("pos_records", Context.MODE_PRIVATE).edit()\n        records.forEach { r ->''',
+          '''        val editor = context.getSharedPreferences("pos_records", Context.MODE_PRIVATE).edit()\n        editor.putString(\n            "${work.id}_${date}.posNumbers",\n            records.take(work.posCount).joinToString(",") { it.posNumber.toString() }\n        )\n        records.forEach { r ->''')
+
+          # Allow a later image to introduce the real POS number into an unused slot.
+          accumulation='android-app/app/src/main/java/com/receiptocr/app/ocr/OcrAccumulationPolicy.kt'
+          replace_once(accumulation,
+          '''        val improved = linkedSetOf<Int>()\n        val conflicts = linkedMapOf<Int, String>()\n\n        val merged = originals.map { original ->''',
+          '''        val improved = linkedSetOf<Int>()\n        val conflicts = linkedMapOf<Int, String>()\n\n        val workingOriginals = originals.toMutableList()\n        currentDetectedPos.sorted().forEach { detectedPos ->\n            if (workingOriginals.none { it.posNumber == detectedPos }) {\n                val freeIndex = workingOriginals.indexOfFirst { record ->\n                    record.customerNo.isBlank() && record.billDate.isBlank() && record.billTime.isBlank() &&\n                        !record.noReceipt && record.ocrSourceImagePath.isBlank()\n                }\n                if (freeIndex >= 0) workingOriginals[freeIndex] = workingOriginals[freeIndex].copy(posNumber = detectedPos)\n            }\n        }\n\n        val merged = workingOriginals.map { original ->''')
+
+          # Android reader: POS value is an identifier, not a number range 1..posCount.
+          interp='android-app/app/src/main/java/com/receiptocr/app/ocr/UniversalTemplateInterpreter.kt'
+          replace_once(interp,
+          '''                message = "อ่านภาพแล้ว แต่ยังแยกข้อมูลบิลไม่ได้ครบ กรุณาถ่ายภาพให้ตัวอักษรชัดขึ้น",''',
+          '''                message = "อ่านข้อความได้ แต่ยังแยกข้อมูลตามรูปแบบบิลนี้ไม่ได้",''')
+
+          old_block='''        val plannedPos = records.map { it.posNumber }.toSet()\n        templateMatches.forEach { match ->\n            val raw = match.fields["POS_NUMBER"] ?: return@forEach\n            val pos = parsePosNumber(raw) ?: return@forEach\n            if (pos !in plannedPos) unmappedPos += raw\n        }\n        val bestMatches = templateMatches\n            .mapNotNull { match ->\n                val pos = match.fields["POS_NUMBER"]?.let(::parsePosNumber) ?: return@mapNotNull null\n                if (pos !in plannedPos) null else pos to match\n            }'''
+          new_block='''        val bestMatches = templateMatches\n            .mapNotNull { match ->\n                val pos = match.fields["POS_NUMBER"]?.let(::parsePosNumber) ?: return@mapNotNull null\n                pos to match\n            }'''
+          replace_once(interp,old_block,new_block)
+
+          replace_once(interp,
+          '''        bestMatches.forEach { (pos, match) ->\n            val index = updated.indexOfFirst { it.posNumber == pos }\n            if (index < 0) return@forEach''',
+          '''        val assignedPositions = linkedSetOf<Int>()\n        bestMatches.forEach { (pos, match) ->\n            var index = updated.indexOfFirst { it.posNumber == pos }\n            if (index < 0) {\n                index = updated.indexOfFirst { record ->\n                    record.posNumber !in assignedPositions &&\n                        record.customerNo.isBlank() && record.billDate.isBlank() && record.billTime.isBlank() &&\n                        !record.noReceipt && record.ocrSourceImagePath.isBlank()\n                }\n                if (index >= 0) {\n                    updated[index] = updated[index].copy(posNumber = pos)\n                } else {\n                    unmappedPos += pos.toString()\n                    return@forEach\n                }\n            }\n            assignedPositions += pos''')
+
+          # Store comparison must use the bill-facing store id, not the work-plan code with brand letters.
+          s=Path(interp).read_text()
+          s=s.replace('sameStore(store, work.storeCode)', 'sameStore(store, work.expectedReceiptStoreId)')
+          s=s.replace('แผนงาน (${work.storeCode})', 'แผนงาน (${work.expectedReceiptStoreId})')
+          s=s.replace('if (pos != null) score += if (pos in 1..work.posCount) 20 else -50', 'if (pos != null) score += 20')
+          Path(interp).write_text(s)
+
+          # User-facing wording: no infrastructure wording in the APK.
+          ui='android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt'
+          s=Path(ui).read_text()
+          s=s.replace('แผนงาน: Cloudflare','แผนงาน: ข้อมูลล่าสุด')
+          s=s.replace('แผนงาน: Offline cache','แผนงาน: ข้อมูลที่บันทึกไว้')
+          s=s.replace('แผนงาน: Demo fallback','แผนงาน: ข้อมูลสำรอง')
+          Path(ui).write_text(s)
+          PY
+      - name: Add Round80 regression tests
+        run: |
+          cat > android-app/app/src/test/java/com/receiptocr/app/ocr/OcrAccumulationRound80Test.kt <<'KT'
+          package com.receiptocr.app.ocr
+
+          import com.receiptocr.app.model.PosRecord
+          import org.junit.Assert.assertEquals
+          import org.junit.Assert.assertTrue
+          import org.junit.Test
+
+          class OcrAccumulationRound80Test {
+              @Test
+              fun actualPosNumberCanFillUnusedSlot() {
+                  val originals = listOf(PosRecord(1), PosRecord(2))
+                  val detected = listOf(
+                      PosRecord(101, customerNo = "219931", billDate = "22/08/2026", billTime = "18:37", source = "OCR-TEMPLATE", ocrSourceImagePath = "a.jpg")
+                  )
+                  val result = OcrAccumulationPolicy.merge(
+                      originals = originals,
+                      templateRecords = detected,
+                      profileRecords = detected,
+                      currentDetectedPos = setOf(101)
+                  )
+                  assertTrue(result.records.any { it.posNumber == 101 })
+                  assertEquals("219931", result.records.first { it.posNumber == 101 }.customerNo)
+              }
+          }
+          KT
+      - name: Verify no old POS range rule remains
+        run: |
+          ! grep -R "pos in 1\.\.work\.posCount" android-app/app/src/main/java
+      - name: Run Admin checks
+        run: |
+          node -c web-admin/ocr-simple.js
+          node -c web-admin/ocr-pattern-engine.js
+          if [ -f tests/ocr-pattern-engine.test.js ]; then node tests/ocr-pattern-engine.test.js; fi
+      - name: Run Android tests and build
+        working-directory: android-app
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest assembleDebug
+      - name: Commit Round80 result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web-admin android-app .github/workflows/round80-align.yml
+          if ! git diff --cached --quiet; then
+            git commit -m "Round80 align Admin bill rules with APK [skip ci]"
+            git push origin HEAD:round80-admin-apk-rule-alignment
+          fi
