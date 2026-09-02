@@ -95,7 +95,7 @@ replacement = '''    internal fun fuseTextPasses(
         val passCount = rawTexts.count { it.isNotBlank() }
         return evidence.groupBy { it.pos }.mapNotNull { (pos, all) ->
             val resolved = resolvePosCandidate(all, passCount) ?: return@mapNotNull null
-            pos to buildMap {
+            pos to buildMap<String, String> {
                 put("POS_NUMBER", pos.toString())
                 resolved.values["CUSTOMER_VALUE"]?.let { put("CUSTOMER_VALUE", it.value) }
                 resolved.values["BILL_DATE"]?.let { put("BILL_DATE", it.value) }
