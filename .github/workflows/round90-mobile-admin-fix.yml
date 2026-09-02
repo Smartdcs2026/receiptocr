@@ -1,0 +1,67 @@
+name: Round90 mobile and Admin completion
+
+on:
+  push:
+    branches: ["round90-unified-date-admin-receipt-line"]
+    paths:
+      - ".github/workflows/round90-mobile-admin-fix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: round90-unified-date-admin-receipt-line
+          fetch-depth: 0
+
+      - name: Apply Round90 mobile/Admin patch
+        run: python3 tools/round90_mobile_admin_fix.py
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Work-plan store normalization tests
+        run: node tests/workplan-store-normalizer.test.js
+
+      - name: Admin OCR pattern tests
+        run: node tests/ocr-pattern-engine.test.js
+
+      - name: Admin OCR syntax
+        run: |
+          node --check web-admin/ocr-simple.js
+          node --check web-admin/ocr-pattern-engine.js
+          node --check web-admin/admin-spa.js
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Commit verified Round90 source and remove temporary patch files
+        run: |
+          rm -f tools/round90_mobile_admin_fix.py .github/workflows/round90-mobile-admin-fix.yml
+          git config user.name "SKDC_SMART"
+          git config user.email "somchaibutphon@gmail.com"
+          git add -A
+          git commit -m "Round90 fix Mb_02 structural OCR and publish Admin date controls"
+          git push origin HEAD:round90-unified-date-admin-receipt-line
