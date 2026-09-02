@@ -25,6 +25,18 @@ class TemplateAwareDateResolverRound92Test {
     }
 
     @Test
+    fun mb01SlashSeparatorStillUsesMdy() {
+        val result = TemplateAwareDateResolver.resolve(
+            raw = "08/21/2026",
+            templateName = "Mb_01",
+            templates = listOf(mb01(), mb02()),
+            referenceDate = workDate,
+            allowCanonicalInput = false
+        )
+        assertEquals("21/08/2026", result.value)
+    }
+
+    @Test
     fun mb01SecondReceiptMdyGregorianFourDigitBecomesCanonicalDmy() {
         val result = TemplateAwareDateResolver.resolve(
             raw = "08-22-2026",
