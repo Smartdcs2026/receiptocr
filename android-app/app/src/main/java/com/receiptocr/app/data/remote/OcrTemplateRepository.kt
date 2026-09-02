@@ -14,40 +14,112 @@ private const val TEMPLATE_PREFS = "ocr_template_cache_v1"
 
 object OcrTemplateRepository {
 
+    /**
+     * โหลดรูปแบบบิลของแบรนด์ โดยต้องได้ "รูปแบบบิลจริง" ก่อนจึงหยุดค้นหา
+     * การพบเฉพาะกฎวันที่ไม่ถือว่าพบรูปแบบบิลแล้ว เพราะชื่อแบรนด์/ชื่อย่ออาจอยู่คนละคีย์
+     */
     fun load(context: Context, brand: String, brandAbbr: String = ""): LoadedOcrTemplates {
-        val candidates = listOf(brand, brandAbbr).map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        val directAliases = aliasesOf(brand, brandAbbr)
+        val resolvedAliases = runCatching { resolveAliasesFromBrandList(directAliases) }.getOrDefault(emptyList())
+        val candidates = distinctAliases(directAliases + resolvedAliases)
+
+        var fallbackRule: BrandReceiptRule? = null
+        var fallbackRuleJson: JSONObject? = null
+
         candidates.forEach { candidate ->
             val cloud = runCatching { fetchCloud(candidate) }.getOrNull()
-            if (!cloud.isNullOrBlank()) {
-                saveCache(context, brand, cloud)
-                val parsed = runCatching { parse(cloud, TemplateSource.CLOUD) }.getOrNull()
-                if (parsed != null && (parsed.templates.isNotEmpty() || parsed.receiptRule != null)) return parsed
+            if (cloud.isNullOrBlank()) return@forEach
+
+            val root = runCatching { JSONObject(cloud) }.getOrNull()
+            val parsed = runCatching { parse(cloud, TemplateSource.CLOUD) }.getOrNull()
+            if (parsed?.receiptRule != null && fallbackRule == null) {
+                fallbackRule = parsed.receiptRule
+                fallbackRuleJson = root?.optJSONObject("receiptRule")?.let { JSONObject(it.toString()) }
+            }
+
+            if (parsed != null && parsed.templates.isNotEmpty()) {
+                val cacheRaw = mergeReceiptRule(cloud, fallbackRuleJson)
+                saveCache(context, candidates, cacheRaw)
+                return runCatching { parse(cacheRaw, TemplateSource.CLOUD) }
+                    .getOrDefault(parsed.copy(receiptRule = parsed.receiptRule ?: fallbackRule))
             }
         }
-        val cached = readCache(context, brand)
-        if (!cached.isNullOrBlank()) {
-            val parsed = runCatching { parse(cached, TemplateSource.CACHE) }.getOrNull()
-            if (parsed != null) return parsed
+
+        // ไม่มีรูปแบบใหม่จากระบบ จึงค่อยใช้รูปแบบที่บันทึกไว้ในเครื่อง
+        val cached = loadCachedFromAliases(context, candidates)
+        if (cached != null && cached.templates.isNotEmpty()) {
+            return cached.copy(receiptRule = cached.receiptRule ?: fallbackRule)
         }
-        return candidates.asSequence().map(::referenceTemplates).firstOrNull { it.templates.isNotEmpty() }
-            ?: LoadedOcrTemplates(emptyList(), TemplateSource.NONE)
+
+        val reference = candidates.asSequence()
+            .map(::referenceTemplates)
+            .firstOrNull { it.templates.isNotEmpty() }
+        if (reference != null) return reference.copy(receiptRule = fallbackRule)
+
+        // อาจมีเพียงกฎวันที่ แต่ยังไม่มีรูปแบบบิล
+        return LoadedOcrTemplates(
+            templates = emptyList(),
+            source = if (fallbackRule != null) TemplateSource.CLOUD else TemplateSource.NONE,
+            receiptRule = fallbackRule
+        )
     }
 
     fun loadCached(context: Context, brand: String, brandAbbr: String = ""): LoadedOcrTemplates {
-        val cached = readCache(context, brand)
-        if (!cached.isNullOrBlank()) {
-            val parsed = runCatching { parse(cached, TemplateSource.CACHE) }.getOrNull()
-            if (parsed != null) return parsed
-        }
-        return listOf(brand, brandAbbr).asSequence().map { it.trim() }.filter { it.isNotBlank() }
-            .map(::referenceTemplates).firstOrNull { it.templates.isNotEmpty() }
+        val directAliases = aliasesOf(brand, brandAbbr)
+        val cached = loadCachedFromAliases(context, directAliases)
+        if (cached != null && cached.templates.isNotEmpty()) return cached
+
+        return directAliases.asSequence()
+            .map(::referenceTemplates)
+            .firstOrNull { it.templates.isNotEmpty() }
+            ?: cached
             ?: LoadedOcrTemplates(emptyList(), TemplateSource.NONE)
+    }
+
+    private fun loadCachedFromAliases(context: Context, aliases: List<String>): LoadedOcrTemplates? {
+        var ruleOnly: LoadedOcrTemplates? = null
+        aliases.forEach { alias ->
+            val cached = readCache(context, alias)
+            if (cached.isNullOrBlank()) return@forEach
+            val parsed = runCatching { parse(cached, TemplateSource.CACHE) }.getOrNull() ?: return@forEach
+            if (parsed.templates.isNotEmpty()) return parsed
+            if (ruleOnly == null && parsed.receiptRule != null) ruleOnly = parsed
+        }
+        return ruleOnly
     }
 
     private fun fetchCloud(brand: String): String {
         val encoded = URLEncoder.encode(brand, StandardCharsets.UTF_8.toString()).replace("+", "%20")
-        val conn = URL("$TEMPLATE_API_BASE_URL/api/brands/$encoded/ocr-templates")
-            .openConnection() as HttpURLConnection
+        return get("$TEMPLATE_API_BASE_URL/api/brands/$encoded/ocr-templates")
+    }
+
+    /**
+     * ถ้าแผนงานใช้ชื่อย่อ แต่หน้าจัดการบิลบันทึกด้วยชื่อเต็ม (หรือกลับกัน)
+     * ให้ค้นจากรายการแบรนด์แล้วลองทั้งสองชื่อ โดยไม่ให้ผู้ใช้ต้องตั้งค่าซ้ำ
+     */
+    private fun resolveAliasesFromBrandList(inputAliases: List<String>): List<String> {
+        if (inputAliases.isEmpty()) return emptyList()
+        val raw = get("$TEMPLATE_API_BASE_URL/api/brands")
+        val root = JSONObject(raw)
+        val items = root.optJSONArray("items") ?: JSONArray()
+        val wanted = inputAliases.map(::identityKey).filter { it.isNotBlank() }.toSet()
+        val found = mutableListOf<String>()
+
+        for (i in 0 until items.length()) {
+            val item = items.optJSONObject(i) ?: continue
+            val name = item.optString("brand_name").trim().ifBlank { item.optString("brandName").trim() }
+            val abbr = item.optString("brand_abbr").trim().ifBlank { item.optString("brandAbbr").trim() }
+            val keys = listOf(name, abbr).map(::identityKey).filter { it.isNotBlank() }
+            if (keys.any { it in wanted }) {
+                if (name.isNotBlank()) found += name
+                if (abbr.isNotBlank()) found += abbr
+            }
+        }
+        return found
+    }
+
+    private fun get(url: String): String {
+        val conn = URL(url).openConnection() as HttpURLConnection
         conn.requestMethod = "GET"
         conn.connectTimeout = 6000
         conn.readTimeout = 8000
@@ -71,16 +143,26 @@ object OcrTemplateRepository {
             for (i in 0 until items.length()) {
                 val item = items.optJSONObject(i) ?: continue
                 val t = item.optJSONObject("template") ?: item
-                parseTemplate(t)?.takeIf { OcrTemplateContract.validate(it).isEmpty() }?.let { add(it) }
+                parseTemplate(t)
+                    ?.takeIf { OcrTemplateContract.validate(it).isEmpty() }
+                    ?.let { add(it) }
             }
-        }.filter { it.active }.sortedWith(compareByDescending<UniversalOcrTemplate> { it.priority }.thenByDescending { it.version })
+        }
+            .filter { it.active }
+            .sortedWith(
+                compareByDescending<UniversalOcrTemplate> { it.priority }
+                    .thenByDescending { it.version }
+            )
 
         val updatedAt = if (items.length() > 0) items.optJSONObject(0)?.optString("updatedAt") else null
         return LoadedOcrTemplates(
             templates = templates,
             source = source,
             updatedAt = updatedAt?.takeIf { it.isNotBlank() },
-            receiptRule = parseReceiptRule(root.optJSONObject("receiptRule"), templates.firstOrNull()?.brandId.orEmpty())
+            receiptRule = parseReceiptRule(
+                root.optJSONObject("receiptRule"),
+                templates.firstOrNull()?.brandId.orEmpty()
+            )
         )
     }
 
@@ -149,7 +231,8 @@ object OcrTemplateRepository {
             active = o.optBoolean("active", true),
             sampleText = o.optString("sampleText", ""),
             recognition = OcrTemplateRecognition(
-                rowCount = recognition?.optInt("rowCount", parsedRows.size.coerceAtLeast(1)) ?: parsedRows.size.coerceAtLeast(1),
+                rowCount = recognition?.optInt("rowCount", parsedRows.size.coerceAtLeast(1))
+                    ?: parsedRows.size.coerceAtLeast(1),
                 groupAsSingleRecord = recognition?.optBoolean("groupAsSingleRecord", true) ?: true,
                 deskewEnabled = recognition?.optBoolean("deskewEnabled", true) ?: true,
                 layoutMode = recognition?.optString("layoutMode", "MIXED") ?: "MIXED",
@@ -240,12 +323,42 @@ object OcrTemplateRepository {
         )
     }
 
+    private fun mergeReceiptRule(raw: String, fallbackRule: JSONObject?): String {
+        if (fallbackRule == null) return raw
+        return runCatching {
+            val root = JSONObject(raw)
+            if (root.optJSONObject("receiptRule") == null) {
+                root.put("receiptRule", JSONObject(fallbackRule.toString()))
+            }
+            root.toString()
+        }.getOrDefault(raw)
+    }
+
+    private fun aliasesOf(brand: String, brandAbbr: String): List<String> =
+        distinctAliases(listOf(brand, brandAbbr))
+
+    private fun distinctAliases(values: List<String>): List<String> {
+        val seen = linkedSetOf<String>()
+        val result = mutableListOf<String>()
+        values.forEach { raw ->
+            val value = raw.trim()
+            if (value.isBlank()) return@forEach
+            val key = identityKey(value)
+            if (seen.add(key)) result += value
+        }
+        return result
+    }
+
+    private fun identityKey(value: String): String = value.trim().lowercase()
+        .replace(Regex("[^a-z0-9ก-๙]+"), "")
+
     private fun cacheKey(brand: String): String =
         "brand_" + brand.trim().lowercase().replace(Regex("[^a-z0-9ก-๙]+"), "_")
 
-    private fun saveCache(context: Context, brand: String, raw: String) {
-        context.getSharedPreferences(TEMPLATE_PREFS, Context.MODE_PRIVATE)
-            .edit().putString(cacheKey(brand), raw).apply()
+    private fun saveCache(context: Context, aliases: List<String>, raw: String) {
+        val editor = context.getSharedPreferences(TEMPLATE_PREFS, Context.MODE_PRIVATE).edit()
+        distinctAliases(aliases).forEach { alias -> editor.putString(cacheKey(alias), raw) }
+        editor.apply()
     }
 
     private fun readCache(context: Context, brand: String): String? =
