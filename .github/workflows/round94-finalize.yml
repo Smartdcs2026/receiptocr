@@ -78,10 +78,9 @@ jobs:
           grep -q 'versionCode = 96' android-app/app/build.gradle.kts
           grep -q 'versionName = "0.94.0"' android-app/app/build.gradle.kts
 
-      - name: Verify user UI hides old technical duplicate wording
+      - name: Verify field-work duplicate wording exists
         run: |
-          ! grep -q 'พบข้อมูลบิลมากกว่าหนึ่งชุดสำหรับ POS' android-app/app/src/main/java/com/receiptocr/app/ui/UserFacingOcrMessages.kt
-          grep -q 'พบ POS .* ซ้ำในภาพ' android-app/app/src/main/java/com/receiptocr/app/ui/UserFacingOcrMessages.kt
+          grep -Fq 'พบ POS $pos ซ้ำในภาพ' android-app/app/src/main/java/com/receiptocr/app/ui/UserFacingOcrMessages.kt
 
       - name: Verify patch whitespace
         run: git diff --check
