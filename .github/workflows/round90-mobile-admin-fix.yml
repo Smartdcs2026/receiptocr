@@ -47,11 +47,31 @@ jobs:
       - name: Install Android 35 SDK
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Android unit tests
+      - name: Diagnose noisy Mb_02 fusion
         working-directory: android-app
         run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/test/java/com/receiptocr/app/ocr/PosEvidenceFusionRound90Test.kt')
+          s=p.read_text()
+          needle='        assertTrue(result.containsKey(2))\n'
+          s=s.replace(needle,'        println("ROUND90_NOISY_RESULT=" + result)\n'+needle,1)
+          p.write_text(s)
+          PY
+          echo "---- generated test lines ----"
+          nl -ba app/src/test/java/com/receiptocr/app/ocr/PosEvidenceFusionRound90Test.kt | tail -45
           chmod +x gradlew
-          ./gradlew testDebugUnitTest --stacktrace
+          ./gradlew testDebugUnitTest --tests 'com.receiptocr.app.ocr.PosEvidenceFusionRound90Test.resolvesMb02WhenAllPassesHaveLiteralOrDateOcrNoise' --info || true
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/test/java/com/receiptocr/app/ocr/PosEvidenceFusionRound90Test.kt')
+          s=p.read_text().replace('        println("ROUND90_NOISY_RESULT=" + result)\n','',1)
+          p.write_text(s)
+          PY
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
 
       - name: Build debug APK
         working-directory: android-app
