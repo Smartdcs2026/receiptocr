@@ -6,6 +6,7 @@ import com.receiptocr.app.config.OcrTemplateSegment
 import com.receiptocr.app.config.UniversalOcrTemplate
 import com.receiptocr.app.model.PosRecord
 import com.receiptocr.app.model.WorkItem
+import java.time.LocalDate
 
 /**
  * Round84 anchored-sequence parser
@@ -44,6 +45,7 @@ object TemplateSequenceFallback {
         rawTexts: List<String>,
         records: List<PosRecord>,
         work: WorkItem,
+        workDate: LocalDate,
         imagePath: String,
         templates: List<UniversalOcrTemplate>
     ): UniversalTemplateResult {
@@ -103,10 +105,26 @@ object TemplateSequenceFallback {
 
             val current = updated[index]
             val customer = candidate.fields["CUSTOMER_VALUE"].orEmpty().filter(Char::isDigit)
-            val date = candidate.fields["BILL_DATE"].orEmpty()
-                .replace('.', '/')
-                .replace('-', '/')
+            val rawDate = candidate.fields["BILL_DATE"].orEmpty().trim()
+            val dateField = candidate.template.recognition.rows.asSequence()
+                .flatMap { it.fields.asSequence() }
+                .firstOrNull { it.type.equals("BILL_DATE", ignoreCase = true) }
+            val dateResult = rawDate.takeIf { it.isNotBlank() }?.let { value ->
+                ReceiptDateOcrNormalizer.normalizeForField(
+                    raw = value,
+                    field = dateField,
+                    referenceDate = workDate,
+                    allowCanonicalInput = false
+                )
+            }
+            val date = dateResult?.value.orEmpty()
             val time = ReceiptTimeOcrNormalizer.normalize(candidate.fields["BILL_TIME"].orEmpty()).value.orEmpty()
+            val dateWarning = when {
+                rawDate.isBlank() -> ""
+                dateResult?.value == null -> dateResult?.warning ?: "วันที่บิลยังไม่ตรงรูปแบบที่กำหนด"
+                dateResult.corrected -> "วันที่ที่อ่านจากภาพ ${dateResult.original} ถูกปรับเป็น ${dateResult.value} ตามเงื่อนไข Admin • กรุณาตรวจเทียบกับภาพ"
+                else -> ""
+            }
 
             updated[index] = current.copy(
                 customerNo = customer.ifBlank { current.customerNo },
@@ -117,7 +135,8 @@ object TemplateSequenceFallback {
                 source = "OCR-SEQUENCE",
                 ocrSourceImagePath = imagePath,
                 ocrTemplateName = candidate.template.templateName,
-                ocrWarnings = "",
+                ocrWarnings = dateWarning,
+                ocrRawBillDate = rawDate.ifBlank { current.ocrRawBillDate },
                 ocrCounterCycle = candidate.template.duplicatePolicy.customerCounterCycle.uppercase()
             )
             usedNames += candidate.template.templateName
