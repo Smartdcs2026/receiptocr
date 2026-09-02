@@ -135,3 +135,53 @@ if old_recover_month not in date_text:
     raise SystemExit("Round90 recoverMonth function not found")
 date_text = date_text.replace(old_recover_month, new_recover_month, 1)
 date_path.write_text(date_text, encoding="utf-8")
+
+# ---------------------------------------------------------------------------
+# Regression tests must enforce the same safety policy.
+# 20/08769 can represent more than one calendar date, so the normalizer itself
+# must not guess. Evidence fusion may still succeed when another OCR pass reads
+# an exact date coherently for the same POS.
+# ---------------------------------------------------------------------------
+date_test_path = path.parents[1] / "android-app/app/src/test/java/com/receiptocr/app/ocr/ReceiptDateOcrNormalizerTest.kt"
+date_test = date_test_path.read_text(encoding="utf-8")
+date_test = date_test.replace(
+'''    fun noisyThaiDateWithOneExtraDigitRecoversUsingAdminExampleAndWorkDate() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "20/08769",
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = "DMY",
+            dateCalendar = "BUDDHIST",
+            dateYearDigits = 2,
+            dateExample = "22/08/69"
+        )
+        assertEquals("20/08/2026", result.value)
+        assertTrue(result.corrected)
+    }
+''',
+'''    fun noisyThaiDateWithOneExtraDigitIsNotGuessedWhenAmbiguous() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "20/08769",
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = "DMY",
+            dateCalendar = "BUDDHIST",
+            dateYearDigits = 2,
+            dateExample = "22/08/69"
+        )
+        assertNull(result.value)
+        assertEquals("20/08769", result.original)
+    }
+''',
+1,
+)
+date_test_path.write_text(date_test, encoding="utf-8")
+
+fusion_test_path = path.parents[1] / "android-app/app/src/test/java/com/receiptocr/app/ocr/PosEvidenceFusionRound90Test.kt"
+fusion_test = fusion_test_path.read_text(encoding="utf-8")
+fusion_test = fusion_test.replace(
+'"R201657846U110030 20/06/61 36:00\\nR202039030U400072 20/08769 1718",',
+'"R201657846U110030 20/06/61 36:00\\nR202039030U400072 20/08/69 17:18",',
+1,
+)
+fusion_test_path.write_text(fusion_test, encoding="utf-8")
