@@ -93,7 +93,7 @@ object AdminRuleInterpreter {
             val suffix = names.takeIf { it.size == 1 }?.firstOrNull()?.let { " (${it})" }.orEmpty()
             return UniversalTemplateResult(
                 records = records,
-                message = "อ่านข้อความจากภาพได้ แต่ยังแยกข้อมูลตามรูปแบบบิล$suffixไม่ได้",
+                message = "อ่านข้อความจากภาพได้ แต่ยังแยกข้อมูลตามรูปแบบบิล${suffix}ไม่ได้",
                 usedUniversalTemplate = true
             )
         }
@@ -265,7 +265,6 @@ object AdminRuleInterpreter {
         )
     }
 
-    /** ใช้ใน Unit Test เพื่อยืนยันว่า APK แยกข้อความตามกฎเดียวกับหน้า Admin */
     internal fun parseTextForTest(
         template: UniversalOcrTemplate,
         rawText: String
@@ -604,7 +603,6 @@ object AdminRuleInterpreter {
         if (!store.isNullOrBlank() && work.expectedReceiptStoreId.isNotBlank()) {
             result += if (sameStore(store, work.expectedReceiptStoreId)) 50 else -40
         }
-        // จำนวนเครื่องคือจำนวนชุดข้อมูล ไม่ใช่ช่วงเลข POS; พบ 101 ในร้าน 1 POS จึงไม่ควรถูกหักคะแนน
         if (fields["POS_NUMBER"]?.let(OcrTextNormalizer::parsePosNumber) != null) result += 20
 
         fields["BILL_DATE"]?.let { raw ->
@@ -686,7 +684,7 @@ object AdminRuleInterpreter {
                         "MONTH_VALUE" -> "เดือน"
                         else -> "วัน"
                     }
-                    "$labelที่อ่านได้ ($raw) ไม่ตรงกับวันที่ที่กำหนด"
+                    "${label}ที่อ่านได้ ($raw) ไม่ตรงกับวันที่ที่กำหนด"
                 }
             }
             .distinct()
