@@ -46,7 +46,10 @@ data class WorkItem(
 }
 
 data class PosRecord(
+    /** ลำดับช่องของงาน ใช้ให้จำนวนข้อมูลตรงกับจำนวน POS ในแผนงาน */
     val posNumber: Int,
+    /** หมายเลขเครื่องที่อ่านจากบิลจริง เช่น 1, 101, N02; ไม่ใช้เป็นช่วง 1..จำนวนเครื่อง */
+    val receiptPosNumber: String = "",
     val customerNo: String = "",
     val billDate: String = "",
     val billTime: String = "",
@@ -58,13 +61,16 @@ data class PosRecord(
     val ocrConfidence: String = "",
     val ocrTemplateName: String = "",
     val ocrWarnings: String = "",
-    /** รหัสร้านที่อ่านได้จากช่อง STORE_ID ตามแม่แบบ Admin ของ POS นี้ */
+    /** รหัสร้านที่อ่านได้จากช่องรหัสร้านของรูปแบบบิล */
     val ocrStoreId: String = "",
-    /** true เฉพาะรูปแบบบิลที่ Admin กำหนดว่ามี STORE_ID ให้ตรวจ */
+    /** true เฉพาะรูปแบบบิลที่กำหนดว่ามีรหัสร้านให้ตรวจ */
     val ocrStoreIdExpected: Boolean = false,
-    /** รอบที่ใช้ตรวจเลขลูกค้าซ้ำ มาจากแม่แบบเดียวกับหน้า Admin */
+    /** รอบที่ใช้ตรวจเลขลูกค้าซ้ำ มาจากรูปแบบบิลของแบรนด์ */
     val ocrCounterCycle: String = "CONTINUOUS"
-)
+) {
+    val displayPosNumber: String
+        get() = receiptPosNumber.trim().ifBlank { posNumber.toString() }
+}
 
 enum class AppScreen {
     LOGIN,
