@@ -26,6 +26,14 @@ jobs:
       - name: Apply Round93 production source
         run: python tools/round93_apply.py
 
+      - name: Normalize generated source EOF
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('android-app/app/src/main/java/com/receiptocr/app/ui/UserFacingOcrMessages.kt')
+          path.write_text(path.read_text(encoding='utf-8').rstrip() + '\n', encoding='utf-8')
+          PY
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
