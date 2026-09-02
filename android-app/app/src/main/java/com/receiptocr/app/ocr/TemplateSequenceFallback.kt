@@ -8,27 +8,25 @@ import com.receiptocr.app.model.PosRecord
 import com.receiptocr.app.model.WorkItem
 
 /**
- * Round83 field-first fallback
+ * Round84 anchored-sequence parser
  *
- * ใช้เมื่อ strict template จับทั้งแถวไม่ได้ โดยเปลี่ยนหลักคิดจาก
- * "ทั้งแถวต้องตรงก่อน" เป็น "POS เป็น anchor แล้วเก็บแต่ละช่องตามลำดับ Admin"
+ * หลักสำคัญ: เดินตามลำดับช่องที่ Admin กำหนดจริง ๆ และห้ามข้ามช่องที่จำเป็น
+ * เพื่อไม่ให้ข้อมูลเลื่อนตำแหน่ง เช่น R | 20 | POS 2 | ลูกค้า 039030
+ * กลายเป็น POS 2 | ลูกค้า 020390 แบบ Round83
  *
- * - รองรับ 1-3 แถว
- * - รองรับ COMPOSITE_CODE
- * - LITERAL / SEPARATOR เป็น soft structure ไม่ทำให้ทั้ง POS หายเมื่อ OCR อ่านคลาด 1 ตัว
- * - CUSTOMER / DATE / TIME / STORE จับแยกและรวมผลจากหลาย OCR pass ด้วย consensus
- * - ไม่ hard-code แบรนด์ และไม่สร้างค่าที่ไม่มีในข้อความ
+ * ใช้เมื่อ strict interpreter จับไม่ได้เท่านั้น
  */
 object TemplateSequenceFallback {
     private const val DIGIT = "[0-9OoIl|SsZzBbGg]"
     private const val ALNUM = "[A-Za-z0-9OoIl|SsZzBbGg]"
-    private const val SAME_ROW_GAP = "[\\s|,;:_#./\\-]{0,16}"
-    private const val NEXT_ROW_GAP = ".{0,96}?"
+    private const val FIELD_GAP = "\\s*"
+    private const val ROW_GAP = "(?:\\s+\\S+){0,6}?\\s*"
 
     private data class Compiled(
         val template: UniversalOcrTemplate,
         val regex: Regex,
-        val captureTypes: List<String>
+        val captureTypes: List<String>,
+        val anchorCount: Int
     )
 
     private data class Candidate(
@@ -44,10 +42,11 @@ object TemplateSequenceFallback {
         imagePath: String,
         templates: List<UniversalOcrTemplate>
     ): UniversalTemplateResult {
+        val allowedPos = records.map { it.posNumber }.toSet()
         val textCandidates = buildTextCandidates(rawTexts)
         if (textCandidates.isEmpty()) return failed(records)
 
-        val parsed = templates.asSequence()
+        val matches = templates.asSequence()
             .filter { it.active }
             .mapNotNull(::compileTemplate)
             .flatMap { compiled ->
@@ -56,34 +55,33 @@ object TemplateSequenceFallback {
                         val fields = extract(compiled, result)
                         val pos = fields["POS_NUMBER"]?.let(OcrTextNormalizer::parsePosNumber)
                             ?: return@mapNotNull null
-                        if (pos <= 0) return@mapNotNull null
-
-                        // ยอมรับ partial record เพื่อให้หลาย pass ช่วยกันเติมค่า
-                        // แต่ต้องมีอย่างน้อย 2 ช่องหลัก ลดโอกาสหยิบเลขทั่วไปมาเป็น POS
-                        val coreCount = listOf("CUSTOMER_VALUE", "BILL_DATE", "BILL_TIME")
-                            .count { !fields[it].isNullOrBlank() }
-                        if (coreCount < 2) return@mapNotNull null
+                        if (compiled.template.validation.pos.mustExistInStorePlan && pos !in allowedPos) {
+                            return@mapNotNull null
+                        }
+                        if (!coreFieldsArePlausible(fields, compiled.template)) return@mapNotNull null
 
                         Candidate(
                             template = compiled.template,
                             fields = fields,
                             score = compiled.template.priority +
-                                coreCount * 35 +
-                                fields.values.count { it.isNotBlank() } * 8
+                                compiled.anchorCount * 25 +
+                                fields.values.count { it.isNotBlank() } * 10
                         )
                     }
                 }
             }
             .toList()
 
-        if (parsed.isEmpty()) return failed(records)
+        if (matches.isEmpty()) return failed(records)
 
-        val bestByPos = parsed
+        // เลือกชุดข้อมูลที่ซ้ำกันจากหลายรอบอ่านภาพมากที่สุด
+        // ไม่ผสมค่าคนละ candidate เข้าด้วยกัน เพื่อป้องกัน POS/ลูกค้า/เวลาไขว้กัน
+        val bestByPos = matches
             .mapNotNull { candidate ->
                 OcrTextNormalizer.parsePosNumber(candidate.fields["POS_NUMBER"].orEmpty())?.let { it to candidate }
             }
             .groupBy({ it.first }, { it.second })
-            .mapValues { (_, candidates) -> fuseCandidates(candidates) }
+            .mapValues { (_, candidates) -> chooseWholeRecordConsensus(candidates) }
             .filterValues { it != null }
             .mapValues { it.value!! }
             .toSortedMap()
@@ -91,26 +89,13 @@ object TemplateSequenceFallback {
         if (bestByPos.isEmpty()) return failed(records)
 
         val updated = records.toMutableList()
-        val assigned = linkedSetOf<Int>()
-        val warningsByPos = linkedMapOf<Int, List<String>>()
-        val usedTemplates = linkedSetOf<String>()
+        val usedNames = linkedSetOf<String>()
+        val detected = mutableListOf<Int>()
 
         bestByPos.forEach { (pos, candidate) ->
-            var index = updated.indexOfFirst { it.posNumber == pos }
-            if (index < 0) {
-                index = updated.indexOfFirst { record ->
-                    record.posNumber !in assigned &&
-                        record.customerNo.isBlank() &&
-                        record.billDate.isBlank() &&
-                        record.billTime.isBlank() &&
-                        !record.noReceipt
-                }
-                if (index < 0) return@forEach
-                updated[index] = updated[index].copy(posNumber = pos)
-            }
+            val index = updated.indexOfFirst { it.posNumber == pos }
+            if (index < 0) return@forEach
 
-            assigned += pos
-            usedTemplates += candidate.template.templateName
             val current = updated[index]
             val customer = candidate.fields["CUSTOMER_VALUE"].orEmpty().filter(Char::isDigit)
             val date = candidate.fields["BILL_DATE"].orEmpty()
@@ -118,63 +103,48 @@ object TemplateSequenceFallback {
                 .replace('-', '/')
             val time = candidate.fields["BILL_TIME"].orEmpty().replace('.', ':')
 
-            val missing = buildList {
-                val core = candidate.template.validation.requiredCore
-                if (core.customerValue && customer.isBlank()) add("ยอด/เลขลูกค้า")
-                if (core.date && date.isBlank()) add("วันที่")
-                if (core.time && time.isBlank()) add("เวลา")
-            }
-            val warning = buildList {
-                add("อ่านข้อความบางส่วนไม่ตรงทั้งแถว แต่แยกช่องตามลำดับที่ Admin กำหนดได้")
-                if (missing.isNotEmpty()) add("ยังอ่าน ${missing.joinToString(", ")} ไม่ครบ")
-                add("กรุณาตรวจเทียบกับภาพก่อนส่ง")
-            }.joinToString(" • ")
-
             updated[index] = current.copy(
                 customerNo = customer.ifBlank { current.customerNo },
                 billDate = date.ifBlank { current.billDate },
                 billTime = time.ifBlank { current.billTime },
                 noReceipt = false,
                 noReceiptReason = "",
-                source = "OCR-FIELD-FIRST",
+                source = "OCR-SEQUENCE",
                 ocrSourceImagePath = imagePath,
-                ocrWarnings = warning,
+                ocrWarnings = "",
                 ocrCounterCycle = candidate.template.duplicatePolicy.customerCounterCycle.uppercase()
             )
-            warningsByPos[pos] = listOf(warning)
+            usedNames += candidate.template.templateName
+            detected += pos
         }
 
-        val detected = assigned.sorted()
         if (detected.isEmpty()) return failed(records)
 
-        // รักษาลำดับ extracted ให้ตรงกับ detectedPos แม้บาง POS จะไม่มี STORE_ID
+        val orderedPos = detected.distinct().sorted()
         val extracted = linkedMapOf<String, List<String>>()
-        val types = bestByPos.values.flatMap { it.fields.keys }.toSet()
-        types.forEach { type ->
-            extracted[type] = detected.map { pos -> bestByPos[pos]?.fields?.get(type).orEmpty() }
+        val fieldTypes = bestByPos.values.flatMap { it.fields.keys }.toSet()
+        fieldTypes.forEach { type ->
+            extracted[type] = orderedPos.map { pos -> bestByPos[pos]?.fields?.get(type).orEmpty() }
         }
 
         return UniversalTemplateResult(
             records = updated,
-            message = "อ่านข้อความและแยกข้อมูลตามลำดับช่องได้ • พบ ${detected.size} เครื่อง • กรุณาตรวจเทียบกับภาพ",
-            templateName = usedTemplates.joinToString(" / "),
-            detectedPos = detected,
+            message = "อ่านข้อความและแยกข้อมูลตามลำดับที่กำหนดได้ • พบ ${orderedPos.size} เครื่อง",
+            templateName = usedNames.joinToString(" / "),
+            detectedPos = orderedPos,
             extracted = extracted,
-            validationWarnings = warningsByPos,
+            validationWarnings = emptyMap(),
             usedUniversalTemplate = true
         )
     }
 
-    /** ใช้ทดสอบ parser โดยตรงโดยไม่ต้องสร้างภาพ */
+    /** ใช้ unit test โดยไม่ต้องสร้าง ML Kit Text */
     internal fun parseText(text: String, template: UniversalOcrTemplate): List<Map<String, String>> {
         val compiled = compileTemplate(template) ?: return emptyList()
         return buildTextCandidates(listOf(text)).flatMap { candidate ->
             compiled.regex.findAll(candidate).map { extract(compiled, it) }.toList()
-        }.filter { fields ->
-            fields["POS_NUMBER"]?.let(OcrTextNormalizer::parsePosNumber) != null &&
-                listOf("CUSTOMER_VALUE", "BILL_DATE", "BILL_TIME")
-                    .count { !fields[it].isNullOrBlank() } >= 2
-        }.distinct()
+        }.filter { fields -> coreFieldsArePlausible(fields, template) }
+            .distinct()
     }
 
     private fun failed(records: List<PosRecord>) = UniversalTemplateResult(
@@ -183,11 +153,6 @@ object TemplateSequenceFallback {
         usedUniversalTemplate = true
     )
 
-    /**
-     * สร้างหลายมุมมองจากข้อความจริงที่ ML Kit คืนมา
-     * ทั้งบรรทัดเดี่ยว, หน้าต่างหลายบรรทัด, ทั้งข้อความ และแบบ compact
-     * เพื่อไม่ผูกกับการตัดบรรทัดของ ML Kit
-     */
     private fun buildTextCandidates(rawTexts: List<String>): List<String> = buildList {
         rawTexts.filter { it.isNotBlank() }.forEach { raw ->
             val lines = raw.lineSequence().map { it.trim() }.filter { it.isNotBlank() }.toList()
@@ -208,48 +173,48 @@ object TemplateSequenceFallback {
     }.filter { it.isNotBlank() }.distinct()
 
     private fun candidateVariants(raw: String): List<String> {
-        val spaced = OcrTextNormalizer.normalizeLine(raw)
-        if (spaced.isBlank()) return emptyList()
-        val compact = spaced.replace(
+        val normalized = OcrTextNormalizer.normalizeLine(raw)
+        if (normalized.isBlank()) return emptyList()
+        val compact = normalized.replace(
             Regex("(?<=[A-Za-z0-9OoIl|SsZzBbGg])\\s+(?=[A-Za-z0-9OoIl|SsZzBbGg])"),
             ""
         )
-        return listOf(spaced, compact).distinct()
+        return listOf(normalized, compact).distinct()
     }
 
     private fun compileTemplate(template: UniversalOcrTemplate): Compiled? {
         val rows = template.recognition.rows.sortedBy { it.row }
         if (rows.isEmpty()) return null
 
-        val captureTypes = mutableListOf<String>()
+        val captures = mutableListOf<String>()
         val parts = mutableListOf<String>()
-        var hasPosAnchor = false
+        var hasPos = false
+        var anchors = 0
 
         rows.forEachIndexed { rowIndex, row ->
-            if (rowIndex > 0) parts += NEXT_ROW_GAP
-
-            row.fields.sortedBy { it.order }.forEachIndexed { fieldIndex, field ->
-                val pattern = fieldPattern(field, captureTypes) ?: return null
+            if (rowIndex > 0) parts += ROW_GAP
+            val fields = row.fields.sortedBy { it.order }
+            fields.forEachIndexed { index, field ->
+                if (index > 0) parts += FIELD_GAP
+                val built = fieldPattern(field, captures) ?: return null
                 val containsPos = field.type.equals("POS_NUMBER", true) ||
                     field.composite?.segments.orEmpty().any { it.type.equals("POS_NUMBER", true) }
-                if (containsPos) hasPosAnchor = true
+                if (containsPos) hasPos = true
+                if (field.type in setOf("LITERAL", "SEPARATOR", "COMPOSITE_CODE")) anchors++
 
-                if (fieldIndex > 0) parts += SAME_ROW_GAP
                 val tokenGap = if (field.tokenGap > 0) {
                     "(?:\\s+\\S+){0,${field.tokenGap.coerceIn(0, 8)}}?\\s*"
                 } else ""
 
-                // POS ต้องมีจริง ส่วนช่องอื่นยอมให้หายจาก OCR pass หนึ่งก่อน
-                // แล้วใช้ผลจาก pass อื่นมารวมภายหลัง
-                parts += if (containsPos) {
-                    tokenGap + pattern
-                } else {
-                    "(?:$tokenGap$pattern)?"
+                parts += when {
+                    field.type == "IGNORE" -> built
+                    field.required -> tokenGap + built
+                    else -> "(?:$tokenGap$built)?"
                 }
             }
         }
 
-        if (!hasPosAnchor) return null
+        if (!hasPos) return null
 
         return runCatching {
             Compiled(
@@ -258,7 +223,8 @@ object TemplateSequenceFallback {
                     parts.joinToString(""),
                     setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
                 ),
-                captureTypes = captureTypes
+                captureTypes = captures,
+                anchorCount = anchors
             )
         }.getOrNull()
     }
@@ -270,9 +236,9 @@ object TemplateSequenceFallback {
         val min = field.minLength.coerceAtLeast(1)
         val max = field.maxLength.coerceAtLeast(min)
 
-        fun capture(captureType: String, inner: String): String {
-            captures += captureType
-            return "($inner)"
+        fun capture(name: String, pattern: String): String {
+            captures += name
+            return "($pattern)"
         }
 
         return when (type) {
@@ -305,9 +271,9 @@ object TemplateSequenceFallback {
                 val length = sample.length.takeIf { sample.isNotBlank() } ?: min.takeIf { min == max }
                 length?.let(::fixedAlnum) ?: "$ALNUM{$min,$max}"
             }
-            "LITERAL" -> softLiteral(field.literal ?: sample)
-            "SEPARATOR" -> softLiteral(field.separatorValue ?: sample.ifBlank { "-" })
-            "IGNORE" -> ".{0,48}?"
+            "LITERAL" -> fuzzyLiteral(field.literal ?: sample)
+            "SEPARATOR" -> fuzzyLiteral(field.separatorValue ?: sample.ifBlank { "-" })
+            "IGNORE" -> ".{0,${field.maxLength.coerceIn(0, 40)}}?"
             "COMPOSITE_CODE" -> compositePattern(field.composite, captures)
             else -> null
         }
@@ -319,17 +285,13 @@ object TemplateSequenceFallback {
     ): String? {
         if (composite == null || composite.segments.isEmpty()) return null
         val parts = mutableListOf<String>()
+        composite.prefix?.takeIf { it.isNotBlank() }?.let { parts += fuzzyLiteral(it) }
 
-        composite.prefix?.takeIf { it.isNotBlank() }?.let {
-            parts += "(?:${fuzzyLiteral(it)})?"
+        composite.segments.sortedBy { it.order }.forEachIndexed { index, segment ->
+            if (index > 0 || parts.isNotEmpty()) parts += FIELD_GAP
+            parts += segmentPattern(segment, composite, captures) ?: return null
         }
-
-        composite.segments.sortedBy { it.order }.forEach { segment ->
-            val pattern = segmentPattern(segment, composite, captures) ?: return null
-            val isPos = segment.type.equals("POS_NUMBER", true)
-            parts += if (isPos) pattern else "(?:$pattern)?"
-        }
-        return parts.joinToString("\\s*")
+        return parts.joinToString("")
     }
 
     private fun segmentPattern(
@@ -347,9 +309,9 @@ object TemplateSequenceFallback {
             else -> 1
         }
 
-        fun capture(captureType: String, inner: String): String {
-            captures += captureType
-            return "($inner)"
+        fun capture(name: String, pattern: String): String {
+            captures += name
+            return "($pattern)"
         }
 
         return when (type) {
@@ -360,11 +322,11 @@ object TemplateSequenceFallback {
             "MONTH_VALUE", "MONTH" -> capture("MONTH_VALUE", fixedDigits(digits.takeIf { it > 0 } ?: length))
             "DAY_VALUE", "DAY" -> capture("DAY_VALUE", fixedDigits(digits.takeIf { it > 0 } ?: length))
             "EMPLOYEE_CODE" -> capture("EMPLOYEE_CODE", fixedAlnum(length))
-            "LITERAL" -> softLiteral(sample)
-            "SEPARATOR" -> softLiteral(sample.ifBlank { composite.separator ?: "-" })
+            "LITERAL" -> fuzzyLiteral(sample)
+            "SEPARATOR" -> fuzzyLiteral(sample.ifBlank { composite.separator ?: "-" })
             "NUMBER_TEXT" -> fixedDigits(digits.takeIf { it > 0 } ?: length)
             "ALNUM_TEXT" -> fixedAlnum(length)
-            "IGNORE" -> ".{0,32}?"
+            "IGNORE" -> ".{0,$length}?"
             else -> null
         }
     }
@@ -386,7 +348,7 @@ object TemplateSequenceFallback {
         val prefix = when {
             prefixes.isNotEmpty() -> prefixes.joinToString("|", "(?:", ")") { fuzzyLiteral(it) }
             examplePrefix.isNotBlank() -> fuzzyLiteral(examplePrefix)
-            else -> "[A-Za-z]?"
+            else -> ""
         }
         return "$prefix${fixedDigits(digits)}"
     }
@@ -431,23 +393,21 @@ object TemplateSequenceFallback {
         return if (size == 1) ALNUM else "$ALNUM(?:\\s*$ALNUM){${size - 1}}"
     }
 
-    private fun softLiteral(raw: String): String {
+    private fun fuzzyLiteral(raw: String): String {
         val value = raw.trim()
         if (value.isBlank()) return ""
-        return "(?:${fuzzyLiteral(value)})?"
+        return value.map { character ->
+            when (character) {
+                '0', 'O', 'o' -> "[0Oo]"
+                '1', 'I', 'i', 'l', '|' -> "[1Iil|]"
+                '2', 'Z', 'z' -> "[2Zz]"
+                '5', 'S', 's' -> "[5Ss]"
+                '8', 'B', 'b' -> "[8Bb]"
+                'U', 'u', 'V', 'v' -> "[UuVv]"
+                else -> Regex.escape(character.toString())
+            }
+        }.joinToString("\\s*")
     }
-
-    private fun fuzzyLiteral(raw: String): String = raw.trim().map { character ->
-        when (character) {
-            '0', 'O', 'o' -> "[0Oo]"
-            '1', 'I', 'i', 'l', '|' -> "[1Iil|]"
-            '2', 'Z', 'z' -> "[2Zz]"
-            '5', 'S', 's' -> "[5Ss]"
-            '8', 'B', 'b' -> "[8Bb]"
-            'U', 'u', 'V', 'v' -> "[UuVv]"
-            else -> Regex.escape(character.toString())
-        }
-    }.joinToString("\\s*")
 
     private fun extract(compiled: Compiled, result: MatchResult): Map<String, String> {
         val values = linkedMapOf<String, String>()
@@ -488,40 +448,58 @@ object TemplateSequenceFallback {
         }
     }.joinToString("")
 
-    /**
-     * เลือกแม่แบบที่มีหลักฐานซ้ำจากหลาย pass มากที่สุดก่อน
-     * แล้วเลือกค่าของแต่ละ field ด้วย majority vote เพื่อลดผลจาก pass ที่อ่านตัวเดียวผิด
-     */
-    private fun fuseCandidates(candidates: List<Candidate>): Candidate? {
+    private fun coreFieldsArePlausible(
+        fields: Map<String, String>,
+        template: UniversalOcrTemplate
+    ): Boolean {
+        val pos = fields["POS_NUMBER"]?.let(OcrTextNormalizer::parsePosNumber) ?: return false
+        if (pos <= 0) return false
+
+        val core = template.validation.requiredCore
+        if (core.customerValue && fields["CUSTOMER_VALUE"].isNullOrBlank()) return false
+        if (core.date && fields["BILL_DATE"].isNullOrBlank()) return false
+        if (core.time && fields["BILL_TIME"].isNullOrBlank()) return false
+
+        val time = fields["BILL_TIME"]
+        if (!time.isNullOrBlank() && !isValidClockTime(time)) return false
+        return true
+    }
+
+    private fun isValidClockTime(raw: String): Boolean {
+        val normalized = normalizeCaptured("BILL_TIME", raw)
+        val parts = normalized.split(':')
+        if (parts.size !in 2..3) return false
+        val hour = parts[0].toIntOrNull() ?: return false
+        val minute = parts[1].toIntOrNull() ?: return false
+        val second = parts.getOrNull(2)?.toIntOrNull()
+        if (hour !in 0..23 || minute !in 0..59) return false
+        if (second != null && second !in 0..59) return false
+        return true
+    }
+
+    private fun chooseWholeRecordConsensus(candidates: List<Candidate>): Candidate? {
         if (candidates.isEmpty()) return null
-        val groups = candidates.groupBy { it.template.templateId }
-        val winningGroup = groups.values.maxWithOrNull(
+        val byTemplate = candidates.groupBy { it.template.templateId }
+        val winningTemplate = byTemplate.values.maxWithOrNull(
             compareBy<List<Candidate>> { it.size }
                 .thenBy { group -> group.maxOfOrNull { it.score } ?: 0 }
         ) ?: return null
 
-        val base = winningGroup.maxBy { it.score }
-        val fieldTypes = winningGroup.flatMap { it.fields.keys }.toSet()
-        val merged = linkedMapOf<String, String>()
-
-        fieldTypes.forEach { type ->
-            val values = winningGroup.mapNotNull { candidate ->
-                candidate.fields[type]?.takeIf { it.isNotBlank() }
+        return winningTemplate
+            .groupBy { candidate ->
+                listOf(
+                    candidate.fields["POS_NUMBER"].orEmpty(),
+                    candidate.fields["CUSTOMER_VALUE"].orEmpty(),
+                    candidate.fields["BILL_DATE"].orEmpty(),
+                    candidate.fields["BILL_TIME"].orEmpty(),
+                    candidate.fields["STORE_ID"].orEmpty()
+                ).joinToString("|")
             }
-            if (values.isNotEmpty()) {
-                val selected = values.groupingBy { it }.eachCount().entries
-                    .sortedWith(
-                        compareByDescending<Map.Entry<String, Int>> { it.value }
-                            .thenByDescending { it.key.length }
-                    )
-                    .first().key
-                merged[type] = selected
-            }
-        }
-
-        return base.copy(
-            fields = merged,
-            score = winningGroup.maxOf { it.score } + winningGroup.size.coerceAtMost(8) * 3
-        )
+            .values
+            .maxWithOrNull(
+                compareBy<List<Candidate>> { it.size }
+                    .thenBy { group -> group.maxOfOrNull { it.score } ?: 0 }
+            )
+            ?.maxByOrNull { it.score }
     }
 }
