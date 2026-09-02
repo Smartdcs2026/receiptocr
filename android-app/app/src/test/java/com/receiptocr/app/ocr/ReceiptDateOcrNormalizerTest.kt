@@ -185,4 +185,34 @@ class ReceiptDateOcrNormalizerTest {
         assertEquals("20/08/69", result.original)
         assertTrue(result.warning.orEmpty().isNotBlank())
     }
+
+    @Test
+    fun noisyThaiDateWithOneExtraDigitIsNotGuessedWhenAmbiguous() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "20/08769",
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = "DMY",
+            dateCalendar = "BUDDHIST",
+            dateYearDigits = 2,
+            dateExample = "22/08/69"
+        )
+        assertNull(result.value)
+        assertEquals("20/08769", result.original)
+    }
+
+    @Test
+    fun canonicalValueCanPassSecondStageWithoutBreakingSourceTwoDigitRule() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "20/08/2026",
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = "DMY",
+            dateCalendar = "BUDDHIST",
+            dateYearDigits = 2,
+            dateExample = "22/08/69",
+            allowCanonicalInput = true
+        )
+        assertEquals("20/08/2026", result.value)
+    }
 }

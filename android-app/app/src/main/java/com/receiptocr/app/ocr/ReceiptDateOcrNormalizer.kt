@@ -91,26 +91,16 @@ object ReceiptDateOcrNormalizer {
         )
         if (exact.value != null) return exact
 
-        // กรณีโครงสร้างมี 3 ส่วนแต่เดือนถูก OCR แทรกตัวเกิน เช่น 20/28/2026
-        val structuredParts = cleaned.split('/')
-        if (structuredParts.size == 3) {
-            val tokens = tokensByOrder(structuredParts, order)
-            val day = tokens.day.toIntOrNull()
-            val year = normalizeYear(tokens.year, calendar, referenceDate)
-            val correctedMonth = recoverMonth(tokens.month)
-            if (day != null && year != null && correctedMonth != null) {
-                val correctedDate = buildDate(year, correctedMonth, day)
-                if (correctedDate != null) {
-                    val checked = verifyDistance(
-                        date = correctedDate,
-                        original = cleaned,
-                        referenceDate = referenceDate,
-                        maxDistanceDays = maxAutoCorrectionDistanceDays
-                    )
-                    if (checked.value != null) return checked.copy(corrected = true)
-                }
-            }
-        }
+        // กรณีเดือนถูก OCR แทรก/สลับเป็นเลขที่ไม่มีจริง เช่น 20/28/2026
+        // จะยอมแก้ก็ต่อเมื่อการตัดตัวเลขหนึ่งหลัก + กฎ Admin + วันงาน
+        // เหลือวันที่จริงเพียงคำตอบเดียวเท่านั้น
+        recoverStructuredMonth(
+            cleaned = cleaned,
+            order = order,
+            calendar = calendar,
+            referenceDate = referenceDate,
+            maxDistanceDays = maxAutoCorrectionDistanceDays
+        )?.let { return it }
 
         val recovered = recoverNoisyDate(
             cleaned = cleaned,
@@ -213,11 +203,11 @@ object ReceiptDateOcrNormalizer {
 
         if (candidates.isEmpty()) return null
         val bestRemoved = candidates.minOf { it.removed }
-        val bestDistance = candidates.filter { it.removed == bestRemoved }.minOf { it.distance }
         val bestDates = candidates
-            .filter { it.removed == bestRemoved && it.distance == bestDistance }
+            .filter { it.removed == bestRemoved }
             .map { it.date }
             .distinct()
+        // ถ้ามีมากกว่าหนึ่งวันที่เป็นไปได้ ห้ามเลือกวันที่ใกล้วันงานที่สุด
         if (bestDates.size != 1) return null
 
         return Result(
@@ -298,13 +288,37 @@ object ReceiptDateOcrNormalizer {
         return Result(date.format(output), corrected = false, original = original)
     }
 
-    private fun recoverMonth(token: String): Int? {
-        val digits = token.filter(Char::isDigit)
-        if (digits.length != 2) return null
-        val raw = digits.toIntOrNull() ?: return null
-        if (raw in 1..12) return raw
-        val last = digits.last().digitToIntOrNull() ?: return null
-        return last.takeIf { it in 1..9 }
+    private fun recoverStructuredMonth(
+        cleaned: String,
+        order: DateOrder,
+        calendar: DateCalendar,
+        referenceDate: LocalDate,
+        maxDistanceDays: Long
+    ): Result? {
+        val parts = cleaned.split('/').map { it.trim() }
+        if (parts.size != 3) return null
+        val tokens = tokensByOrder(parts, order)
+        val day = tokens.day.toIntOrNull() ?: return null
+        val year = normalizeYear(tokens.year, calendar, referenceDate) ?: return null
+        val monthDigits = tokens.month.filter(Char::isDigit)
+        val rawMonth = monthDigits.toIntOrNull() ?: return null
+        if (rawMonth in 1..12 || monthDigits.length != 2) return null
+
+        val candidates = monthDigits.indices
+            .mapNotNull { index -> monthDigits.removeRange(index, index + 1).toIntOrNull() }
+            .filter { it in 1..12 }
+            .distinct()
+            .mapNotNull { month -> buildDate(year, month, day) }
+            .filter { date -> abs(ChronoUnit.DAYS.between(referenceDate, date)) <= maxDistanceDays }
+            .distinct()
+
+        if (candidates.size != 1) return null
+        return Result(
+            value = candidates.single().format(output),
+            corrected = true,
+            original = cleaned,
+            warning = "ปรับเดือนตามเงื่อนไขที่ Admin กำหนดและวันงาน • กรุณาตรวจเทียบกับภาพ"
+        )
     }
 
     private fun normalizeYear(

@@ -176,7 +176,7 @@
             </select>
           </label>
         </div>
-        <div class="small">ตัวอย่าง: พ.ศ. 2569 / 69 และ ค.ศ. 2026 / 26 • เมื่ออ่านผ่าน ระบบจะเก็บเป็น dd/MM/yyyy เสมอ</div>
+        <div class="small">ตัวอย่าง: พ.ศ. 2569 / 69 และ ค.ศ. 2026 / 26 • เมื่ออ่านผ่าน ระบบจะเก็บเป็น dd/MM/yyyy เสมอ • ถ้าไม่ตรงเงื่อนไข ระบบจะแสดงค่าที่อ่านได้พร้อมคำเตือนและไม่เก็บเป็นวันที่ใช้งาน</div>
       </div>
 
       <div id="timeBox" class="hidden fieldSpecialBox">
@@ -227,7 +227,7 @@
       <div class="validationGrid">
         <label class="validationItem"><input id="mustMatchStore" type="checkbox" checked><span><strong>ร้านต้องตรง</strong><small>รหัสร้านต้องตรงกับแผนงาน</small></span></label>
         <label class="validationItem"><input id="mustMatchPos" type="checkbox" checked disabled><span><strong>เครื่องต้องตรง</strong><small>APK ใช้เฉพาะหมายเลขเครื่องในแผนงานเสมอ</small></span></label>
-        <label class="validationItem"><input id="noDuplicatePos" type="checkbox" checked disabled><span><strong>เครื่องห้ามซ้ำ</strong><small>APK เลือกผลที่ดีที่สุดเพียงชุดเดียวต่อ POS</small></span></label>
+        <label class="validationItem"><input id="noDuplicatePos" type="checkbox" checked disabled><span><strong>เครื่องห้ามซ้ำ</strong><small>ถ้าพบบิลคนละชุดอ้างถึง POS เดียวกัน ระบบต้องแจ้งเตือนและไม่ให้ส่งจนตรวจแล้ว</small></span></label>
         <label class="validationItem"><input id="mustHaveDate" type="checkbox" checked><span><strong>ต้องมีวันที่</strong><small>ต้องอ่านวันที่ในบิลได้</small></span></label>
         <label class="validationItem"><input id="mustHaveTime" type="checkbox" checked><span><strong>ต้องมีเวลา</strong><small>ต้องอ่านเวลาในบิลได้</small></span></label>
         <label class="validationItem"><input id="mustHaveCustomer" type="checkbox" checked><span><strong>ต้องมียอดลูกค้า</strong><small>ต้องอ่านยอด/เลขลูกค้าได้</small></span></label>

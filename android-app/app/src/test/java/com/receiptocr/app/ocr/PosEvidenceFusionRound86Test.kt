@@ -6,6 +6,7 @@ import com.receiptocr.app.config.OcrTemplateRequiredCore
 import com.receiptocr.app.config.OcrTemplateRow
 import com.receiptocr.app.config.OcrTemplateValidation
 import com.receiptocr.app.config.UniversalOcrTemplate
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -29,7 +30,7 @@ class PosEvidenceFusionRound86Test {
                         OcrTemplateField(order = 4, type = "CUSTOMER_VALUE", example = "219931", minLength = 6, maxLength = 6),
                         OcrTemplateField(order = 5, type = "LITERAL", example = "U", literal = "U"),
                         OcrTemplateField(order = 6, type = "NUMBER_TEXT", example = "400040", minLength = 6, maxLength = 6),
-                        OcrTemplateField(order = 7, type = "BILL_DATE", example = "22/08/69"),
+                        OcrTemplateField(order = 7, type = "BILL_DATE", example = "22/08/69", dateOrder = "DMY", dateCalendar = "BUDDHIST", dateYearDigits = 2),
                         OcrTemplateField(order = 8, type = "BILL_TIME", example = "18:37")
                     )
                 )
@@ -50,12 +51,13 @@ class PosEvidenceFusionRound86Test {
                 "R202039030U400072 20/08/69 17:18"
             ),
             template = mb02,
-            allowedPos = setOf(1, 2, 3)
+            allowedPos = setOf(1, 2, 3),
+            referenceDate = LocalDate.of(2026, 9, 2)
         )
 
         val pos2 = result.getValue(2)
         assertEquals("039030", pos2["CUSTOMER_VALUE"])
-        assertEquals("20/08/69", pos2["BILL_DATE"])
+        assertEquals("20/08/2026", pos2["BILL_DATE"])
         assertEquals("17:18", pos2["BILL_TIME"])
     }
 
@@ -68,7 +70,8 @@ class PosEvidenceFusionRound86Test {
                 "R201051846U110030 20/08/69 1751\nR202039030U400072 20/08/69 1718"
             ),
             template = mb02,
-            allowedPos = setOf(1, 2, 3)
+            allowedPos = setOf(1, 2, 3),
+            referenceDate = LocalDate.of(2026, 9, 2)
         )
 
         assertEquals("051846", result.getValue(1)["CUSTOMER_VALUE"])
@@ -86,11 +89,12 @@ class PosEvidenceFusionRound86Test {
                 "R201051846U110030 BAD BAD\nR202039030U400072 20/08/69 17:18"
             ),
             template = mb02,
-            allowedPos = setOf(1, 2, 3)
+            allowedPos = setOf(1, 2, 3),
+            referenceDate = LocalDate.of(2026, 9, 2)
         )
 
         assertFalse(result.containsKey(1))
-        assertEquals("20/08/69", result.getValue(2)["BILL_DATE"])
+        assertEquals("20/08/2026", result.getValue(2)["BILL_DATE"])
         assertEquals("17:18", result.getValue(2)["BILL_TIME"])
     }
 
@@ -103,7 +107,8 @@ class PosEvidenceFusionRound86Test {
                 "R202039030U400072 20/08/69 36:00"
             ),
             template = mb02,
-            allowedPos = setOf(1, 2, 3)
+            allowedPos = setOf(1, 2, 3),
+            referenceDate = LocalDate.of(2026, 9, 2)
         )
 
         assertFalse(result.containsKey(2))
@@ -118,7 +123,8 @@ class PosEvidenceFusionRound86Test {
                 "R209039030U400072 20/08/69 17:18"
             ),
             template = mb02,
-            allowedPos = setOf(1, 2, 3)
+            allowedPos = setOf(1, 2, 3),
+            referenceDate = LocalDate.of(2026, 9, 2)
         )
 
         assertTrue(result.isEmpty())

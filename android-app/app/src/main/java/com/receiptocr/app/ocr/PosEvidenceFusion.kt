@@ -4,7 +4,6 @@ import com.receiptocr.app.config.OcrTemplateField
 import com.receiptocr.app.config.UniversalOcrTemplate
 import com.receiptocr.app.model.PosRecord
 import com.receiptocr.app.model.WorkItem
-import java.time.DateTimeException
 import java.time.LocalDate
 
 /**
@@ -71,6 +70,7 @@ object PosEvidenceFusion {
         rawTexts: List<String>,
         records: List<PosRecord>,
         work: WorkItem,
+        workDate: LocalDate,
         imagePath: String,
         templates: List<UniversalOcrTemplate>
     ): UniversalTemplateResult {
@@ -84,7 +84,7 @@ object PosEvidenceFusion {
 
         val evidence = templates
             .filter { it.active }
-            .flatMap { template -> collectTemplateEvidence(template, candidates, allowedPos) }
+            .flatMap { template -> collectTemplateEvidence(template, candidates, allowedPos, workDate) }
 
         if (evidence.isEmpty()) return failed(records)
 
@@ -172,10 +172,11 @@ object PosEvidenceFusion {
     internal fun fuseTextPasses(
         rawTexts: List<String>,
         template: UniversalOcrTemplate,
-        allowedPos: Set<Int>
+        allowedPos: Set<Int>,
+        referenceDate: LocalDate
     ): Map<Int, Map<String, String>> {
         val candidates = buildLocalCandidates(rawTexts)
-        val evidence = collectTemplateEvidence(template, candidates, allowedPos)
+        val evidence = collectTemplateEvidence(template, candidates, allowedPos, referenceDate)
         val passCount = rawTexts.count { it.isNotBlank() }
         return evidence.groupBy { it.pos }.mapNotNull { (pos, all) ->
             val resolved = resolvePosCandidate(all, passCount) ?: return@mapNotNull null
@@ -192,7 +193,8 @@ object PosEvidenceFusion {
     private fun collectTemplateEvidence(
         template: UniversalOcrTemplate,
         candidates: List<LocalCandidate>,
-        allowedPos: Set<Int>
+        allowedPos: Set<Int>,
+        referenceDate: LocalDate
     ): List<Evidence> {
         val ordered = orderedFields(template)
         if (ordered.isEmpty()) return emptyList()
@@ -224,6 +226,16 @@ object PosEvidenceFusion {
                     }
 
                     val enriched = fields.toMutableMap()
+                    val dateField = ordered.firstOrNull { it.field.type.equals("BILL_DATE", true) }?.field
+                    enriched["BILL_DATE"]?.takeIf { it.isNotBlank() }?.let { rawDate ->
+                        val normalized = ReceiptDateOcrNormalizer.normalizeForField(
+                            raw = rawDate,
+                            field = dateField,
+                            referenceDate = referenceDate
+                        )
+                        if (normalized.value != null) enriched["BILL_DATE"] = normalized.value
+                        else enriched.remove("BILL_DATE")
+                    }
                     val anchorStart = match.range.first.coerceAtLeast(0)
                     val anchorEndExclusive = (match.range.last + 1).coerceAtMost(candidate.text.length)
                     val distanceEnd = (anchorEndExclusive + LOCAL_AFTER_ANCHOR).coerceAtMost(candidate.text.length)
@@ -234,7 +246,7 @@ object PosEvidenceFusion {
                         ?.takeIf { it > anchorStart }
                     val localEnd = nextRecordStart?.coerceAtMost(distanceEnd) ?: distanceEnd
                     val localText = candidate.text.substring(anchorStart, localEnd)
-                    enrichDateAndTime(template, ordered, enriched, localText)
+                    enrichDateAndTime(template, ordered, enriched, localText, referenceDate)
 
                     val score = prefix.depth * 20 +
                         enriched.keys.count { it in setOf("CUSTOMER_VALUE", "BILL_DATE", "BILL_TIME", "STORE_ID") } * 30
@@ -400,7 +412,8 @@ object PosEvidenceFusion {
         template: UniversalOcrTemplate,
         ordered: List<OrderedField>,
         fields: MutableMap<String, String>,
-        localText: String
+        localText: String,
+        referenceDate: LocalDate
     ) {
         val dateField = ordered.firstOrNull { it.field.type.equals("BILL_DATE", true) }?.field
         val timeField = ordered.firstOrNull { it.field.type.equals("BILL_TIME", true) }?.field
@@ -409,7 +422,7 @@ object PosEvidenceFusion {
 
         var dateRange: IntRange? = null
         if (fields["BILL_DATE"].isNullOrBlank() && dateField != null) {
-            findDate(localText, dateField)?.let { found ->
+            findDate(localText, dateField, referenceDate)?.let { found ->
                 fields["BILL_DATE"] = found.first
                 dateRange = found.second
             }
@@ -427,16 +440,32 @@ object PosEvidenceFusion {
         }
     }
 
-    private fun findDate(text: String, field: OcrTemplateField): Pair<String, IntRange>? {
+    private fun findDate(
+        text: String,
+        field: OcrTemplateField,
+        referenceDate: LocalDate
+    ): Pair<String, IntRange>? {
         val lengths = Regex("\\d+").findAll(field.example.orEmpty()).map { it.value.length }.toList()
-            .takeIf { it.size == 3 } ?: listOf(2, 2, 4)
+            .takeIf { it.size == 3 } ?: when (field.dateOrder.uppercase()) {
+                "YMD" -> listOf(if (field.dateYearDigits == 2) 2 else 4, 2, 2)
+                else -> listOf(2, 2, if (field.dateYearDigits == 2) 2 else 4)
+            }
+
+        fun accept(raw: String, range: IntRange): Pair<String, IntRange>? {
+            val normalized = ReceiptDateOcrNormalizer.normalizeForField(
+                raw = raw,
+                field = field,
+                referenceDate = referenceDate
+            )
+            return normalized.value?.let { it to range }
+        }
+
         val separated = Regex(
             "${fixedDigits(lengths[0])}\\s*[./-]\\s*${fixedDigits(lengths[1])}\\s*[./-]\\s*${fixedDigits(lengths[2])}",
             RegexOption.IGNORE_CASE
         )
         separated.findAll(text).forEach { match ->
-            val value = normalizeDate(match.value)
-            if (isValidDate(value)) return value to match.range
+            accept(match.value, match.range)?.let { return it }
         }
 
         val total = lengths.sum()
@@ -444,13 +473,23 @@ object PosEvidenceFusion {
         compact.findAll(text).forEach { match ->
             val digits = normalizeDigits(match.value).filter(Char::isDigit)
             if (digits.length == total) {
-                val value = listOf(
-                    digits.substring(0, lengths[0]),
-                    digits.substring(lengths[0], lengths[0] + lengths[1]),
-                    digits.substring(lengths[0] + lengths[1])
-                ).joinToString("/")
-                if (isValidDate(value)) return value to match.range
+                var cursor = 0
+                val raw = lengths.map { length ->
+                    digits.substring(cursor, cursor + length).also { cursor += length }
+                }.joinToString("/")
+                accept(raw, match.range)?.let { return it }
             }
+        }
+
+        // OCR ของบิลความร้อนมักทำ '/' หายหรือมีเลขแทรก เช่น 20/08769
+        // ให้ date engine เป็นผู้ตัดสินตามลำดับ/ระบบปี/จำนวนหลักจาก Admin + วันงาน
+        // ไม่ตัดเลขเองแบบ hard-code แบรนด์
+        val noisy = Regex(
+            "(?<![0-9OoIl|SsZzBbGg])(?:$DIGIT\\s*){1,4}\\s*[./-]\\s*(?:$DIGIT\\s*){2,8}(?![0-9OoIl|SsZzBbGg])",
+            RegexOption.IGNORE_CASE
+        )
+        noisy.findAll(text).forEach { match ->
+            accept(match.value, match.range)?.let { return it }
         }
         return null
     }
@@ -689,20 +728,8 @@ object PosEvidenceFusion {
         .replace('.', ':')
         .replace(Regex("\\s+"), "")
 
-    private fun isValidDate(value: String): Boolean {
-        val parts = value.split('/')
-        if (parts.size != 3) return false
-        val day = parts[0].toIntOrNull() ?: return false
-        val month = parts[1].toIntOrNull() ?: return false
-        val rawYear = parts[2].toIntOrNull() ?: return false
-        val year = if (parts[2].length <= 2) 2000 + rawYear else rawYear
-        return try {
-            LocalDate.of(year, month, day)
-            true
-        } catch (_: DateTimeException) {
-            false
-        }
-    }
+    private fun isValidDate(value: String): Boolean =
+        ReceiptDateOcrNormalizer.isCanonical(value)
 
     private fun isValidTime(value: String): Boolean {
         val parts = value.split(':')

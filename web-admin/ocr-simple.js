@@ -530,9 +530,9 @@ function validateParsedRecord(fields,configuredRows,recordNumber){
     const normalized=normalizeTestDate(fields.BILL_DATE,dateField,$("testWorkDate").value);
     if(normalized.value){
       fields.BILL_DATE=normalized.value;
-      checks.push({ok:true,text:`${label}: วันที่ตรงรูปแบบที่กำหนด (${normalized.value})`});
+      checks.push({ok:true,text:`${label}: วันที่ตรงเงื่อนไข • เก็บเป็น ${normalized.value}`});
     }else{
-      checks.push({ok:false,text:`${label}: ${normalized.warning} • อ่านได้ ${fields.BILL_DATE}`});
+      checks.push({ok:false,text:`${label}: ${normalized.warning} • อ่านได้ ${fields.BILL_DATE} • ระบบจะไม่เก็บค่านี้เป็นวันที่ใช้งาน`});
       validationPassed=false;
     }
   }

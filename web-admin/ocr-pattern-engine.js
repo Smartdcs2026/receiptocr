@@ -58,12 +58,22 @@
     return escapeRegex(text).replace(/\\ /g,"\\s+");
   }
 
+  function dateFieldRegex(field,groupName){
+    const order=String(field.dateOrder||"DMY").toUpperCase();
+    const yearDigits=Number(field.dateYearDigits||0);
+    const day=`${OCR_DIGIT}{1,2}`;
+    const month=`${OCR_DIGIT}{1,2}`;
+    const year=yearDigits===2?`${OCR_DIGIT}{2}`:yearDigits===4?`${OCR_DIGIT}{4}`:`(?:${OCR_DIGIT}{2}|${OCR_DIGIT}{4})`;
+    const parts=order==="MDY"?[month,day,year]:order==="YMD"?[year,month,day]:[day,month,year];
+    return `(?<${groupName}>${parts.join("[./-]")})`;
+  }
+
   function fieldRegex(field,occurrence){
     const {min,max}=exactOrRange(field);
     const suffix=occurrence>1?`_${occurrence}`:"";
     const group=name=>`${name}${suffix}`;
 
-    if(field.type==="BILL_DATE")return `(?<${group("BILL_DATE")}>${OCR_DIGIT}{1,2}[./-]${OCR_DIGIT}{1,2}[./-]${OCR_DIGIT}{2,4})`;
+    if(field.type==="BILL_DATE")return dateFieldRegex(field,group("BILL_DATE"));
     if(field.type==="BILL_TIME")return `(?<${group("BILL_TIME")}>${OCR_DIGIT}{1,2}[:.]${OCR_DIGIT}{2}(?::${OCR_DIGIT}{2})?)`;
     if(field.type==="STORE_ID")return `(?<${group("STORE_ID")}>${OCR_DIGIT}{${Math.max(1,min)},${Math.max(1,max)}})`;
     // อ่านค่าจริงให้ครบก่อน จำนวนหลักเป็นเงื่อนไขตรวจสอบภายหลัง

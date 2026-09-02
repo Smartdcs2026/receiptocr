@@ -76,6 +76,7 @@ object RealOcrPipeline {
                 rawTexts = mlTexts.map { it.text },
                 records = records,
                 work = work,
+                workDate = workDate,
                 imagePath = imagePath,
                 templates = templates
             )
@@ -164,16 +165,18 @@ object RealOcrPipeline {
             val original = recordsForAccumulation.firstOrNull { it.posNumber == record.posNumber } ?: record
             val currentImagePos = record.posNumber in currentDetectedSet
             val rawCandidateDate = record.billDate.trim()
+            val rawCandidateTime = record.billTime.trim()
             val recordDateField = dateFieldForRecord(record, templates) ?: defaultDateField
             val dateResult = if (currentImagePos && rawCandidateDate.isNotBlank()) {
-                ReceiptDateOcrNormalizer.normalize(
+                ReceiptDateOcrNormalizer.normalizeForField(
                     raw = rawCandidateDate,
-                    configuredFormat = recordDateField?.format,
+                    field = recordDateField,
                     referenceDate = workDate,
-                    dateOrder = recordDateField?.dateOrder,
-                    dateCalendar = recordDateField?.dateCalendar,
-                    dateYearDigits = recordDateField?.dateYearDigits ?: 0
+                    allowCanonicalInput = record.source.equals("OCR-EVIDENCE", ignoreCase = true)
                 )
+            } else null
+            val timeResult = if (currentImagePos && rawCandidateTime.isNotBlank()) {
+                ReceiptTimeOcrNormalizer.normalize(rawCandidateTime)
             } else null
             val storeId = mergeStoreId(
                 original = original,
@@ -181,29 +184,39 @@ object RealOcrPipeline {
                 isCurrentPos = currentImagePos
             )
             val safeExistingDate = if (!original.source.startsWith("OCR", ignoreCase = true)) original.billDate else ""
+            val safeExistingTime = if (!original.source.startsWith("OCR", ignoreCase = true)) original.billTime else ""
             val acceptedDate = when {
                 dateResult?.value != null -> dateResult.value
-                currentImagePos && rawCandidateDate.isNotBlank() -> rawCandidateDate
                 currentImagePos -> safeExistingDate
                 else -> record.billDate
+            }
+            val acceptedTime = when {
+                timeResult?.value != null -> timeResult.value
+                currentImagePos -> safeExistingTime
+                else -> record.billTime
             }
             val dateWarning = when {
                 !currentImagePos || rawCandidateDate.isBlank() -> ""
                 dateResult?.value == null ->
-                    (dateResult?.warning ?: "วันที่ที่อ่านจากภาพ ($rawCandidateDate) ไม่ตรงเงื่อนไขที่กำหนด") + " • แสดงค่าที่อ่านได้ไว้ให้ตรวจแก้"
+                    (dateResult?.warning ?: "วันที่ที่อ่านจากภาพ ($rawCandidateDate) ไม่ตรงเงื่อนไขที่ Admin กำหนด") + " • ค่านี้จะไม่ถูกใช้เป็นวันที่ส่งงาน"
                 dateResult.corrected ->
-                    "วันที่ที่อ่านจากภาพ ${dateResult.original} ถูกปรับเป็น ${dateResult.value} ตามเงื่อนไขวันที่ กรุณาตรวจเทียบกับภาพ"
+                    "วันที่ที่อ่านจากภาพ ${dateResult.original} ถูกปรับเป็น ${dateResult.value} ตามเงื่อนไข Admin • กรุณาตรวจเทียบกับภาพ"
+                else -> ""
+            }
+            val timeWarning = when {
+                !currentImagePos || rawCandidateTime.isBlank() -> ""
+                timeResult?.value == null ->
+                    (timeResult?.warning ?: "เวลาที่อ่านจากภาพไม่ถูกต้อง") + " • อ่านได้ $rawCandidateTime • ค่านี้จะไม่ถูกใช้เป็นเวลาส่งงาน"
                 else -> ""
             }
             val inheritedWarning = sanitizeLegacyOcrWarnings(record.ocrWarnings)
-            val standardizedTime = if (currentImagePos && record.billTime.isNotBlank()) {
-                ReceiptTimeOcrNormalizer.normalize(record.billTime).value ?: record.billTime
-            } else record.billTime
             record.copy(
                 billDate = acceptedDate,
-                billTime = standardizedTime,
+                billTime = acceptedTime,
+                ocrRawBillDate = if (currentImagePos && rawCandidateDate.isNotBlank()) rawCandidateDate else record.ocrRawBillDate,
+                ocrRawBillTime = if (currentImagePos && rawCandidateTime.isNotBlank()) rawCandidateTime else record.ocrRawBillTime,
                 ocrStoreId = storeId,
-                ocrWarnings = listOf(inheritedWarning, dateWarning)
+                ocrWarnings = listOf(inheritedWarning, dateWarning, timeWarning)
                     .map { it.trim() }
                     .filter { it.isNotBlank() }
                     .distinct()

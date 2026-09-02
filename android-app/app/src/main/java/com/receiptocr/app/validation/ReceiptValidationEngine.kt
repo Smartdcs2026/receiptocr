@@ -51,7 +51,7 @@ object ReceiptValidationEngine {
         val match = canonicalDateShape.matchEntire(raw)
             ?: return DateParseResult(
                 code = "DATE_FORMAT",
-                message = "รูปแบบวันที่ไม่ถูกต้อง • กรุณาใช้ dd/MM/yyyy"
+                message = "วันที่ยังไม่ผ่านเงื่อนไขที่ Admin กำหนดและยังแปลงเป็นมาตรฐานไม่ได้"
             )
         val day = match.groupValues[1].toInt()
         val month = match.groupValues[2].toInt()
@@ -84,7 +84,7 @@ object ReceiptValidationEngine {
         rule: ReceiptGroupDateRule
     ): String? {
         if (!rule.enabled || record.noReceipt) return null
-        if (record.billDate.isBlank()) return "ยังไม่มีวันที่บิล"
+        if (record.billDate.isBlank()) return record.ocrRawBillDate.takeIf { it.isNotBlank() }?.let { "วันที่ที่อ่านได้ $it ยังไม่ผ่านเงื่อนไขวันที่ของร้าน" } ?: "ยังไม่มีวันที่บิล"
         val parsed = parseCanonicalReceiptDate(record.billDate)
         val date = parsed.date ?: return parsed.message ?: "ตรวจวันที่อีกครั้ง"
         if (rule.resetAtMonthEnd && (date.year != workDate.year || date.monthValue != workDate.monthValue)) {
@@ -167,9 +167,25 @@ object ReceiptValidationEngine {
                 }
             } else {
                 if (record.customerNo.isBlank()) issues += block("CUSTOMER_REQUIRED", "POS ${record.posNumber}: ยังไม่มีเลข/ยอดลูกค้า")
-                if (record.billDate.isBlank()) issues += block("DATE_REQUIRED", "POS ${record.posNumber}: ยังไม่มีวันที่")
+                if (record.billDate.isBlank()) {
+                    if (record.ocrRawBillDate.isNotBlank()) {
+                        issues += block(
+                            "DATE_OCR_REJECTED_POS_${record.posNumber}",
+                            "POS ${record.posNumber}: วันที่ที่อ่านได้ ${record.ocrRawBillDate} ยังไม่ผ่านเงื่อนไขวันที่ของร้าน • กรุณาตรวจแก้"
+                        )
+                    } else {
+                        issues += block("DATE_REQUIRED", "POS ${record.posNumber}: ยังไม่มีวันที่")
+                    }
+                }
                 if (record.billTime.isBlank()) {
-                    issues += block("TIME_REQUIRED", "POS ${record.posNumber}: ยังไม่มีเวลา")
+                    if (record.ocrRawBillTime.isNotBlank()) {
+                        issues += block(
+                            "TIME_OCR_REJECTED_POS_${record.posNumber}",
+                            "POS ${record.posNumber}: เวลาที่อ่านได้ ${record.ocrRawBillTime} ยังไม่ถูกต้อง • กรุณาตรวจแก้"
+                        )
+                    } else {
+                        issues += block("TIME_REQUIRED", "POS ${record.posNumber}: ยังไม่มีเวลา")
+                    }
                 } else {
                     val normalizedTime = ReceiptTimeOcrNormalizer.normalize(record.billTime)
                     if (normalizedTime.value == null || normalizedTime.value != record.billTime) {

@@ -147,4 +147,18 @@ assert.deepEqual(mb.records.map(record=>record.fields.CUSTOMER_VALUE),["051846",
 assert.deepEqual(mb.records.map(record=>record.fields.BILL_DATE),["20/08/69","20/08/69"]);
 assert.deepEqual(mb.records.map(record=>record.fields.BILL_TIME),["17:51","17:18"]);
 
+
+// Round90: วันที่ต้องจับตามลำดับและจำนวนหลักของปีที่ Admin ตั้ง ไม่ใช้ regex วันที่แบบเดียวทุกแบรนด์
+const ymdRow=[
+  field("BILL_DATE",{example:"2026/08/20",dateOrder:"YMD",dateCalendar:"GREGORIAN",dateYearDigits:4,minLength:10,maxLength:10}),
+  field("BILL_TIME",{example:"07:55",minLength:5,maxLength:5}),
+  field("LITERAL",{example:"Rcpt#10",literal:"Rcpt#10"}),
+  field("POS_NUMBER",{example:"1",posDigits:1,minLength:1,maxLength:1}),
+  field("CUSTOMER_VALUE",{example:"002715",minLength:6,maxLength:6})
+];
+const ymdOk=engine.findRecords([ymdRow],"2026/08/20 07:55 Rcpt#101002715");
+assert.equal(ymdOk.records.length,1);
+const ymdWrong=engine.findRecords([ymdRow],"20/08/2026 07:55 Rcpt#101002715");
+assert.equal(ymdWrong.records.length,0);
+
 console.log("OCR pattern engine: Admin-driven CJ/L-go, noisy text, four POS and warning-value tests passed");
