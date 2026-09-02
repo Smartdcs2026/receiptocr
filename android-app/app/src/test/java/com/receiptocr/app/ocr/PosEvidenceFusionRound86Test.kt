@@ -78,6 +78,23 @@ class PosEvidenceFusionRound86Test {
     }
 
     @Test
+    fun neverBorrowsDateOrTimeFromNextPosWhenCurrentPosHasNoValidDate() {
+        val result = PosEvidenceFusion.fuseTextPasses(
+            rawTexts = listOf(
+                "R201051846U110030 BAD BAD\nR202039030U400072 20/08/69 17:18",
+                "R201051846U110030 BAD BAD\nR202039030U400072 20/08/69 17:18",
+                "R201051846U110030 BAD BAD\nR202039030U400072 20/08/69 17:18"
+            ),
+            template = mb02,
+            allowedPos = setOf(1, 2, 3)
+        )
+
+        assertFalse(result.containsKey(1))
+        assertEquals("20/08/69", result.getValue(2)["BILL_DATE"])
+        assertEquals("17:18", result.getValue(2)["BILL_TIME"])
+    }
+
+    @Test
     fun rejectsImpossibleTimeEvenWhenItAppearsNearAnchor() {
         val result = PosEvidenceFusion.fuseTextPasses(
             rawTexts = listOf(
