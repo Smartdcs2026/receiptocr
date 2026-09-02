@@ -3,14 +3,14 @@ package com.receiptocr.app.ocr
 import com.receiptocr.app.model.PosRecord
 
 /**
- * รวมผล OCR จากภาพบิลหลายช่องแบบสะสมตาม POS
+ * รวมข้อมูลจากภาพบิลหลายช่องแบบสะสมตามเครื่องที่อ่านได้จริง
  *
  * หลักการ:
- * - ภาพใหม่เติมเฉพาะ POS ที่ตรวจพบในภาพนั้น
- * - ข้อมูลที่ผู้ใช้กรอกเองและไม่ว่างจะไม่ถูก OCR ทับ
- * - ข้อมูล OCR เดิมที่ครบและไม่มีคำเตือนจะถูกเก็บไว้
- * - ถ้าข้อมูล OCR เดิมมีปัญหา ระบบอนุญาตให้ภาพใหม่แก้เฉพาะช่องที่เกี่ยวข้อง
- * - ถ้าภาพใหม่ขัดกับข้อมูล OCR เดิมที่ดี ระบบไม่ทับเงียบ ๆ แต่คืน conflict ให้หน้าตรวจทาน
+ * - ภาพใหม่เติมเฉพาะเครื่องที่ตรวจพบในภาพนั้น
+ * - ข้อมูลที่ผู้ใช้กรอกเองและไม่ว่างจะไม่ถูกทับ
+ * - ข้อมูลเดิมที่ครบและไม่มีปัญหาจะถูกเก็บไว้
+ * - ถ้าข้อมูลเดิมมีปัญหา ภาพใหม่สามารถช่วยแก้เฉพาะช่องที่เกี่ยวข้องได้
+ * - ถ้าภาพใหม่ขัดกับข้อมูลเดิมที่ดี ระบบไม่ทับเงียบ ๆ แต่ให้ผู้ใช้ตรวจ
  */
 object OcrAccumulationPolicy {
     data class Result(
@@ -37,6 +37,9 @@ object OcrAccumulationPolicy {
             val candidateCustomer = changedValue(original.customerNo, template.customerNo, profile.customerNo)
             val candidateDate = changedValue(original.billDate, template.billDate, profile.billDate)
             val candidateTime = changedValue(original.billTime, template.billTime, profile.billTime)
+            val candidateReceiptPos = listOf(template.receiptPosNumber, profile.receiptPosNumber)
+                .firstOrNull { it.isNotBlank() }
+                .orEmpty()
 
             val customer = chooseField(original, original.customerNo, candidateCustomer, listOf("ลูกค้า", "ยอด"))
             val date = chooseField(
@@ -46,8 +49,12 @@ object OcrAccumulationPolicy {
                 listOf("วันที่", "เดือน", "ปี", "ย้อนหลัง", "ก่อนวันงาน", "หลังวันงาน", "ใช้ร่วมกับบิล")
             )
             val time = chooseField(original, original.billTime, candidateTime, listOf("เวลา"))
+            val receiptPos = chooseReceiptPos(original, candidateReceiptPos)
 
-            val didImprove = customer != original.customerNo || date != original.billDate || time != original.billTime
+            val didImprove = customer != original.customerNo ||
+                date != original.billDate ||
+                time != original.billTime ||
+                receiptPos != original.receiptPosNumber
             val candidateDiffers = listOf(
                 candidateCustomer.takeIf { it.isNotBlank() && original.customerNo.isNotBlank() && it != original.customerNo },
                 candidateDate.takeIf { it.isNotBlank() && original.billDate.isNotBlank() && it != original.billDate },
@@ -56,7 +63,7 @@ object OcrAccumulationPolicy {
 
             if (!didImprove && candidateDiffers > 0 && isTrustedExistingOcr(original)) {
                 conflicts[original.posNumber] =
-                    "ภาพใหม่อ่านข้อมูล POS ${original.posNumber} ต่างจากข้อมูลเดิม • ระบบยังไม่ทับข้อมูลที่ยืนยันไว้"
+                    "ภาพใหม่อ่านข้อมูล POS ${original.displayPosNumber} ต่างจากข้อมูลเดิม • ระบบยังไม่เปลี่ยนข้อมูลเดิม"
             }
 
             if (!didImprove) return@map original
@@ -70,6 +77,7 @@ object OcrAccumulationPolicy {
             }
 
             original.copy(
+                receiptPosNumber = receiptPos,
                 customerNo = customer,
                 billDate = date,
                 billTime = time,
@@ -95,6 +103,19 @@ object OcrAccumulationPolicy {
         primary.isNotBlank() && primary != original -> primary
         secondary.isNotBlank() && secondary != original -> secondary
         else -> ""
+    }
+
+    private fun chooseReceiptPos(original: PosRecord, candidate: String): String {
+        if (candidate.isBlank()) return original.receiptPosNumber
+        if (original.receiptPosNumber.isBlank()) return candidate
+        return if (samePosIdentity(original.receiptPosNumber, candidate)) original.receiptPosNumber
+        else original.receiptPosNumber
+    }
+
+    private fun samePosIdentity(a: String, b: String): Boolean {
+        val aa = OcrTextNormalizer.parsePosNumber(a)
+        val bb = OcrTextNormalizer.parsePosNumber(b)
+        return aa != null && bb != null && aa == bb
     }
 
     private fun chooseField(
