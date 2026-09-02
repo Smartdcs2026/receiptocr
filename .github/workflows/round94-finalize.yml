@@ -1,0 +1,99 @@
+name: Round94 finalize production
+
+on:
+  push:
+    branches:
+      - round94-multitemplate-pos-identity-integrity-ui
+    paths:
+      - 'tools/round94_apply.py'
+      - '.github/workflows/round94-finalize.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout Round94
+        uses: actions/checkout@v4
+        with:
+          ref: round94-multitemplate-pos-identity-integrity-ui
+          fetch-depth: 0
+
+      - name: Verify Round93 baseline parent
+        run: |
+          git merge-base --is-ancestor 22ab51dc6d47c13c67fb110ec7fda288b75d0b29 HEAD
+          echo "Round93 baseline is preserved"
+
+      - name: Apply Round94 production source
+        run: python tools/round94_apply.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Existing Admin regression tests
+        run: |
+          node tests/workplan-store-normalizer.test.js
+          node tests/ocr-pattern-engine.test.js
+          node tests/round94-admin-pos-mapping.test.js
+
+      - name: Admin JavaScript syntax
+        run: |
+          node --check web-admin/ocr-admin-ux.js
+          node --check web-admin/ocr-pattern-engine.js
+          node --check web-admin/ocr-simple.js
+          node --check web-admin/receipt-date-rules.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests including Round93 baseline and Round94 guards
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify Round94 version
+        run: |
+          grep -q 'versionCode = 96' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.94.0"' android-app/app/build.gradle.kts
+
+      - name: Verify user UI hides old technical duplicate wording
+        run: |
+          ! grep -q 'พบข้อมูลบิลมากกว่าหนึ่งชุดสำหรับ POS' android-app/app/src/main/java/com/receiptocr/app/ui/UserFacingOcrMessages.kt
+          grep -q 'พบ POS .* ซ้ำในภาพ' android-app/app/src/main/java/com/receiptocr/app/ui/UserFacingOcrMessages.kt
+
+      - name: Verify patch whitespace
+        run: git diff --check
+
+      - name: Commit verified production source
+        run: |
+          git config user.name "SKDC_SMART"
+          git config user.email "somchaibutphon@gmail.com"
+          git add android-app web-admin tests .github/workflows/pages.yml
+          if git diff --cached --quiet; then
+            echo "No production changes to commit"
+          else
+            git commit -m "Round94 multi-template POS identity and integrity safeguards"
+            git push origin HEAD:round94-multitemplate-pos-identity-integrity-ui
+          fi
