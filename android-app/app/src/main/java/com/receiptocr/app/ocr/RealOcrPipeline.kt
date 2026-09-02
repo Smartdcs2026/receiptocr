@@ -28,9 +28,9 @@ data class RealOcrPipelineResult(
 )
 
 /**
- * จุดเข้าหลักของ OCR ภาพจริง: ML Kit -> ตำแหน่งข้อความ -> แม่แบบ -> ตรวจร้าน/POS/วันที่
- * Round78 hotfix: ใช้ลำดับการอ่านภาพแบบ Round77 ที่ผ่านการทดสอบจริง
- * แต่ยังคงการสะสมข้อมูลจากภาพบิลหลายช่องของ Round78
+ * จุดเข้าหลักของการอ่านบิลภาพจริง
+ * Round80 ใช้หลักการแยกช่องข้อมูลชุดเดียวกับหน้าทดสอบรูปแบบบิล
+ * และยังคงการสะสมข้อมูลจากภาพบิลหลายช่องของ Round78
  */
 object RealOcrPipeline {
     fun analyze(
@@ -52,14 +52,13 @@ object RealOcrPipeline {
         if (primaryText == null || mlTexts.all { it.text.isBlank() }) {
             return RealOcrPipelineResult(
                 records, emptyList(), OcrConfidence.LOW,
-                "ไม่พบข้อความในภาพ กรุณาถ่ายใหม่ให้บิลชัดและเต็มภาพ"
+                "ไม่พบข้อความในภาพ กรุณาตรวจภาพแล้วลองใหม่"
             )
         }
 
-        val templateResult = UniversalTemplateInterpreter.apply(
+        // Round80: ใช้กฎการแยกข้อความชุดเดียวกับหน้าทดสอบรูปแบบบิล
+        val templateResult = AdminRuleInterpreter.apply(
             mlTexts = mlTexts,
-            imageWidth = imageWidth,
-            imageHeight = imageHeight,
             records = records,
             work = work,
             workDate = workDate,
@@ -186,7 +185,7 @@ object RealOcrPipeline {
                     }
                     storeAssessment?.warningsByPos?.get(record.posNumber)?.let(::add)
                     if (record.posNumber in missingStorePos) {
-                        add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามตำแหน่งที่ Admin กำหนด")
+                        add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามรูปแบบบิลที่กำหนด")
                     }
                 }.distinct()
                 record.copy(
@@ -208,21 +207,26 @@ object RealOcrPipeline {
             val warnings = buildList {
                 addAll(imageQualityWarnings)
                 templateResult.validationWarnings.toSortedMap().forEach { (pos, items) ->
-                    items.filterNot(::isLegacyInterpreterWarning).forEach { add("POS $pos: $it") }
+                    val label = displayPos(recordsWithWarnings, pos)
+                    items.filterNot(::isLegacyInterpreterWarning).forEach { add("POS $label: $it") }
                 }
-                accumulation.conflictsByPos.toSortedMap().forEach { (pos, warning) -> add("POS $pos: $warning") }
-                storeAssessment?.warningsByPos?.toSortedMap()?.forEach { (pos, warning) -> add("POS $pos: $warning") }
+                accumulation.conflictsByPos.toSortedMap().forEach { (pos, warning) -> add(warning) }
+                storeAssessment?.warningsByPos?.toSortedMap()?.forEach { (pos, warning) ->
+                    add("POS ${displayPos(recordsWithWarnings, pos)}: $warning")
+                }
                 storeAssessment?.summaryWarnings?.let(::addAll)
                 if (expectsStoreId && allStoreIdsByPos.isEmpty() && requiresStoreMatch) {
-                    add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามตำแหน่งที่ Admin กำหนด")
+                    add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามรูปแบบบิลที่กำหนด")
                 } else if (missingStorePos.isNotEmpty() && requiresStoreMatch) {
-                    add("ยังยืนยันรหัสร้านไม่ได้ใน POS ${missingStorePos.joinToString(", ")}")
+                    add("ยังยืนยันรหัสร้านไม่ได้ใน POS ${missingStorePos.joinToString(", ") { displayPos(recordsWithWarnings, it) }}")
                 }
                 if (!expectsStoreId && work.expectedReceiptStoreId.isNotBlank()) {
                     add("รูปแบบบิลนี้ไม่มีรหัสร้านสำหรับตรวจอัตโนมัติ • กรุณาตรวจข้อมูลร้านจากหลักฐานประกอบ")
                 }
                 if (!currentComplete) add("ข้อมูลสำคัญบางช่องในภาพนี้อ่านได้ไม่ครบ กรุณาตรวจแก้ก่อนยืนยัน")
-                if (missingPos.isNotEmpty()) add("ยังขาดข้อมูลเครื่อง ${missingPos.joinToString(", ")} • สามารถเพิ่มภาพบิลช่องอื่นแล้วอ่านต่อได้")
+                if (missingPos.isNotEmpty()) {
+                    add("ยังขาดข้อมูล ${missingPos.size} เครื่อง • สามารถเพิ่มภาพบิลช่องอื่นแล้วอ่านต่อได้")
+                }
                 addAll(dateIssues.map { it.message })
             }.distinct()
 
@@ -236,13 +240,13 @@ object RealOcrPipeline {
             val repaired = accumulation.improvedPos.filter { it !in newlyCompleted }.sorted()
             val successMessage = when {
                 missingPos.isEmpty() && newlyCompleted.isNotEmpty() ->
-                    "รวมข้อมูลจากภาพแล้ว • ครบ ${resolvedPos.size}/${records.size} POS • เพิ่ม ${newlyCompleted.joinToString(", ") { "POS $it" }}"
+                    "รวมข้อมูลจากภาพแล้ว • ครบ ${resolvedPos.size}/${records.size} POS • เพิ่ม ${newlyCompleted.joinToString(", ") { "POS ${displayPos(recordsWithWarnings, it)}" }}"
                 missingPos.isEmpty() ->
                     "ตรวจภาพเพิ่มแล้ว • ข้อมูลครบ ${resolvedPos.size}/${records.size} POS"
                 afterResolved > beforeResolved ->
-                    "อ่านเพิ่มแล้ว • มีข้อมูล $afterResolved/${records.size} POS • ยังขาด ${missingPos.joinToString(", ") { "POS $it" }}"
+                    "อ่านเพิ่มแล้ว • มีข้อมูล $afterResolved/${records.size} POS • ยังขาด ${missingPos.size} เครื่อง"
                 repaired.isNotEmpty() ->
-                    "อ่านภาพเพิ่มแล้ว • ปรับข้อมูล ${repaired.joinToString(", ") { "POS $it" }} • กรุณาตรวจทาน"
+                    "อ่านภาพเพิ่มแล้ว • ปรับข้อมูล ${repaired.joinToString(", ") { "POS ${displayPos(recordsWithWarnings, it)}" }} • กรุณาตรวจทาน"
                 else -> templateResult.message
             }
 
@@ -269,8 +273,11 @@ object RealOcrPipeline {
                 canConfirm = false,
                 warnings = listOf(
                     *imageQualityWarnings.toTypedArray(),
-                    if (templates.isEmpty()) "ยังไม่มีเงื่อนไขสำหรับแบรนด์นี้ กรุณาแจ้งผู้ดูแล"
-                    else "ยังแยกข้อมูลบิลไม่ได้ครบ • ลองเพิ่มภาพบิลอีกช่องหรือถ่ายใหม่ให้ชัดขึ้น"
+                    if (templates.isEmpty()) {
+                        "ยังไม่มีรูปแบบการอ่านบิลสำหรับแบรนด์นี้ กรุณาแจ้งผู้ดูแล"
+                    } else {
+                        "อ่านข้อความจากภาพได้ แต่ยังแยกข้อมูลตามรูปแบบบิลของร้านนี้ไม่ได้ • สามารถเพิ่มภาพบิลอีกช่องหรือตรวจรูปแบบบิล"
+                    }
                 )
             )
         }
@@ -279,7 +286,7 @@ object RealOcrPipeline {
             proposedRecords = records,
             detectedPos = emptyList(),
             confidence = OcrConfidence.LOW,
-            message = "ยังอ่านข้อมูลจากภาพไม่ได้ครบ กรุณาถ่ายภาพใหม่ให้ชัดเจน",
+            message = "ยังอ่านข้อมูลจากภาพไม่ได้ครบ กรุณาตรวจภาพแล้วลองใหม่",
             canConfirm = false,
             warnings = imageQualityWarnings + "ระบบจะไม่เดาหมายเลข POS หรือยอดลูกค้าเมื่อข้อมูลไม่ชัด"
         )
@@ -335,12 +342,11 @@ object RealOcrPipeline {
         profileResult: RuleDrivenOcrResult?
     ): Map<Int, String> {
         val result = linkedMapOf<Int, String>()
-        val templateValues = templateResult.extracted["STORE_ID"].orEmpty()
-        if (templateValues.size == templateResult.detectedPos.size) {
-            templateResult.detectedPos.zip(templateValues).forEach { (pos, storeId) ->
-                if (storeId.isNotBlank()) result[pos] = storeId
-            }
-        }
+
+        // รูปแบบบิล Round80 ใส่รหัสร้านไว้ในผลของแต่ละช่องโดยตรง จึงไม่ต้องเดาจากลำดับรายการ
+        templateResult.records
+            .filter { it.posNumber in templateResult.detectedPos && it.ocrStoreId.isNotBlank() }
+            .forEach { record -> result[record.posNumber] = record.ocrStoreId }
 
         val profilePos = profileResult?.detectedPos.orEmpty()
         val profileValues = profileResult?.rawFieldSummary?.get(OcrFieldType.STORE_ID).orEmpty()
@@ -360,8 +366,7 @@ object RealOcrPipeline {
         if (!isCurrentPos || candidateStoreId.isBlank()) return original.ocrStoreId
         if (original.ocrStoreId.isBlank()) return candidateStoreId
         if (!original.source.startsWith("OCR", ignoreCase = true)) return original.ocrStoreId
-        val oldStoreHasProblem = original.ocrWarnings.contains("ร้าน") ||
-            original.ocrWarnings.contains("STORE", ignoreCase = true)
+        val oldStoreHasProblem = original.ocrWarnings.contains("ร้าน")
         return if (oldStoreHasProblem) candidateStoreId else original.ocrStoreId
     }
 
@@ -389,6 +394,9 @@ object RealOcrPipeline {
                     field.composite?.segments.orEmpty().any { it.type == "STORE_ID" }
             }
         }
+
+    private fun displayPos(records: List<PosRecord>, slot: Int): String =
+        records.firstOrNull { it.posNumber == slot }?.displayPosNumber ?: slot.toString()
 
     private fun isLegacyInterpreterWarning(value: String): Boolean {
         val warning = value.trim()
