@@ -215,6 +215,9 @@ object PosEvidenceFusion {
         }
         if (compiled.isEmpty()) return emptyList()
 
+        // ใช้ prefix ถึง POS เป็นขอบเขตของ record ถัดไป เพื่อห้ามวันที่/เวลาไหลข้าม POS
+        val recordBoundary = compilePrefix(ordered, posIndex + 1)
+
         val results = mutableListOf<Evidence>()
         candidates.forEach { candidate ->
             compiled.forEach { prefix ->
@@ -232,7 +235,13 @@ object PosEvidenceFusion {
                     val enriched = fields.toMutableMap()
                     val anchorStart = match.range.first.coerceAtLeast(0)
                     val anchorEndExclusive = (match.range.last + 1).coerceAtMost(candidate.text.length)
-                    val localEnd = (anchorEndExclusive + LOCAL_AFTER_ANCHOR).coerceAtMost(candidate.text.length)
+                    val distanceEnd = (anchorEndExclusive + LOCAL_AFTER_ANCHOR).coerceAtMost(candidate.text.length)
+                    val nextRecordStart = recordBoundary?.regex
+                        ?.find(candidate.text, anchorEndExclusive)
+                        ?.range
+                        ?.first
+                        ?.takeIf { it > anchorStart }
+                    val localEnd = nextRecordStart?.coerceAtMost(distanceEnd) ?: distanceEnd
                     val localText = candidate.text.substring(anchorStart, localEnd)
                     enrichDateAndTime(template, ordered, enriched, localText)
 
