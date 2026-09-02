@@ -35,6 +35,11 @@ object TemplateSequenceFallback {
         val score: Int
     )
 
+    private data class DiagnosticField(
+        val rowIndex: Int,
+        val field: OcrTemplateField
+    )
+
     fun apply(
         rawTexts: List<String>,
         records: List<PosRecord>,
@@ -145,6 +150,46 @@ object TemplateSequenceFallback {
             compiled.regex.findAll(candidate).map { extract(compiled, it) }.toList()
         }.filter { fields -> coreFieldsArePlausible(fields, template) }
             .distinct()
+    }
+
+
+    /**
+     * Round85: อธิบายว่าข้อความจากภาพจริงไปได้ถึงช่องใดของรูปแบบที่ Admin กำหนด
+     * ฟังก์ชันนี้ไม่มีผลต่อการตัดสินผล OCR ใช้เพื่อแสดงรายละเอียดเมื่ออ่านไม่สำเร็จเท่านั้น
+     */
+    fun diagnose(
+        rawTexts: List<String>,
+        templates: List<UniversalOcrTemplate>
+    ): List<String> {
+        val candidates = buildTextCandidates(rawTexts)
+        if (candidates.isEmpty()) return listOf("ไม่พบข้อความจากภาพสำหรับตรวจรายละเอียด")
+
+        val activeTemplates = templates.filter { it.active }.sortedByDescending { it.priority }
+        if (activeTemplates.isEmpty()) return listOf("ยังไม่มีรูปแบบบิลที่เปิดใช้งานสำหรับแบรนด์นี้")
+
+        return activeTemplates.map { template ->
+            val compiled = compileTemplate(template)
+            if (compiled == null) {
+                return@map "${template.templateName}: รูปแบบบิลนี้ยังไม่พร้อมสำหรับการอ่าน"
+            }
+
+            val fullMatches = candidates.flatMap { candidate ->
+                compiled.regex.findAll(candidate).map { it }.toList()
+            }
+            val complete = fullMatches.firstOrNull { result ->
+                coreFieldsArePlausible(extract(compiled, result), template)
+            }
+            if (complete != null) {
+                return@map "${template.templateName}: อ่านลำดับครบและข้อมูลหลักอยู่ในรูปแบบที่ใช้ได้"
+            }
+
+            if (fullMatches.isNotEmpty()) {
+                val fields = extract(compiled, fullMatches.first())
+                return@map "${template.templateName}: พบลำดับครบ แต่${plausibilityIssue(fields, template)}"
+            }
+
+            diagnosticProgress(template, candidates)
+        }
     }
 
     private fun failed(records: List<PosRecord>) = UniversalTemplateResult(
@@ -475,6 +520,124 @@ object TemplateSequenceFallback {
         if (hour !in 0..23 || minute !in 0..59) return false
         if (second != null && second !in 0..59) return false
         return true
+    }
+
+
+    private fun plausibilityIssue(
+        fields: Map<String, String>,
+        template: UniversalOcrTemplate
+    ): String {
+        val pos = fields["POS_NUMBER"]?.let(OcrTextNormalizer::parsePosNumber)
+        if (pos == null || pos <= 0) return "หมายเลขเครื่องยังไม่อยู่ในรูปแบบที่ใช้ได้"
+
+        val core = template.validation.requiredCore
+        if (core.customerValue && fields["CUSTOMER_VALUE"].isNullOrBlank()) {
+            return "ยังไม่พบยอด/เลขลูกค้า"
+        }
+        if (core.date && fields["BILL_DATE"].isNullOrBlank()) {
+            return "ยังไม่พบวันที่ในบิล"
+        }
+        if (core.time && fields["BILL_TIME"].isNullOrBlank()) {
+            return "ยังไม่พบเวลาในบิล"
+        }
+        val time = fields["BILL_TIME"]
+        if (!time.isNullOrBlank() && !isValidClockTime(time)) {
+            return "เวลาที่อ่านได้ ${normalizeCaptured("BILL_TIME", time)} ใช้ไม่ได้"
+        }
+        return "ข้อมูลหลักบางช่องยังไม่ผ่านการตรวจ"
+    }
+
+    private fun diagnosticProgress(
+        template: UniversalOcrTemplate,
+        candidates: List<String>
+    ): String {
+        val fields = template.recognition.rows
+            .sortedBy { it.row }
+            .flatMapIndexed { rowIndex, row ->
+                row.fields.sortedBy { it.order }.map { DiagnosticField(rowIndex, it) }
+            }
+        if (fields.isEmpty()) return "${template.templateName}: ยังไม่มีช่องข้อมูลในรูปแบบบิล"
+
+        var matchedCount = 0
+        for (count in 1..fields.size) {
+            val regex = compileDiagnosticPrefix(template, count) ?: break
+            if (candidates.any { regex.containsMatchIn(it) }) matchedCount = count else break
+        }
+
+        if (matchedCount <= 0) {
+            val first = fields.first().field
+            return "${template.templateName}: ยังไม่ผ่านช่อง 1 ${diagnosticFieldLabel(first)}${diagnosticExpectation(first)}"
+        }
+        if (matchedCount >= fields.size) {
+            return "${template.templateName}: ลำดับช่องตรงครบ แต่ข้อมูลหลักบางช่องยังไม่ผ่านการตรวจ"
+        }
+
+        val previous = fields[matchedCount - 1].field
+        val next = fields[matchedCount].field
+        return "${template.templateName}: อ่านผ่านถึงช่อง $matchedCount ${diagnosticFieldLabel(previous)} • " +
+            "หยุดก่อนช่อง ${matchedCount + 1} ${diagnosticFieldLabel(next)}${diagnosticExpectation(next)}"
+    }
+
+    private fun compileDiagnosticPrefix(
+        template: UniversalOcrTemplate,
+        fieldLimit: Int
+    ): Regex? {
+        val ordered = template.recognition.rows
+            .sortedBy { it.row }
+            .flatMapIndexed { rowIndex, row ->
+                row.fields.sortedBy { it.order }.map { DiagnosticField(rowIndex, it) }
+            }
+            .take(fieldLimit)
+        if (ordered.isEmpty()) return null
+
+        val captures = mutableListOf<String>()
+        val parts = mutableListOf<String>()
+        var previousRow = -1
+        ordered.forEachIndexed { index, item ->
+            if (index > 0) parts += if (item.rowIndex == previousRow) FIELD_GAP else ROW_GAP
+            val built = fieldPattern(item.field, captures) ?: return null
+            val tokenGap = if (item.field.tokenGap > 0) {
+                "(?:\\s+\\S+){0,${item.field.tokenGap.coerceIn(0, 8)}}?\\s*"
+            } else ""
+            parts += when {
+                item.field.type == "IGNORE" -> built
+                item.field.required -> tokenGap + built
+                else -> "(?:$tokenGap$built)?"
+            }
+            previousRow = item.rowIndex
+        }
+
+        return runCatching {
+            Regex(parts.joinToString(""), setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+        }.getOrNull()
+    }
+
+    private fun diagnosticFieldLabel(field: OcrTemplateField): String = when (field.type.uppercase()) {
+        "BILL_DATE" -> "วันที่ในบิล"
+        "BILL_TIME" -> "เวลาในบิล"
+        "CUSTOMER_VALUE" -> "ยอด/เลขลูกค้า"
+        "STORE_ID" -> "รหัสร้าน"
+        "POS_NUMBER" -> "หมายเลขเครื่อง"
+        "YEAR_VALUE", "YEAR" -> "ปี"
+        "MONTH_VALUE", "MONTH" -> "เดือน"
+        "DAY_VALUE", "DAY" -> "วัน"
+        "EMPLOYEE_CODE" -> "รหัสพนักงาน"
+        "COMPOSITE_CODE" -> "รหัสประกอบ"
+        "LITERAL" -> "ข้อความคงที่"
+        "SEPARATOR" -> "ตัวคั่น"
+        "NUMBER_TEXT" -> "ตัวเลขทั่วไป"
+        "ALNUM_TEXT" -> "ตัวอักษร+ตัวเลข"
+        "IGNORE" -> "ข้อมูลที่ข้ามได้"
+        else -> field.type
+    }
+
+    private fun diagnosticExpectation(field: OcrTemplateField): String {
+        val expected = when (field.type.uppercase()) {
+            "LITERAL" -> field.literal ?: field.example
+            "SEPARATOR" -> field.separatorValue ?: field.example
+            else -> field.example
+        }?.trim().orEmpty()
+        return if (expected.isBlank()) "" else " (ตัวอย่าง $expected)"
     }
 
     private fun chooseWholeRecordConsensus(candidates: List<Candidate>): Candidate? {

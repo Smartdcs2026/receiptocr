@@ -72,6 +72,7 @@ import com.receiptocr.app.data.remote.WorkPlanRepository
 import com.receiptocr.app.data.remote.AppAuthRepository
 import com.receiptocr.app.data.remote.SubmissionRepository
 import com.receiptocr.app.data.remote.WorkPlanSource
+import com.receiptocr.app.config.TemplateSource
 import com.receiptocr.app.model.*
 import com.receiptocr.app.util.*
 import com.receiptocr.app.validation.ReceiptValidationEngine
@@ -113,6 +114,14 @@ private data class PhotoPreviewTarget(
     val kind: String,
     val index: Int,
     val path: String
+)
+
+private data class OcrReadDetails(
+    val rawText: String,
+    val templateNames: String,
+    val sourceLabel: String,
+    val updatedAt: String,
+    val diagnostics: List<String>
 )
 
 @Composable
@@ -869,6 +878,8 @@ private fun StoreWorkScreen(
     var ocrImagePickerOpen by remember { mutableStateOf(false) }
     var ocrBusy by remember { mutableStateOf(false) }
     var pendingOcrResult by remember { mutableStateOf<RealOcrPipelineResult?>(null) }
+    var ocrReadDetails by remember { mutableStateOf<OcrReadDetails?>(null) }
+    var ocrReadDetailsOpen by remember { mutableStateOf(false) }
 
     val textRecognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
     DisposableEffect(Unit) {
@@ -1015,7 +1026,26 @@ private fun StoreWorkScreen(
                     receiptRule = effectiveReceiptRule,
                     imageQualityWarnings = scan.qualityWarnings
                 )
-                if (proposal.canConfirm) pendingOcrResult = proposal
+                val sourceLabel = when (loadedTemplates.source) {
+                    TemplateSource.CLOUD -> "ข้อมูลล่าสุดจากระบบ"
+                    TemplateSource.CACHE -> "ข้อมูลที่บันทึกไว้ในเครื่อง"
+                    TemplateSource.REFERENCE -> "รูปแบบสำรองในแอป"
+                    TemplateSource.NONE -> "ไม่พบรูปแบบบิล"
+                }
+                ocrReadDetails = OcrReadDetails(
+                    rawText = scan.rawText,
+                    templateNames = loadedTemplates.templates
+                        .filter { it.active }
+                        .joinToString(" / ") { it.templateName },
+                    sourceLabel = sourceLabel,
+                    updatedAt = loadedTemplates.updatedAt.orEmpty(),
+                    diagnostics = proposal.diagnostics
+                )
+                if (proposal.canConfirm) {
+                    pendingOcrResult = proposal
+                } else {
+                    ocrReadDetailsOpen = true
+                }
                 message = proposal.message
                 ocrBusy = false
             }
@@ -1193,6 +1223,114 @@ private fun StoreWorkScreen(
                     }
                 }
             }
+        }
+    }
+
+
+    if (ocrReadDetailsOpen) {
+        ocrReadDetails?.let { details ->
+            AlertDialog(
+                modifier = Modifier
+                    .fillMaxWidth(0.96f)
+                    .widthIn(max = 560.dp),
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+                onDismissRequest = { ocrReadDetailsOpen = false },
+                icon = {
+                    Icon(
+                        Icons.Outlined.ReceiptLong,
+                        contentDescription = null,
+                        tint = Primary
+                    )
+                },
+                title = {
+                    Text(
+                        "รายละเอียดการอ่าน",
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 620.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            color = PrimarySoft,
+                            border = BorderStroke(1.dp, Border)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text("รูปแบบบิลที่ใช้", color = TextSub, fontSize = 11.sp)
+                                Text(
+                                    details.templateNames.ifBlank { "ยังไม่พบรูปแบบบิล" },
+                                    color = TextMain,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                                Text("ข้อมูลเงื่อนไข: ${details.sourceLabel}", color = TextSub, fontSize = 11.sp)
+                                if (details.updatedAt.isNotBlank()) {
+                                    Text("ปรับปรุงล่าสุด: ${details.updatedAt}", color = TextSub, fontSize = 10.sp)
+                                }
+                            }
+                        }
+
+                        if (details.diagnostics.isNotEmpty()) {
+                            Text("ตรวจลำดับข้อมูล", color = TextMain, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            details.diagnostics.forEach { line ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(9.dp),
+                                    color = Color(0xFFFFF8E8),
+                                    border = BorderStroke(1.dp, WarningOrange.copy(alpha = 0.35f))
+                                ) {
+                                    Text(
+                                        line,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                        color = Color(0xFF7A4B00),
+                                        fontSize = 12.sp,
+                                        lineHeight = 17.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        Text("ข้อความที่เครื่องอ่านได้จากภาพ", color = TextMain, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(
+                            "ข้อความด้านล่างแสดงผลจากแต่ละรอบที่เครื่องอ่านภาพ ใช้สำหรับตรวจว่าตัวอักษรหรือเลขตัวใดถูกอ่านต่างจากบิลจริง",
+                            color = TextSub,
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp
+                        )
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFF7F8FA),
+                            border = BorderStroke(1.dp, Border)
+                        ) {
+                            Text(
+                                details.rawText.ifBlank { "ไม่พบข้อความที่อ่านได้" },
+                                modifier = Modifier.padding(10.dp),
+                                color = TextMain,
+                                fontSize = 10.5.sp,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { ocrReadDetailsOpen = false }) {
+                        Text("ปิด")
+                    }
+                }
+            )
         }
     }
 
