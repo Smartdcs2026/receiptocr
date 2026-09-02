@@ -10,6 +10,7 @@ on:
       - 'tools/round94_posprefix_fix.py'
       - 'tools/round94_strict_mapping_fix.py'
       - 'tools/round94_field_language_fix.py'
+      - 'tools/round94_duplicate_guard_fix.py'
       - '.github/workflows/round94-finalize.yml'
   workflow_dispatch:
 
@@ -39,6 +40,7 @@ jobs:
           python tools/round94_posprefix_fix.py
           python tools/round94_strict_mapping_fix.py
           python tools/round94_field_language_fix.py
+          python tools/round94_duplicate_guard_fix.py
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -91,6 +93,7 @@ jobs:
         run: |
           grep -Fq 'พบ POS $pos ซ้ำในภาพ' android-app/app/src/main/java/com/receiptocr/app/ui/UserFacingOcrMessages.kt
           grep -Fq 'พบบิล POS ${record.posNumber} ซ้ำ' android-app/app/src/main/java/com/receiptocr/app/validation/ReceiptValidationEngine.kt
+          grep -Fq 'onePhysicalReceiptWithDifferentPassInterpretationsIsNotDuplicate' android-app/app/src/test/java/com/receiptocr/app/ocr/DuplicatePosEvidenceDetectorTest.kt
 
       - name: Verify patch whitespace
         run: git diff --check
