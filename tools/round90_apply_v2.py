@@ -24,3 +24,114 @@ pos_path = path.parents[1] / "android-app/app/src/main/java/com/receiptocr/app/o
 pos_text = pos_path.read_text(encoding="utf-8")
 pos_text = re.sub(r"(?<!\\)\\([ds])", r"\\\\\1", pos_text)
 pos_path.write_text(pos_text, encoding="utf-8")
+
+# ---------------------------------------------------------------------------
+# Round90 safety rule:
+# แก้วันที่อัตโนมัติได้เฉพาะเมื่อกฎ Admin + วันงานเหลือวันที่จริงเพียงคำตอบเดียว
+# ห้ามเลือกคำตอบที่ใกล้วันงานที่สุดจากหลายคำตอบ เพราะจะกลายเป็นการเดาข้อมูล
+# ---------------------------------------------------------------------------
+date_path = path.parents[1] / "android-app/app/src/main/java/com/receiptocr/app/ocr/ReceiptDateOcrNormalizer.kt"
+date_text = date_path.read_text(encoding="utf-8")
+
+old_structured_month = '''        // กรณีโครงสร้างมี 3 ส่วนแต่เดือนถูก OCR แทรกตัวเกิน เช่น 20/28/2026
+        val structuredParts = cleaned.split('/')
+        if (structuredParts.size == 3) {
+            val tokens = tokensByOrder(structuredParts, order)
+            val day = tokens.day.toIntOrNull()
+            val year = normalizeYear(tokens.year, calendar, referenceDate)
+            val correctedMonth = recoverMonth(tokens.month)
+            if (day != null && year != null && correctedMonth != null) {
+                val correctedDate = buildDate(year, correctedMonth, day)
+                if (correctedDate != null) {
+                    val checked = verifyDistance(
+                        date = correctedDate,
+                        original = cleaned,
+                        referenceDate = referenceDate,
+                        maxDistanceDays = maxAutoCorrectionDistanceDays
+                    )
+                    if (checked.value != null) return checked.copy(corrected = true)
+                }
+            }
+        }
+'''
+new_structured_month = '''        // กรณีเดือนถูก OCR แทรก/สลับเป็นเลขที่ไม่มีจริง เช่น 20/28/2026
+        // จะยอมแก้ก็ต่อเมื่อการตัดตัวเลขหนึ่งหลัก + กฎ Admin + วันงาน
+        // เหลือวันที่จริงเพียงคำตอบเดียวเท่านั้น
+        recoverStructuredMonth(
+            cleaned = cleaned,
+            order = order,
+            calendar = calendar,
+            referenceDate = referenceDate,
+            maxDistanceDays = maxAutoCorrectionDistanceDays
+        )?.let { return it }
+'''
+if old_structured_month not in date_text:
+    raise SystemExit("Round90 structured month block not found")
+date_text = date_text.replace(old_structured_month, new_structured_month, 1)
+
+old_best = '''        val bestRemoved = candidates.minOf { it.removed }
+        val bestDistance = candidates.filter { it.removed == bestRemoved }.minOf { it.distance }
+        val bestDates = candidates
+            .filter { it.removed == bestRemoved && it.distance == bestDistance }
+            .map { it.date }
+            .distinct()
+        if (bestDates.size != 1) return null
+'''
+new_best = '''        val bestRemoved = candidates.minOf { it.removed }
+        val bestDates = candidates
+            .filter { it.removed == bestRemoved }
+            .map { it.date }
+            .distinct()
+        // ถ้ามีมากกว่าหนึ่งวันที่เป็นไปได้ ห้ามเลือกวันที่ใกล้วันงานที่สุด
+        if (bestDates.size != 1) return null
+'''
+if old_best not in date_text:
+    raise SystemExit("Round90 noisy-date candidate block not found")
+date_text = date_text.replace(old_best, new_best, 1)
+
+old_recover_month = '''    private fun recoverMonth(token: String): Int? {
+        val digits = token.filter(Char::isDigit)
+        if (digits.length != 2) return null
+        val raw = digits.toIntOrNull() ?: return null
+        if (raw in 1..12) return raw
+        val last = digits.last().digitToIntOrNull() ?: return null
+        return last.takeIf { it in 1..9 }
+    }
+'''
+new_recover_month = '''    private fun recoverStructuredMonth(
+        cleaned: String,
+        order: DateOrder,
+        calendar: DateCalendar,
+        referenceDate: LocalDate,
+        maxDistanceDays: Long
+    ): Result? {
+        val parts = cleaned.split('/').map { it.trim() }
+        if (parts.size != 3) return null
+        val tokens = tokensByOrder(parts, order)
+        val day = tokens.day.toIntOrNull() ?: return null
+        val year = normalizeYear(tokens.year, calendar, referenceDate) ?: return null
+        val monthDigits = tokens.month.filter(Char::isDigit)
+        val rawMonth = monthDigits.toIntOrNull() ?: return null
+        if (rawMonth in 1..12 || monthDigits.length != 2) return null
+
+        val candidates = monthDigits.indices
+            .mapNotNull { index -> monthDigits.removeRange(index, index + 1).toIntOrNull() }
+            .filter { it in 1..12 }
+            .distinct()
+            .mapNotNull { month -> buildDate(year, month, day) }
+            .filter { date -> abs(ChronoUnit.DAYS.between(referenceDate, date)) <= maxDistanceDays }
+            .distinct()
+
+        if (candidates.size != 1) return null
+        return Result(
+            value = candidates.single().format(output),
+            corrected = true,
+            original = cleaned,
+            warning = "ปรับเดือนตามเงื่อนไขที่ Admin กำหนดและวันงาน • กรุณาตรวจเทียบกับภาพ"
+        )
+    }
+'''
+if old_recover_month not in date_text:
+    raise SystemExit("Round90 recoverMonth function not found")
+date_text = date_text.replace(old_recover_month, new_recover_month, 1)
+date_path.write_text(date_text, encoding="utf-8")
