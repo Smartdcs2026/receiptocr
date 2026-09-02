@@ -67,9 +67,25 @@ object RealOcrPipeline {
             templates = templates
         )
 
-        // ถ้า strict ไม่ผ่าน ให้ใช้ตัวอ่านตามลำดับช่อง Admin แบบ Round84
-        // ช่องที่ Admin ระบุว่าจำเป็นจะถูกอ่านตามลำดับจริง ห้ามข้ามแล้วเลื่อนข้อมูล
-        val sequenceFallback = if (strictTemplateResult.detectedPos.isEmpty() && templates.isNotEmpty()) {
+        // Round86: ถ้า strict ไม่ผ่าน ให้รวมหลักฐานจากหลายรอบอ่านภาพภายใต้ POS เดียวกันก่อน
+        // รอบหนึ่งอาจอ่านหัวบิล/POS/ลูกค้าได้ดี แต่อีกรอบอ่านวันที่/เวลาได้ดีกว่า
+        // การรวมต้องอยู่ใน record anchor เดียวกันและไม่อนุญาตให้ข้าม POS
+        val evidenceFusion = if (strictTemplateResult.detectedPos.isEmpty() && templates.isNotEmpty()) {
+            PosEvidenceFusion.apply(
+                rawTexts = mlTexts.map { it.text },
+                records = records,
+                work = work,
+                imagePath = imagePath,
+                templates = templates
+            )
+        } else null
+
+        // ถ้าหลักฐานหลายรอบยังไม่พอ ค่อยกลับไปใช้ anchored sequence parser ของ Round84
+        val sequenceFallback = if (
+            strictTemplateResult.detectedPos.isEmpty() &&
+            evidenceFusion?.detectedPos.orEmpty().isEmpty() &&
+            templates.isNotEmpty()
+        ) {
             TemplateSequenceFallback.apply(
                 rawTexts = mlTexts.map { it.text },
                 records = records,
@@ -78,7 +94,9 @@ object RealOcrPipeline {
                 templates = templates
             )
         } else null
-        val templateResult = sequenceFallback?.takeIf { it.detectedPos.isNotEmpty() } ?: strictTemplateResult
+        val templateResult = evidenceFusion?.takeIf { it.detectedPos.isNotEmpty() }
+            ?: sequenceFallback?.takeIf { it.detectedPos.isNotEmpty() }
+            ?: strictTemplateResult
 
         // เมื่อรูปแบบจาก Admin จับข้อมูลได้แล้ว ห้าม profile แบบตำแหน่งเก่ามาผสมลูกค้า/วันที่/เวลา
         // เพราะสามารถทำให้ข้อมูลจากคนละส่วนของบิลเลื่อนไปอยู่ POS เดียวกันได้
