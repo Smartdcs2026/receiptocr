@@ -35,6 +35,21 @@ class ReceiptDateOcrNormalizerTest {
     }
 
     @Test
+    fun ambiguousMonth87IsNotGuessed() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "20/87/69",
+            configuredFormat = "DATE",
+            referenceDate = workDate,
+            dateOrder = "DMY",
+            dateCalendar = "BUDDHIST",
+            dateYearDigits = 2
+        )
+
+        assertNull(result.value)
+        assertEquals("20/87/69", result.original)
+    }
+
+    @Test
     fun validMonthIsNotChanged() {
         val result = ReceiptDateOcrNormalizer.normalize(
             raw = "22/08/2026",
