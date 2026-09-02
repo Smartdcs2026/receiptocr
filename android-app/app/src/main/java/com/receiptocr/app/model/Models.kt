@@ -32,6 +32,7 @@ data class WorkItem(
     val latitude: String,
     val longitude: String,
     val storeNote: String = "",
+    val receiptStoreId: String = "",
     val reviewStatus: String = "",
     val returnReason: String = "",
     val planStatus: String = "ACTIVE",
@@ -39,7 +40,10 @@ data class WorkItem(
     val movedToDate: String = "",
     val changeNote: String = "",
     val status: WorkStatus = WorkStatus.NOT_STARTED
-)
+) {
+    val expectedReceiptStoreId: String
+        get() = receiptStoreId.trim().ifBlank { storeCode.filter(Char::isDigit) }
+}
 
 data class PosRecord(
     val posNumber: Int,
@@ -50,14 +54,14 @@ data class PosRecord(
     val noReceipt: Boolean = false,
     val noReceiptReason: String = "",
     val source: String = "MANUAL",
-    /**
-     * path ของภาพบิลที่เป็นต้นทางของข้อมูล OCR
-     * ภาพเดียวสามารถเป็น source ให้หลาย POS ได้
-     */
     val ocrSourceImagePath: String = "",
     val ocrConfidence: String = "",
     val ocrTemplateName: String = "",
     val ocrWarnings: String = "",
+    /** รหัสร้านที่อ่านได้จากช่อง STORE_ID ตามแม่แบบ Admin ของ POS นี้ */
+    val ocrStoreId: String = "",
+    /** true เฉพาะรูปแบบบิลที่ Admin กำหนดว่ามี STORE_ID ให้ตรวจ */
+    val ocrStoreIdExpected: Boolean = false,
     /** รอบที่ใช้ตรวจเลขลูกค้าซ้ำ มาจากแม่แบบเดียวกับหน้า Admin */
     val ocrCounterCycle: String = "CONTINUOUS"
 )

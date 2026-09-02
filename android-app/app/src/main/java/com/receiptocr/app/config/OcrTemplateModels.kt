@@ -8,6 +8,12 @@ data class OcrTemplateField(
     val minLength: Int = 1,
     val maxLength: Int = 12,
     val format: String = "ANY",
+    /** ลำดับวันที่บนบิล: DMY / MDY / YMD */
+    val dateOrder: String = "DMY",
+    /** ระบบปีบนบิล: AUTO / GREGORIAN / BUDDHIST */
+    val dateCalendar: String = "AUTO",
+    /** 0 = รับ 2/4 หลัก, หรือกำหนด 2 / 4 */
+    val dateYearDigits: Int = 0,
     val literal: String? = null,
     val compareTo: String = "NONE",
     val posPrefixes: String? = null,

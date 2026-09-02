@@ -15,6 +15,9 @@ object OcrTemplateContract {
     )
     val COMPARE_TARGETS = setOf("NONE", "BILL_DATE", "WORK_DATE")
     val COUNTER_CYCLES = setOf("CONTINUOUS", "DAILY", "MONTHLY", "YEARLY")
+    val DATE_ORDERS = setOf("DMY", "MDY", "YMD")
+    val DATE_CALENDARS = setOf("AUTO", "GREGORIAN", "BUDDHIST")
+    val DATE_YEAR_DIGITS = setOf(0, 2, 4)
 
     fun validate(template: UniversalOcrTemplate): List<String> {
         val errors = mutableListOf<String>()
@@ -32,6 +35,11 @@ object OcrTemplateContract {
                 if (field.type !in FIELD_TYPES) errors += "field:${field.type}"
                 if (field.minLength < 0 || field.maxLength < maxOf(1, field.minLength) || field.maxLength > 40) errors += "length:${field.type}"
                 if (field.compareTo.uppercase() !in COMPARE_TARGETS) errors += "compare:${field.type}"
+                if (field.type == "BILL_DATE") {
+                    if (field.dateOrder.uppercase() !in DATE_ORDERS) errors += "dateOrder"
+                    if (field.dateCalendar.uppercase() !in DATE_CALENDARS) errors += "dateCalendar"
+                    if (field.dateYearDigits !in DATE_YEAR_DIGITS) errors += "dateYearDigits"
+                }
                 if (field.type == "POS_NUMBER") {
                     hasPos = true
                     if ((field.posDigits ?: 2) !in 1..6) errors += "posDigits"
