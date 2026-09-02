@@ -24,7 +24,8 @@ data class RealOcrPipelineResult(
     val message: String,
     val templateName: String? = null,
     val canConfirm: Boolean = false,
-    val warnings: List<String> = emptyList()
+    val warnings: List<String> = emptyList(),
+    val diagnostics: List<String> = emptyList()
 )
 
 /**
@@ -299,6 +300,10 @@ object RealOcrPipeline {
                     *imageQualityWarnings.toTypedArray(),
                     if (templates.isEmpty()) "ยังไม่มีเงื่อนไขสำหรับแบรนด์นี้ กรุณาแจ้งผู้ดูแล"
                     else "ยังแยกข้อมูลบิลไม่ได้ครบ • ลองเพิ่มภาพบิลอีกช่องหรือถ่ายใหม่ให้ชัดขึ้น"
+                ),
+                diagnostics = TemplateSequenceFallback.diagnose(
+                    rawTexts = mlTexts.map { it.text },
+                    templates = templates
                 )
             )
         }
