@@ -6,6 +6,7 @@ on:
       - round90-unified-date-admin-receipt-line
     paths:
       - 'tools/round90_apply.py'
+      - 'tools/round90_apply_v2.py'
       - '.github/workflows/round90-apply.yml'
 
 permissions:
@@ -28,7 +29,7 @@ jobs:
           python-version: '3.12'
 
       - name: Apply Round90 patches
-        run: python tools/round90_apply.py
+        run: python tools/round90_apply_v2.py
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -75,7 +76,7 @@ jobs:
         run: |
           git config user.name 'SKDC_SMART'
           git config user.email 'somchaibutphon@gmail.com'
-          git rm tools/round90_apply.py .github/workflows/round90-apply.yml
+          git rm tools/round90_apply.py tools/round90_apply_v2.py .github/workflows/round90-apply.yml
           git add -A
           git commit -m 'Round90 unify Admin date rules and targeted receipt-line OCR'
           git push origin HEAD:round90-unified-date-admin-receipt-line
