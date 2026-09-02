@@ -185,7 +185,7 @@ object TemplateSequenceFallback {
         val max = field.maxLength.coerceAtLeast(min)
 
         return when (field.type.uppercase()) {
-            "BILL_DATE" -> capture("BILL_DATE", datePattern())
+            "BILL_DATE" -> capture("BILL_DATE", datePattern(sample))
             "BILL_TIME" -> capture("BILL_TIME", timePattern())
             "CUSTOMER_VALUE" -> {
                 val length = sampleDigits.takeIf { it > 0 }
@@ -249,8 +249,15 @@ object TemplateSequenceFallback {
         return if (size == 1) DIGIT else "$DIGIT(?:\\s*$DIGIT){${size - 1}}"
     }
 
-    private fun datePattern(): String =
-        "$DIGIT(?:\\s*$DIGIT)?\\s*[./-]\\s*$DIGIT(?:\\s*$DIGIT)?\\s*[./-]\\s*$DIGIT(?:\\s*$DIGIT){1,3}"
+    private fun datePattern(sample: String): String {
+        val sampleGroups = Regex("\\d+").findAll(sample).map { it.value.length }.toList()
+        if (sampleGroups.size == 3) {
+            return "${fixedDigits(sampleGroups[0])}\\s*[./-]\\s*" +
+                "${fixedDigits(sampleGroups[1])}\\s*[./-]\\s*" +
+                fixedDigits(sampleGroups[2])
+        }
+        return "$DIGIT(?:\\s*$DIGIT)?\\s*[./-]\\s*$DIGIT(?:\\s*$DIGIT)?\\s*[./-]\\s*$DIGIT(?:\\s*$DIGIT){1,3}?"
+    }
 
     private fun timePattern(): String =
         "$DIGIT(?:\\s*$DIGIT)?\\s*[:.]\\s*$DIGIT\\s*$DIGIT(?:\\s*:\\s*$DIGIT\\s*$DIGIT)?"
