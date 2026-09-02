@@ -80,10 +80,12 @@ object DemoRepository {
             val noReceipt = prefs.getBoolean("$k.noReceipt", false)
             val source = prefs.getString("$k.source", "MANUAL") ?: "MANUAL"
             val sourceImage = prefs.getString("$k.ocrSourceImagePath", "") ?: ""
+            val receiptPosNumber = prefs.getString("$k.receiptPosNumber", "") ?: ""
             val unusedRecord = customer.isBlank() && note.isBlank() && !noReceipt &&
-                source == "MANUAL" && sourceImage.isBlank()
+                source == "MANUAL" && sourceImage.isBlank() && receiptPosNumber.isBlank()
             PosRecord(
                 posNumber = n,
+                receiptPosNumber = receiptPosNumber,
                 customerNo = customer,
                 billDate = if (unusedRecord) "" else prefs.getString("$k.date", "") ?: "",
                 billTime = if (unusedRecord) "" else prefs.getString("$k.time", "") ?: "",
@@ -105,8 +107,10 @@ object DemoRepository {
     fun savePosRecords(context: Context, work: WorkItem, date: LocalDate, records: List<PosRecord>) {
         val editor = context.getSharedPreferences("pos_records", Context.MODE_PRIVATE).edit()
         records.forEach { r ->
+            // posNumber คือช่องของแผนงาน จึงคงใช้เป็นกุญแจบันทึก ส่วนเลขบนบิลเก็บแยก
             val k = "${work.id}_${date}_${r.posNumber}"
-            editor.putString("$k.customer", r.customerNo)
+            editor.putString("$k.receiptPosNumber", r.receiptPosNumber)
+                .putString("$k.customer", r.customerNo)
                 .putString("$k.date", r.billDate)
                 .putString("$k.time", r.billTime)
                 .putString("$k.note", r.note)
@@ -192,10 +196,14 @@ object DemoRepository {
         context.getSharedPreferences("submitted_image_hashes", Context.MODE_PRIVATE)
             .getBoolean(hash, false)
 
-    fun markSubmittedImageHash(context: Context, hash: String) {
+    fun markSubmittedImageHashUsed(context: Context, hash: String) {
         context.getSharedPreferences("submitted_image_hashes", Context.MODE_PRIVATE)
             .edit()
             .putBoolean(hash, true)
             .apply()
+    }
+
+    fun markSubmittedImageHash(context: Context, hash: String) {
+        markSubmittedImageHashUsed(context, hash)
     }
 }
