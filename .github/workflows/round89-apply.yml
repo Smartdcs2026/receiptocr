@@ -19,7 +19,20 @@ jobs:
           fetch-depth: 0
 
       - name: Apply Round89 integration
-        run: python tools/round89_apply.py
+        run: |
+          python tools/round89_apply.py
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt')
+          s = p.read_text(encoding='utf-8')
+          old = 'import com.receiptocr.app.config.UniversalOcrTemplate\n'
+          new = old + 'import com.receiptocr.app.config.OcrTemplateField\n'
+          if 'import com.receiptocr.app.config.OcrTemplateField\n' not in s:
+              if old not in s:
+                  raise SystemExit('UniversalOcrTemplate import not found')
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
 
       - name: Set up Node
         uses: actions/setup-node@v4
