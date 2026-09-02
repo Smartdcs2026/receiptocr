@@ -16,21 +16,37 @@ object OcrTemplateRepository {
 
     fun load(context: Context, brand: String, brandAbbr: String = ""): LoadedOcrTemplates {
         val candidates = listOf(brand, brandAbbr).map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        var receiptRuleFallback: BrandReceiptRule? = null
+
         candidates.forEach { candidate ->
             val cloud = runCatching { fetchCloud(candidate) }.getOrNull()
             if (!cloud.isNullOrBlank()) {
-                saveCache(context, brand, cloud)
                 val parsed = runCatching { parse(cloud, TemplateSource.CLOUD) }.getOrNull()
-                if (parsed != null && (parsed.templates.isNotEmpty() || parsed.receiptRule != null)) return parsed
+                if (parsed != null) {
+                    if (receiptRuleFallback == null) receiptRuleFallback = parsed.receiptRule
+                    if (parsed.templates.isNotEmpty()) {
+                        // เก็บเฉพาะคำตอบที่มีรูปแบบบิลจริง ป้องกันข้อมูลกฎอย่างเดียวทับรูปแบบที่ใช้งานได้
+                        saveCache(context, brand, cloud)
+                        return if (parsed.receiptRule != null || receiptRuleFallback == null) parsed
+                        else parsed.copy(receiptRule = receiptRuleFallback)
+                    }
+                }
             }
         }
+
         val cached = readCache(context, brand)
         if (!cached.isNullOrBlank()) {
             val parsed = runCatching { parse(cached, TemplateSource.CACHE) }.getOrNull()
-            if (parsed != null) return parsed
+            if (parsed != null && parsed.templates.isNotEmpty()) {
+                return if (parsed.receiptRule != null || receiptRuleFallback == null) parsed
+                else parsed.copy(receiptRule = receiptRuleFallback)
+            }
         }
-        return candidates.asSequence().map(::referenceTemplates).firstOrNull { it.templates.isNotEmpty() }
+
+        val reference = candidates.asSequence().map(::referenceTemplates).firstOrNull { it.templates.isNotEmpty() }
             ?: LoadedOcrTemplates(emptyList(), TemplateSource.NONE)
+        return if (reference.receiptRule != null || receiptRuleFallback == null) reference
+        else reference.copy(receiptRule = receiptRuleFallback)
     }
 
     fun loadCached(context: Context, brand: String, brandAbbr: String = ""): LoadedOcrTemplates {

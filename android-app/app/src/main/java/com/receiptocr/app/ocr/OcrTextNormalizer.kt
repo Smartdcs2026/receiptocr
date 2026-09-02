@@ -28,7 +28,7 @@ object OcrTextNormalizer {
             val digits = normalizeDigits(match.groupValues[1]).filter(Char::isDigit)
             if (digits.isBlank()) match.value else "POS N${digits.padStart(2, '0')}"
         }
-        return normalized.replace(Regex("\\s*([:/.-])\\s*"), "${'$'}1")
+        return normalized.replace(Regex("\\s*([:/\\.#-])\\s*"), "${'$'}1")
     }
 
     /** คืนทุกเลข POS ที่มีคำกำกับหรือคำนำหน้า N/B ในข้อความเดียว */
