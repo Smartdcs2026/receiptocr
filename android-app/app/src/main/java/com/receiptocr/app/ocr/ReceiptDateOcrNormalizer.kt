@@ -6,15 +6,13 @@ import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 
 /**
- * แก้ค่าที่ OCR อ่านจากช่องวันที่โดยอาศัย "ตำแหน่งของข้อมูล" และรูปแบบที่ Admin กำหนด
- * ก่อนส่งค่าต่อไปยัง validation
+ * ทำความสะอาดวันที่ที่อ่านจากบิลก่อนนำไปตรวจเงื่อนไข
  *
  * หลักสำคัญ:
- * - ไม่สลับ dd/MM กับ MM/dd เองเมื่อ Admin กำหนดรูปแบบไว้แล้ว
- * - ถ้าช่องเดือนอ่านได้เป็นเลขที่เป็นไปไม่ได้ เช่น 18 หรือ 28 แต่หลักหน่วยเป็น 1-9
- *   ให้ลองตีความเป็น 08/09/... เพราะเรารู้อยู่แล้วว่าตำแหน่งนี้คือเดือน
- * - การแก้อัตโนมัติต้องได้วันที่จริงในปฏิทิน และอยู่ใกล้วันงานพอสมควร
- * - ถ้ายังยืนยันไม่ได้ ให้คืนค่าดิบเพื่อให้ validation/ผู้ใช้ตรวจต่อ ไม่เดาสุ่ม
+ * - ใช้ลำดับ วัน/เดือน/ปี ตามรูปแบบบิลที่กำหนด
+ * - ถ้าเดือนอ่านเพี้ยนเป็น 18/28 แต่ตำแหน่งนี้เป็นเดือน ให้ลองกู้เป็น 08
+ * - ปี 2 หลักรองรับทั้งปีสากลและปีไทย โดยเลือกปีที่สมเหตุสมผลกับวันทำงาน
+ * - แก้อัตโนมัติเฉพาะเมื่อได้วันที่จริงและอยู่ใกล้วันทำงาน ไม่เดาค่าที่ไม่มีหลักฐาน
  */
 object ReceiptDateOcrNormalizer {
     private val output = DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -60,16 +58,16 @@ object ReceiptDateOcrNormalizer {
         }
 
         val day = dayToken.toIntOrNull() ?: return Result(null, original = cleaned)
-        val year = normalizeYear(yearToken) ?: return Result(null, original = cleaned)
+        val year = normalizeYear(yearToken, referenceDate) ?: return Result(null, original = cleaned)
         val month = monthToken.toIntOrNull() ?: return Result(null, original = cleaned)
 
-        // ค่าที่ถูกต้องอยู่แล้ว ต้องใช้ทันที ไม่ต้องแก้หรือเดา
+        // ค่าที่เป็นวันที่จริงอยู่แล้ว ใช้ได้ทันที
         buildDate(year, month, day)?.let {
-            return Result(it.format(output), corrected = false, original = cleaned)
+            return Result(it.format(output), corrected = yearToken.filter(Char::isDigit).length <= 2, original = cleaned)
         }
 
-        // ถ้า "เดือน" เป็นไปไม่ได้ ให้ใช้ข้อเท็จจริงว่าตำแหน่งนี้คือเดือนช่วยแก้ OCR
-        // ตัวอย่าง 20/28/2026 -> 20/08/2026, 20/18/2026 -> 20/08/2026
+        // ตำแหน่งนี้ถูกกำหนดว่าเป็น "เดือน" จึงกู้เฉพาะความคลาดเคลื่อนที่อธิบายได้
+        // เช่น 20/28/2026 -> 20/08/2026 และ 20/18/2026 -> 20/08/2026
         val correctedMonth = recoverMonth(monthToken) ?: return Result(null, original = cleaned)
         val correctedDate = buildDate(year, correctedMonth, day) ?: return Result(null, original = cleaned)
         val distance = abs(ChronoUnit.DAYS.between(referenceDate, correctedDate))
@@ -91,10 +89,26 @@ object ReceiptDateOcrNormalizer {
         return last.takeIf { it in 1..9 }
     }
 
-    private fun normalizeYear(token: String): Int? {
-        var year = token.filter(Char::isDigit).toIntOrNull() ?: return null
+    /**
+     * ปี 2 หลักบนบิลไทยอาจหมายถึง 69 = พ.ศ. 2569 = ค.ศ. 2026
+     * หรืออาจเป็นปีสากล 26 = ค.ศ. 2026 จึงสร้างตัวเลือกที่เป็นไปได้
+     * แล้วเลือกปีที่ใกล้วันทำงานที่สุด แทนการบังคับ 20xx อย่างเดียว
+     */
+    private fun normalizeYear(token: String, referenceDate: LocalDate): Int? {
+        val digits = token.filter(Char::isDigit)
+        val raw = digits.toIntOrNull() ?: return null
+
+        if (digits.length <= 2) {
+            val candidates = buildSet {
+                add(2000 + raw)
+                add(1900 + raw)
+                add(2500 + raw - 543) // ปีไทยแบบ 2 หลัก เช่น 69 -> 2569 -> 2026
+            }.filter { it in 1900..2200 }
+            return candidates.minByOrNull { year -> abs(year - referenceDate.year) }
+        }
+
+        var year = raw
         if (year in 2400..2999) year -= 543
-        if (year < 100) year += if (year >= 70) 1900 else 2000
         return year.takeIf { it in 1900..2200 }
     }
 
@@ -113,7 +127,7 @@ object ReceiptDateOcrNormalizer {
         return when {
             value.startsWith("MDY") -> DateOrder.MDY
             value.startsWith("YMD") -> DateOrder.YMD
-            else -> DateOrder.DMY // DATE/ANY/legacy = dd/MM/yyyy
+            else -> DateOrder.DMY
         }
     }
 }
