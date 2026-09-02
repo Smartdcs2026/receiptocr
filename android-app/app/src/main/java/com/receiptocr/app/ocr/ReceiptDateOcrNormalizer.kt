@@ -1,29 +1,50 @@
 package com.receiptocr.app.ocr
 
+import com.receiptocr.app.config.OcrTemplateField
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 
 /**
- * แปลงวันที่จากข้อความ OCR ตามเงื่อนไขที่ Admin กำหนด แล้วคืนค่าเก็บมาตรฐาน dd/MM/yyyy
+ * แหล่งเดียวสำหรับตีความวันที่บิลใน APK
  *
- * รองรับ:
- * - DMY / MDY / YMD
- * - พ.ศ. / ค.ศ. / รับทั้งสองระบบ
- * - ปี 2 หลัก / 4 หลัก / รับได้ทั้ง 2 และ 4 หลัก
+ * กติกามาจาก Admin เท่านั้น:
+ * - ลำดับ DMY / MDY / YMD
+ * - ระบบปี พ.ศ. / ค.ศ. / รับทั้งสองแบบ
+ * - ปี 2 หลัก / 4 หลัก / รับได้ทั้งสองแบบ
  *
- * ถ้าข้อความไม่ตรงเงื่อนไข จะไม่เดาเป็นค่าที่ใช้ส่งงาน แต่คืน original + warning
- * เพื่อให้หน้าตรวจทานยังแสดงสิ่งที่ OCR อ่านได้จริง
+ * ผลที่ยอมรับแล้วเก็บเป็น dd/MM/yyyy เท่านั้น
+ * ถ้าข้อความ OCR มีตัวเกิน 1-2 หลัก จะลองแก้เฉพาะเมื่อกติกา + วันงาน
+ * ชี้ไปยังวันที่จริงได้อย่างชัดเจน และจะคืน corrected=true เพื่อให้ UI เตือนเสมอ
  */
 object ReceiptDateOcrNormalizer {
     private val output = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    private val canonicalShape = Regex("^(\\d{2})/(\\d{2})/(\\d{4})$")
 
     data class Result(
         val value: String?,
         val corrected: Boolean = false,
         val original: String = "",
         val warning: String? = null
+    )
+
+    fun normalizeForField(
+        raw: String,
+        field: OcrTemplateField?,
+        referenceDate: LocalDate,
+        maxAutoCorrectionDistanceDays: Long = 45,
+        allowCanonicalInput: Boolean = false
+    ): Result = normalize(
+        raw = raw,
+        configuredFormat = field?.format,
+        referenceDate = referenceDate,
+        maxAutoCorrectionDistanceDays = maxAutoCorrectionDistanceDays,
+        dateOrder = field?.dateOrder,
+        dateCalendar = field?.dateCalendar,
+        dateYearDigits = field?.dateYearDigits ?: 0,
+        dateExample = field?.example,
+        allowCanonicalInput = allowCanonicalInput
     )
 
     fun normalize(
@@ -33,75 +54,231 @@ object ReceiptDateOcrNormalizer {
         maxAutoCorrectionDistanceDays: Long = 45,
         dateOrder: String? = null,
         dateCalendar: String? = null,
-        dateYearDigits: Int = 0
+        dateYearDigits: Int = 0,
+        dateExample: String? = null,
+        allowCanonicalInput: Boolean = false
     ): Result {
         val cleaned = OcrTextNormalizer.normalizeDigits(raw.trim())
             .replace('.', '/')
             .replace('-', '/')
-        val parts = cleaned.split('/').map { it.trim() }
-        if (parts.size != 3) {
-            return Result(null, original = cleaned, warning = "รูปแบบวันที่ไม่ตรงเงื่อนไขที่กำหนด")
+            .replace(Regex("\\s+"), "")
+
+        if (cleaned.isBlank()) {
+            return Result(null, original = cleaned, warning = "ยังอ่านวันที่จากบิลไม่ได้")
+        }
+
+        if (allowCanonicalInput && isCanonical(cleaned)) {
+            val date = parseCanonical(cleaned)
+            if (date != null) {
+                return verifyDistance(
+                    date = date,
+                    original = cleaned,
+                    referenceDate = referenceDate,
+                    maxDistanceDays = maxAutoCorrectionDistanceDays
+                )
+            }
         }
 
         val order = resolveOrder(dateOrder, configuredFormat)
-        val dayToken: String
-        val monthToken: String
-        val yearToken: String
-        when (order) {
-            DateOrder.MDY -> {
-                monthToken = parts[0]
-                dayToken = parts[1]
-                yearToken = parts[2]
-            }
-            DateOrder.YMD -> {
-                yearToken = parts[0]
-                monthToken = parts[1]
-                dayToken = parts[2]
-            }
-            DateOrder.DMY -> {
-                dayToken = parts[0]
-                monthToken = parts[1]
-                yearToken = parts[2]
+        val calendar = resolveCalendar(dateCalendar)
+        val exact = parseStructured(
+            cleaned = cleaned,
+            order = order,
+            calendar = calendar,
+            configuredYearDigits = dateYearDigits,
+            referenceDate = referenceDate,
+            maxDistanceDays = maxAutoCorrectionDistanceDays
+        )
+        if (exact.value != null) return exact
+
+        // กรณีโครงสร้างมี 3 ส่วนแต่เดือนถูก OCR แทรกตัวเกิน เช่น 20/28/2026
+        val structuredParts = cleaned.split('/')
+        if (structuredParts.size == 3) {
+            val tokens = tokensByOrder(structuredParts, order)
+            val day = tokens.day.toIntOrNull()
+            val year = normalizeYear(tokens.year, calendar, referenceDate)
+            val correctedMonth = recoverMonth(tokens.month)
+            if (day != null && year != null && correctedMonth != null) {
+                val correctedDate = buildDate(year, correctedMonth, day)
+                if (correctedDate != null) {
+                    val checked = verifyDistance(
+                        date = correctedDate,
+                        original = cleaned,
+                        referenceDate = referenceDate,
+                        maxDistanceDays = maxAutoCorrectionDistanceDays
+                    )
+                    if (checked.value != null) return checked.copy(corrected = true)
+                }
             }
         }
 
-        val day = dayToken.toIntOrNull()
-            ?: return Result(null, original = cleaned, warning = "วันในบิลอ่านเป็นตัวเลขไม่ได้")
-        val monthRaw = monthToken.toIntOrNull()
-            ?: return Result(null, original = cleaned, warning = "เดือนในบิลอ่านเป็นตัวเลขไม่ได้")
-        val yearDigitsActual = yearToken.filter(Char::isDigit).length
-        if (dateYearDigits in setOf(2, 4) && yearDigitsActual != dateYearDigits) {
+        val recovered = recoverNoisyDate(
+            cleaned = cleaned,
+            order = order,
+            calendar = calendar,
+            configuredYearDigits = dateYearDigits,
+            dateExample = dateExample,
+            referenceDate = referenceDate,
+            maxDistanceDays = maxAutoCorrectionDistanceDays
+        )
+        if (recovered != null) return recovered
+
+        return exact
+    }
+
+    fun isCanonical(value: String): Boolean = parseCanonical(value.trim()) != null
+
+    private data class OrderedTokens(
+        val day: String,
+        val month: String,
+        val year: String
+    )
+
+    private fun parseStructured(
+        cleaned: String,
+        order: DateOrder,
+        calendar: DateCalendar,
+        configuredYearDigits: Int,
+        referenceDate: LocalDate,
+        maxDistanceDays: Long
+    ): Result {
+        val parts = cleaned.split('/').map { it.trim() }
+        if (parts.size != 3) {
+            return Result(null, original = cleaned, warning = "รูปแบบวันที่ไม่ตรงเงื่อนไขที่ Admin กำหนด")
+        }
+        val tokens = tokensByOrder(parts, order)
+        val yearDigitsActual = tokens.year.count(Char::isDigit)
+        if (configuredYearDigits in setOf(2, 4) && yearDigitsActual != configuredYearDigits) {
             return Result(
                 null,
                 original = cleaned,
-                warning = "ปีบนบิลมี $yearDigitsActual หลัก แต่กำหนดให้ใช้ $dateYearDigits หลัก"
+                warning = "ปีบนบิลมี $yearDigitsActual หลัก แต่ Admin กำหนดให้ใช้ $configuredYearDigits หลัก"
             )
         }
 
-        val calendar = resolveCalendar(dateCalendar)
-        val year = normalizeYear(yearToken, calendar, referenceDate)
+        val day = tokens.day.toIntOrNull()
+            ?: return Result(null, original = cleaned, warning = "วันในบิลอ่านเป็นตัวเลขไม่ได้")
+        val month = tokens.month.toIntOrNull()
+            ?: return Result(null, original = cleaned, warning = "เดือนในบิลอ่านเป็นตัวเลขไม่ได้")
+        val year = normalizeYear(tokens.year, calendar, referenceDate)
             ?: return Result(
                 null,
                 original = cleaned,
-                warning = when (calendar) {
-                    DateCalendar.BUDDHIST -> "ปีบนบิลไม่ตรงเงื่อนไข พ.ศ."
-                    DateCalendar.GREGORIAN -> "ปีบนบิลไม่ตรงเงื่อนไข ค.ศ."
-                    DateCalendar.AUTO -> "ปีบนบิลไม่อยู่ในรูปแบบ พ.ศ. หรือ ค.ศ. ที่รองรับ"
-                }
+                warning = calendarWarning(calendar)
             )
 
-        // ใช้ค่าที่ถูกต้องก่อน
-        buildDate(year, monthRaw, day)?.let { date ->
-            return verifyDistance(date, cleaned, referenceDate, maxAutoCorrectionDistanceDays)
+        val date = buildDate(year, month, day)
+            ?: return Result(null, original = cleaned, warning = invalidCalendarWarning(day, month, cleaned))
+        return verifyDistance(date, cleaned, referenceDate, maxDistanceDays)
+    }
+
+    private fun recoverNoisyDate(
+        cleaned: String,
+        order: DateOrder,
+        calendar: DateCalendar,
+        configuredYearDigits: Int,
+        dateExample: String?,
+        referenceDate: LocalDate,
+        maxDistanceDays: Long
+    ): Result? {
+        val digits = cleaned.filter(Char::isDigit)
+        if (digits.length !in 5..10) return null
+
+        val layouts = expectedLayouts(order, configuredYearDigits, dateExample)
+        data class Candidate(
+            val date: LocalDate,
+            val removed: Int,
+            val distance: Long
+        )
+
+        val candidates = mutableListOf<Candidate>()
+        layouts.forEach { lengths ->
+            val expected = lengths.sum()
+            if (digits.length < expected || digits.length > expected + 2) return@forEach
+            val removed = digits.length - expected
+            shrinkToLength(digits, expected).forEach { compact ->
+                val rawParts = splitByLengths(compact, lengths)
+                if (rawParts.size != 3) return@forEach
+                val tokens = tokensByOrder(rawParts, order)
+                val day = tokens.day.toIntOrNull() ?: return@forEach
+                val month = tokens.month.toIntOrNull() ?: return@forEach
+                val year = normalizeYear(tokens.year, calendar, referenceDate) ?: return@forEach
+                val date = buildDate(year, month, day) ?: return@forEach
+                val distance = abs(ChronoUnit.DAYS.between(referenceDate, date))
+                if (distance <= maxDistanceDays) {
+                    candidates += Candidate(date, removed, distance)
+                }
+            }
         }
 
-        // OCR มักแทรกหลักเกินในตำแหน่งเดือน เช่น 28/18 ทั้งที่ตำแหน่งนี้รู้แน่ว่าเป็นเดือน
-        val correctedMonth = recoverMonth(monthToken)
-            ?: return Result(null, original = cleaned, warning = "วันที่ที่อ่านได้ไม่มีอยู่จริงตามปฏิทิน")
-        val correctedDate = buildDate(year, correctedMonth, day)
-            ?: return Result(null, original = cleaned, warning = "วันที่ที่อ่านได้ไม่มีอยู่จริงตามปฏิทิน")
-        val checked = verifyDistance(correctedDate, cleaned, referenceDate, maxAutoCorrectionDistanceDays)
-        return if (checked.value != null) checked.copy(corrected = true) else checked
+        if (candidates.isEmpty()) return null
+        val bestRemoved = candidates.minOf { it.removed }
+        val bestDistance = candidates.filter { it.removed == bestRemoved }.minOf { it.distance }
+        val bestDates = candidates
+            .filter { it.removed == bestRemoved && it.distance == bestDistance }
+            .map { it.date }
+            .distinct()
+        if (bestDates.size != 1) return null
+
+        return Result(
+            value = bestDates.single().format(output),
+            corrected = bestRemoved > 0 || !isCanonical(cleaned),
+            original = cleaned,
+            warning = if (bestRemoved > 0) "ปรับวันที่ตามลำดับและระบบปีที่ Admin กำหนด" else null
+        )
+    }
+
+    private fun expectedLayouts(
+        order: DateOrder,
+        configuredYearDigits: Int,
+        dateExample: String?
+    ): List<List<Int>> {
+        val exampleGroups = Regex("\\d+").findAll(dateExample.orEmpty())
+            .map { it.value.length }
+            .toList()
+        if (exampleGroups.size == 3) return listOf(exampleGroups)
+
+        val yearLengths = when (configuredYearDigits) {
+            2 -> listOf(2)
+            4 -> listOf(4)
+            else -> listOf(2, 4)
+        }
+        return yearLengths.map { yearLength ->
+            when (order) {
+                DateOrder.YMD -> listOf(yearLength, 2, 2)
+                DateOrder.DMY, DateOrder.MDY -> listOf(2, 2, yearLength)
+            }
+        }
+    }
+
+    private fun splitByLengths(value: String, lengths: List<Int>): List<String> {
+        if (lengths.sum() != value.length) return emptyList()
+        val result = mutableListOf<String>()
+        var cursor = 0
+        lengths.forEach { length ->
+            result += value.substring(cursor, cursor + length)
+            cursor += length
+        }
+        return result
+    }
+
+    private fun shrinkToLength(value: String, target: Int): Set<String> {
+        if (target <= 0 || value.length < target || value.length - target > 2) return emptySet()
+        var current = setOf(value)
+        repeat(value.length - target) {
+            current = buildSet {
+                current.forEach { item ->
+                    item.indices.forEach { index -> add(item.removeRange(index, index + 1)) }
+                }
+            }
+        }
+        return current.filterTo(linkedSetOf()) { it.length == target }
+    }
+
+    private fun tokensByOrder(parts: List<String>, order: DateOrder): OrderedTokens = when (order) {
+        DateOrder.MDY -> OrderedTokens(day = parts[1], month = parts[0], year = parts[2])
+        DateOrder.YMD -> OrderedTokens(day = parts[2], month = parts[1], year = parts[0])
+        DateOrder.DMY -> OrderedTokens(day = parts[0], month = parts[1], year = parts[2])
     }
 
     private fun verifyDistance(
@@ -163,8 +340,31 @@ object ReceiptDateOcrNormalizer {
         return candidates.minByOrNull { abs(it - referenceDate.year) }
     }
 
+    private fun parseCanonical(value: String): LocalDate? {
+        val match = canonicalShape.matchEntire(value) ?: return null
+        return runCatching {
+            LocalDate.of(
+                match.groupValues[3].toInt(),
+                match.groupValues[2].toInt(),
+                match.groupValues[1].toInt()
+            )
+        }.getOrNull()
+    }
+
     private fun buildDate(year: Int, month: Int, day: Int): LocalDate? =
         runCatching { LocalDate.of(year, month, day) }.getOrNull()
+
+    private fun invalidCalendarWarning(day: Int, month: Int, original: String): String = when {
+        month !in 1..12 -> "เดือนที่อ่านได้ ($month) ไม่มีอยู่จริงตามปฏิทิน"
+        day < 1 -> "วันที่ที่อ่านได้ ($original) ไม่มีอยู่จริง"
+        else -> "วันที่ที่อ่านได้ ($original) ไม่มีอยู่จริงตามปฏิทิน"
+    }
+
+    private fun calendarWarning(calendar: DateCalendar): String = when (calendar) {
+        DateCalendar.BUDDHIST -> "ปีบนบิลไม่ตรงเงื่อนไข พ.ศ. ที่ Admin กำหนด"
+        DateCalendar.GREGORIAN -> "ปีบนบิลไม่ตรงเงื่อนไข ค.ศ. ที่ Admin กำหนด"
+        DateCalendar.AUTO -> "ปีบนบิลไม่อยู่ในรูปแบบ พ.ศ. หรือ ค.ศ. ที่รองรับ"
+    }
 
     private enum class DateOrder { DMY, MDY, YMD }
     private enum class DateCalendar { AUTO, GREGORIAN, BUDDHIST }
