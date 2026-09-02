@@ -26,7 +26,7 @@ let brandReceiptRule=ReceiptDateRules.defaultRule("");
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 function makeField(type){
   const m=META[type]||META.IGNORE;
-  return {id:crypto.randomUUID(),type,example:"",minLength:m.min,maxLength:m.max,format:m.format,required:type!=="IGNORE",literal:"",prefix:"",separator:"",segments:[],compareTo:"NONE",posPrefixes:"",posDigits:2,separatorValue:"",dateOrder:"DMY",dateCalendar:"AUTO",dateYearDigits:0};
+  return {id:crypto.randomUUID(),type,example:"",minLength:m.min,maxLength:m.max,format:m.format,required:type!=="IGNORE",literal:"",prefix:"",separator:"",segments:[],compareTo:"NONE",posPrefixes:"",posDigits:2,separatorValue:"",dateOrder:"DMY",dateCalendar:"AUTO",dateYearDigits:0,dateRuleExplicit:type!=="BILL_DATE"};
 }
 function makePattern(rowCount=1){
   return {templateId:"",templateName:"",version:1,priority:100,active:true,sampleText:"",rows:Array.from({length:rowCount},()=>[]),validation:{mustMatchStore:true,mustMatchPos:true,noDuplicatePos:true,mustHaveDate:true,mustHaveTime:true,mustHaveCustomer:true,counterCycle:"CONTINUOUS"}};
@@ -97,16 +97,28 @@ function renderPatternList(){
   document.querySelectorAll(".editPatternBtn").forEach(b=>b.onclick=()=>openExisting(+b.dataset.i));
   document.querySelectorAll(".removePatternBtn").forEach(b=>b.onclick=()=>deletePattern(+b.dataset.i));
 }
+function dateRuleSummary(p){
+  const field=(p.recognition?.rows||[]).flatMap(r=>r.fields||[]).find(f=>f.type==="BILL_DATE");
+  if(!field)return "";
+  const explicit=["dateOrder","dateCalendar","dateYearDigits"].every(key=>Object.prototype.hasOwnProperty.call(field,key));
+  if(!explicit)return "วันที่: ยังไม่ได้ยืนยันกติกา";
+  const order={DMY:"วัน/เดือน/ปี",MDY:"เดือน/วัน/ปี",YMD:"ปี/เดือน/วัน"}[String(field.dateOrder||"DMY").toUpperCase()]||"วัน/เดือน/ปี";
+  const calendar={BUDDHIST:"พ.ศ.",GREGORIAN:"ค.ศ.",AUTO:"พ.ศ./ค.ศ."}[String(field.dateCalendar||"AUTO").toUpperCase()]||"พ.ศ./ค.ศ.";
+  const digits=Number(field.dateYearDigits||0);
+  return `วันที่: ${order} • ${calendar} • ปี ${digits===2?"2":digits===4?"4":"2/4"} หลัก`;
+}
 function summary(p){
   const rows=p.recognition?.rows||[];
   if(!rows.length)return "ยังไม่ได้จัดรูปแบบ";
-  return rows.map((r,ri)=>`แถว ${ri+1}: ${(r.fields||[]).map(f=>META[f.type]?.label||f.type).join(" → ")}`).join(" | ");
+  const rowText=rows.map((r,ri)=>`แถว ${ri+1}: ${(r.fields||[]).map(f=>META[f.type]?.label||f.type).join(" → ")}`).join(" | ");
+  const dateText=dateRuleSummary(p);
+  return dateText?`${rowText} | ${dateText}`:rowText;
 }
 function normalize(p){
   if(p.recognition?.rows){
     return {
       templateId:p.templateId||"",templateName:p.templateName||"",version:p.version||1,priority:p.priority||100,active:p.active!==false,sampleText:p.sampleText||"",
-      rows:p.recognition.rows.map(r=>(r.fields||[]).map(f=>({id:crypto.randomUUID(),type:f.type,example:f.example||"",minLength:f.minLength??META[f.type]?.min??1,maxLength:f.maxLength??META[f.type]?.max??12,format:f.format||META[f.type]?.format||"ANY",required:f.required!==false,literal:f.literal||"",prefix:f.composite?.prefix||"",separator:f.composite?.separator||"",segments:(f.composite?.segments||[]).map(s=>({...s})),compareTo:f.compareTo||"NONE",posPrefixes:f.posPrefixes||"",posDigits:f.posDigits||2,separatorValue:f.separatorValue||"",dateOrder:f.dateOrder||"DMY",dateCalendar:f.dateCalendar||"AUTO",dateYearDigits:Number(f.dateYearDigits||0)}))),
+      rows:p.recognition.rows.map(r=>(r.fields||[]).map(f=>({id:crypto.randomUUID(),type:f.type,example:f.example||"",minLength:f.minLength??META[f.type]?.min??1,maxLength:f.maxLength??META[f.type]?.max??12,format:f.format||META[f.type]?.format||"ANY",required:f.required!==false,literal:f.literal||"",prefix:f.composite?.prefix||"",separator:f.composite?.separator||"",segments:(f.composite?.segments||[]).map(s=>({...s})),compareTo:f.compareTo||"NONE",posPrefixes:f.posPrefixes||"",posDigits:f.posDigits||2,separatorValue:f.separatorValue||"",dateOrder:f.dateOrder||"DMY",dateCalendar:f.dateCalendar||"AUTO",dateYearDigits:Number(f.dateYearDigits||0),dateRuleExplicit:["dateOrder","dateCalendar","dateYearDigits"].every(key=>Object.prototype.hasOwnProperty.call(f,key))}))),
       validation:{mustMatchStore:p.validation?.store?.mustMatchWorkPlan!==false,mustMatchPos:p.validation?.pos?.mustExistInStorePlan!==false,noDuplicatePos:p.validation?.pos?.mustBeUnique!==false,mustHaveDate:p.validation?.requiredCore?.date!==false,mustHaveTime:p.validation?.requiredCore?.time!==false,mustHaveCustomer:p.validation?.requiredCore?.customerValue!==false,counterCycle:p.duplicatePolicy?.customerCounterCycle||"CONTINUOUS"}
     };
   }
@@ -207,8 +219,9 @@ function renderFieldEditor(){
 }
 function renderDateFieldPreview(f){
   const host=$("dateFormatPreview");
+  const notice=$("dateRuleLegacyNotice");
   if(!host)return;
-  if(!f||f.type!=="BILL_DATE"){host.innerHTML="";return}
+  if(!f||f.type!=="BILL_DATE"){host.innerHTML="";notice?.classList.add("hidden");return;}
   const order=String(f.dateOrder||"DMY").toUpperCase();
   const calendar=String(f.dateCalendar||"AUTO").toUpperCase();
   const yearDigits=Number(f.dateYearDigits||0);
@@ -219,12 +232,23 @@ function renderDateFieldPreview(f){
   if(calendar!=="BUDDHIST"){if(yearDigits!==4)years.push("26");if(yearDigits!==2)years.push("2026")}
   if(calendar!=="GREGORIAN"){if(yearDigits!==4)years.push("69");if(yearDigits!==2)years.push("2569")}
   const examples=[...new Set(years)].map(y=>order==="MDY"?`08/31/${y}`:order==="YMD"?`${y}/08/31`:`31/08/${y}`);
-  host.innerHTML=`<strong>รูปแบบที่เลือก:</strong> ${orderLabel} • ${calendarLabel} • ${digitLabel}${examples.length?` • ตัวอย่าง ${examples.join(", ")}`:""}`;
+  const sample=String(f.example||"").trim();
+  let sampleLine="";
+  if(sample){
+    const preview=normalizeTestDate(sample,f,$("testWorkDate")?.value);
+    sampleLine=preview.value?`<div><strong>ตัวอย่างบนบิล:</strong> ${esc(sample)} → <strong>ระบบจะเก็บ ${esc(preview.value)}</strong></div>`:`<div><strong>ตัวอย่างบนบิล:</strong> ${esc(sample)} → ยังไม่ผ่าน (${esc(preview.warning||"ตรวจรูปแบบวันที่")})</div>`;
+  }
+  host.innerHTML=`<div><strong>รูปแบบที่เลือก:</strong> ${orderLabel} • ${calendarLabel} • ${digitLabel}</div>${sampleLine}${examples.length?`<div>ตัวอย่างที่รองรับ: ${examples.join(", ")} • ใช้ / - . ได้</div>`:""}`;
+  if(notice){
+    const needsConfirm=f.dateRuleExplicit!==true;
+    notice.classList.toggle("hidden",!needsConfirm);
+    notice.innerHTML=needsConfirm?"<strong>รูปแบบวันที่เดิมยังไม่ได้ยืนยัน</strong><span>กรุณาเลือก ลำดับวัน/เดือน/ปี, ระบบปี และจำนวนหลักของปีให้ตรงกับบิลจริง แล้วบันทึกใหม่</span>":"";
+  }
 }
 
 function updateField(){
   const f=currentField();if(!f)return;
-  f.example=$("fieldExample").value.trim();f.format=$("fieldFormat").value;f.minLength=+$("fieldMinLength").value||0;f.maxLength=+$("fieldMaxLength").value||1;f.required=$("fieldRequired").checked;f.literal=$("fieldLiteral").value;f.compareTo=$("fieldCompareTo").value;f.posPrefixes=$("posPrefixes").value.trim();f.posDigits=+$("posDigits").value||2;f.separatorValue=$("separatorValue").value;f.dateOrder=$("dateOrder").value;f.dateCalendar=$("dateCalendar").value;f.dateYearDigits=+$("dateYearDigits").value||0;
+  f.example=$("fieldExample").value.trim();f.format=$("fieldFormat").value;f.minLength=+$("fieldMinLength").value||0;f.maxLength=+$("fieldMaxLength").value||1;f.required=$("fieldRequired").checked;f.literal=$("fieldLiteral").value;f.compareTo=$("fieldCompareTo").value;f.posPrefixes=$("posPrefixes").value.trim();f.posDigits=+$("posDigits").value||2;f.separatorValue=$("separatorValue").value;f.dateOrder=$("dateOrder").value;f.dateCalendar=$("dateCalendar").value;f.dateYearDigits=+$("dateYearDigits").value||0;if(f.type==="BILL_DATE")f.dateRuleExplicit=true;
   if(f.type==="COMPOSITE_CODE"){f.prefix=$("compositePrefix").value;f.separator=$("compositeSeparator").value}
   renderDateFieldPreview(f);
   renderRows();
@@ -259,6 +283,8 @@ function build(){
   };
 }
 async function save(){
+  const unconfirmedDate=(editing?.rows||[]).flat().find(f=>f.type==="BILL_DATE"&&f.dateRuleExplicit!==true);
+  if(unconfirmedDate)return SwalSmall.error("ยังบันทึกรูปแบบไม่ได้","กรุณาเปิดช่อง “วันที่ในบิล” แล้วเลือกกติกาวันที่ให้ตรงกับบิลจริงก่อนบันทึก");
   const t=build();
   const contractErrors=ReceiptOcrTemplateContract.validate(t);
   if(contractErrors.length)return SwalSmall.error("ยังบันทึกรูปแบบไม่ได้",contractErrors.join(" • "));

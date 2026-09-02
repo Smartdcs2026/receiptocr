@@ -122,7 +122,7 @@ object TemplateSequenceFallback {
             val dateWarning = when {
                 rawDate.isBlank() -> ""
                 dateResult?.value == null -> dateResult?.warning ?: "วันที่บิลยังไม่ตรงรูปแบบที่กำหนด"
-                dateResult.corrected -> "วันที่ที่อ่านจากภาพ ${dateResult.original} ถูกปรับเป็น ${dateResult.value} ตามเงื่อนไข Admin • กรุณาตรวจเทียบกับภาพ"
+                dateResult.corrected -> ""
                 else -> ""
             }
 

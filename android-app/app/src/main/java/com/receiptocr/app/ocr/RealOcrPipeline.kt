@@ -203,8 +203,7 @@ object RealOcrPipeline {
                 !currentImagePos || rawCandidateDate.isBlank() -> ""
                 dateResult?.value == null ->
                     (dateResult?.warning ?: "วันที่ที่อ่านจากภาพ ($rawCandidateDate) ไม่ตรงเงื่อนไขที่ Admin กำหนด") + " • ค่านี้จะไม่ถูกใช้เป็นวันที่ส่งงาน"
-                dateResult.corrected ->
-                    "วันที่ที่อ่านจากภาพ ${dateResult.original} ถูกปรับเป็น ${dateResult.value} ตามเงื่อนไข Admin • กรุณาตรวจเทียบกับภาพ"
+                dateResult.corrected -> ""
                 else -> ""
             }
             val timeWarning = when {
@@ -317,8 +316,8 @@ object RealOcrPipeline {
                 if (!expectsStoreId && !explicitNoStoreTemplate && work.expectedReceiptStoreId.isNotBlank()) {
                     add("รูปแบบบิลนี้ไม่มีรหัสร้านสำหรับตรวจอัตโนมัติ • กรุณาตรวจข้อมูลร้านจากหลักฐานประกอบ")
                 }
-                if (!currentComplete) add("ข้อมูลสำคัญบางช่องในภาพนี้อ่านได้ไม่ครบ กรุณาตรวจแก้ก่อนยืนยัน")
-                if (missingPos.isNotEmpty()) add("ยังขาดข้อมูลเครื่อง ${missingPos.joinToString(", ")} • สามารถเพิ่มภาพบิลช่องอื่นแล้วอ่านต่อได้")
+                if (!currentComplete && missingPos.isEmpty()) add("ข้อมูลสำคัญบางช่องในภาพนี้อ่านได้ไม่ครบ กรุณาตรวจแก้ก่อนยืนยัน")
+                if (missingPos.isNotEmpty()) add("ยังอ่านไม่ครบ • ขาด POS ${missingPos.joinToString(", ")} • สามารถเพิ่มภาพบิลช่องอื่นแล้วอ่านต่อได้")
                 addAll(dateIssues.map { it.message })
             }.distinct()
 
@@ -339,6 +338,8 @@ object RealOcrPipeline {
                     "อ่านเพิ่มแล้ว • มีข้อมูล $afterResolved/${records.size} POS • ยังขาด ${missingPos.joinToString(", ") { "POS $it" }}"
                 repaired.isNotEmpty() ->
                     "อ่านภาพเพิ่มแล้ว • ปรับข้อมูล ${repaired.joinToString(", ") { "POS $it" }} • กรุณาตรวจทาน"
+                missingPos.isNotEmpty() ->
+                    "อ่านได้ ${resolvedPos.size}/${records.size} POS • ยังขาด ${missingPos.joinToString(", ") { "POS $it" }}"
                 else -> templateResult.message
             }
 

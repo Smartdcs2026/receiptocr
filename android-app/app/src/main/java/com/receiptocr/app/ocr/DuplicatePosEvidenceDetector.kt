@@ -13,6 +13,7 @@ import com.receiptocr.app.config.UniversalOcrTemplate
 object DuplicatePosEvidenceDetector {
     private data class Sighting(
         val passIndex: Int,
+        val templateId: String,
         val signature: String
     )
 
@@ -34,21 +35,26 @@ object DuplicatePosEvidenceDetector {
                     val signature = signature(fields)
                     if (signature.isBlank()) return@forEach
                     sightingsByPos.getOrPut(pos) { mutableListOf() }
-                        .add(Sighting(passIndex, signature))
+                        .add(Sighting(passIndex, template.templateId, signature))
                 }
             }
         }
 
         return buildMap {
             sightingsByPos.forEach { (pos, sightings) ->
-                val distinct = sightings.distinct()
-                val samePassConflict = distinct.groupBy { it.passIndex }.values.any { passSightings ->
-                    passSightings.map { it.signature }.distinct().size >= 2
+                // One brand can have several active templates. A single receipt can be parsed
+                // differently by two templates, so that alone must never be called a duplicate.
+                val conflict = sightings.groupBy { it.templateId }.values.any { templateSightings ->
+                    val distinct = templateSightings.distinct()
+                    val samePassConflict = distinct.groupBy { it.passIndex }.values.any { passSightings ->
+                        passSightings.map { it.signature }.distinct().size >= 2
+                    }
+                    val repeatedSignatures = distinct.groupBy { it.signature }
+                        .filterValues { group -> group.map { it.passIndex }.distinct().size >= 2 }
+                        .keys
+                    samePassConflict || repeatedSignatures.size >= 2
                 }
-                val repeatedSignatures = distinct.groupBy { it.signature }
-                    .filterValues { group -> group.map { it.passIndex }.distinct().size >= 2 }
-                    .keys
-                if (samePassConflict || repeatedSignatures.size >= 2) {
+                if (conflict) {
                     put(
                         pos,
                         "พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS $pos • กรุณาตรวจว่ามีบิล POS ซ้ำหรือไม่"
@@ -60,8 +66,9 @@ object DuplicatePosEvidenceDetector {
 
     private fun signature(fields: Map<String, String>): String {
         val customer = fields["CUSTOMER_VALUE"].orEmpty().filter(Char::isDigit)
-        val date = fields["BILL_DATE"].orEmpty().replace(Regex("\\s+"), "")
-        val time = fields["BILL_TIME"].orEmpty().replace(Regex("\\s+"), "")
+        // Separator and spacing differences are not different receipts.
+        val date = OcrTextNormalizer.normalizeDigits(fields["BILL_DATE"].orEmpty()).filter(Char::isDigit)
+        val time = OcrTextNormalizer.normalizeDigits(fields["BILL_TIME"].orEmpty()).filter(Char::isDigit)
         val store = fields["STORE_ID"].orEmpty().filter(Char::isDigit)
         if (customer.isBlank() || date.isBlank() || time.isBlank()) return ""
         return listOf(customer, date, time, store).joinToString("|")

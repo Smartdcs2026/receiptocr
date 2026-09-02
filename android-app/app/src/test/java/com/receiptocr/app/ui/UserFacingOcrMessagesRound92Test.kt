@@ -17,13 +17,25 @@ class UserFacingOcrMessagesRound92Test {
     }
 
     @Test
-    fun correctedDateShowsOnlyAcceptedDate() {
+    fun correctedDateAloneIsNotAWarning() {
         val message = UserFacingOcrMessages.warning(
             "วันที่ที่อ่านจากภาพ 20/08769 ถูกปรับเป็น 20/08/2026 ตามเงื่อนไข Admin • กรุณาตรวจเทียบกับภาพ"
         )
+        assertTrue(message.isBlank())
+    }
+
+    @Test
+    fun normalPrintedDateConversionIsBlueInfoText() {
+        val message = UserFacingOcrMessages.dateInfo("08-21-2026", "21/08/2026")
+        assertTrue(message.contains("08-21-2026"))
+        assertTrue(message.contains("21/08/2026"))
+    }
+
+    @Test
+    fun noisyDateConversionDoesNotExposeNoisyRawValue() {
+        val message = UserFacingOcrMessages.dateInfo("20/08769", "20/08/2026")
         assertTrue(message.contains("20/08/2026"))
         assertFalse(message.contains("20/08769"))
-        assertFalse(message.contains("Admin", ignoreCase = true))
     }
 
     @Test

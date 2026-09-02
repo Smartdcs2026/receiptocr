@@ -192,6 +192,7 @@ object UniversalTemplateInterpreter {
                 ocrSourceImagePath = imagePath,
                 ocrTemplateName = match.template.templateName,
                 ocrWarnings = posWarnings.distinct().joinToString(" • "),
+                ocrRawBillDate = dateRaw?.trim().orEmpty().ifBlank { current.ocrRawBillDate },
                 ocrCounterCycle = match.template.duplicatePolicy.customerCounterCycle.uppercase()
             )
             accepted += match

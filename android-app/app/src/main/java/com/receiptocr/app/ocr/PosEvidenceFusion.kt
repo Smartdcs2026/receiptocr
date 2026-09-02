@@ -107,6 +107,7 @@ object PosEvidenceFusion {
             val template = resolved.template
             val customer = resolved.values["CUSTOMER_VALUE"]
             val date = resolved.values["BILL_DATE"]
+            val rawDate = resolved.values["_RAW_BILL_DATE"]
             val time = resolved.values["BILL_TIME"]?.let { resolvedTime ->
                 ReceiptTimeOcrNormalizer.normalize(resolvedTime.value).value?.let {
                     resolvedTime.copy(value = it)
@@ -139,6 +140,7 @@ object PosEvidenceFusion {
                 ocrSourceImagePath = imagePath,
                 ocrTemplateName = template.templateName,
                 ocrWarnings = warning,
+                ocrRawBillDate = rawDate?.value ?: current.ocrRawBillDate,
                 ocrStoreId = store?.value ?: current.ocrStoreId,
                 ocrStoreIdExpected = templateHasStoreId(template),
                 ocrCounterCycle = template.duplicatePolicy.customerCounterCycle.uppercase()
@@ -245,13 +247,17 @@ object PosEvidenceFusion {
                     val enriched = fields.toMutableMap()
                     val dateField = ordered.firstOrNull { it.field.type.equals("BILL_DATE", true) }?.field
                     enriched["BILL_DATE"]?.takeIf { it.isNotBlank() }?.let { rawDate ->
+                        enriched["_RAW_BILL_DATE"] = rawDate
                         val normalized = ReceiptDateOcrNormalizer.normalizeForField(
                             raw = rawDate,
                             field = dateField,
                             referenceDate = referenceDate
                         )
                         if (normalized.value != null) enriched["BILL_DATE"] = normalized.value
-                        else enriched.remove("BILL_DATE")
+                        else {
+                            enriched.remove("BILL_DATE")
+                            enriched.remove("_RAW_BILL_DATE")
+                        }
                     }
                     val anchorStart = match.range.first.coerceAtLeast(0)
                     val anchorEndExclusive = (match.range.last + 1).coerceAtMost(candidate.text.length)
@@ -377,6 +383,16 @@ object PosEvidenceFusion {
                 ?.let { ResolvedValue(it, 1, completeEvidence.score) }
         store?.let { values["STORE_ID"] = it }
 
+        val acceptedDate = values["BILL_DATE"]?.value
+        if (!acceptedDate.isNullOrBlank()) {
+            group.asSequence()
+                .filter { it.fields["BILL_DATE"] == acceptedDate }
+                .sortedByDescending { it.score }
+                .mapNotNull { it.fields["_RAW_BILL_DATE"]?.trim()?.takeIf(String::isNotBlank) }
+                .firstOrNull()
+                ?.let { raw -> values["_RAW_BILL_DATE"] = ResolvedValue(raw, 1, group.maxOf { it.score }) }
+        }
+
         val core = template.validation.requiredCore
         if (core.customerValue && values["CUSTOMER_VALUE"] == null) return null
         if (core.date && values["BILL_DATE"] == null) return null
@@ -489,6 +505,9 @@ object PosEvidenceFusion {
         if (fields["BILL_DATE"].isNullOrBlank() && dateField != null) {
             findDate(localText, dateField, referenceDate)?.let { found ->
                 fields["BILL_DATE"] = found.first
+                val start = found.second.first.coerceAtLeast(0)
+                val endExclusive = (found.second.last + 1).coerceAtMost(localText.length)
+                if (start < endExclusive) fields["_RAW_BILL_DATE"] = localText.substring(start, endExclusive)
                 dateRange = found.second
             }
         } else if (!fields["BILL_DATE"].isNullOrBlank()) {

@@ -83,4 +83,39 @@ class DuplicatePosEvidenceDetectorTest {
         assertFalse(warnings.containsKey(1))
         assertFalse(warnings.containsKey(2))
     }
+    @Test
+    fun differentTemplatesDoNotCreateFalseDuplicateForSamePos() {
+        val second = mb.copy(
+            templateId = "mb-alt-test",
+            templateName = "Mb_alt",
+            recognition = OcrTemplateRecognition(
+                rows = listOf(OcrTemplateRow(row = 1, fields = listOf(
+                    OcrTemplateField(1, "LITERAL", example = "X", literal = "X"),
+                    OcrTemplateField(2, "NUMBER_TEXT", example = "20", minLength = 2, maxLength = 2),
+                    OcrTemplateField(3, "POS_NUMBER", example = "1", minLength = 1, maxLength = 1, posDigits = 1),
+                    OcrTemplateField(4, "CUSTOMER_VALUE", example = "111222", minLength = 6, maxLength = 6),
+                    OcrTemplateField(5, "EMPLOYEE_CODE", example = "U110030", minLength = 7, maxLength = 7),
+                    OcrTemplateField(6, "BILL_DATE", example = "20-08-69", minLength = 8, maxLength = 8, dateOrder = "DMY", dateCalendar = "BUDDHIST", dateYearDigits = 2),
+                    OcrTemplateField(7, "BILL_TIME", example = "09:05", minLength = 5, maxLength = 5)
+                )))
+            )
+        )
+        val warnings = DuplicatePosEvidenceDetector.detect(
+            rawTexts = listOf("R201657846U110030 20/08/69 17:51\nX201111222U110030 20-08-69 09:05"),
+            templates = listOf(mb, second),
+            allowedPos = setOf(1, 2, 3)
+        )
+        assertFalse(warnings.containsKey(1))
+    }
+
+    @Test
+    fun separatorVariationAcrossPassesIsSameReceipt() {
+        val warnings = DuplicatePosEvidenceDetector.detect(
+            rawTexts = listOf("R201657846U110030 20/08/69 17:51", "R201657846U110030 20-08-69 17.51"),
+            templates = listOf(mb),
+            allowedPos = setOf(1, 2, 3)
+        )
+        assertFalse(warnings.containsKey(1))
+    }
+
 }

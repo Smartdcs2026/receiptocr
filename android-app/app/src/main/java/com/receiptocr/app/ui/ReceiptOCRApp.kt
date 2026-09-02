@@ -1323,8 +1323,12 @@ private fun StoreWorkScreen(
         }.distinct()
         val hasOcrReviewWarning = proposal.proposedRecords
             .filter { it.posNumber in proposal.detectedPos }
-            .any { it.ocrWarnings.isNotBlank() } ||
-            proposal.warnings.any { it !in dateWarningMessages }
+            .any { UserFacingOcrMessages.hasVisibleWarning(it.ocrWarnings) } ||
+            proposal.warnings.filterNot { it in dateWarningMessages }.any { UserFacingOcrMessages.warning(it).isNotBlank() }
+        val unresolvedPos = proposal.proposedRecords
+            .filter { !it.noReceipt && (it.customerNo.isBlank() || it.billDate.isBlank() || it.billTime.isBlank()) }
+            .map { it.posNumber }.sorted()
+        val completedPosCount = proposal.proposedRecords.size - unresolvedPos.size
         val shouldVibrateForReview = hasDateWarning || hasOcrReviewWarning
 
         LaunchedEffect(proposal, shouldVibrateForReview) {
@@ -1369,6 +1373,17 @@ private fun StoreWorkScreen(
                         color = TextMain,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        buildString {
+                            append("อ่านได้ $completedPosCount/${proposal.proposedRecords.size} POS")
+                            if (unresolvedPos.isNotEmpty()) append(" • ยังขาด POS ${unresolvedPos.joinToString(", ")}")
+                        },
+                        color = if (unresolvedPos.isEmpty()) SuccessGreen else WarningOrange,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1450,7 +1465,9 @@ private fun StoreWorkScreen(
                     proposal.proposedRecords.filter { it.posNumber in proposal.detectedPos }.forEach { record ->
                         val dateWarningText = proposalIndividualDateWarnings[record.posNumber]
                         val dateInvalid = !dateWarningText.isNullOrBlank()
-                        val hasRecordWarning = dateInvalid || record.ocrWarnings.isNotBlank()
+                        val visibleOcrWarning = UserFacingOcrMessages.warning(record.ocrWarnings)
+                        val dateInfoText = UserFacingOcrMessages.dateInfo(record.ocrRawBillDate, record.billDate)
+                        val hasRecordWarning = dateInvalid || visibleOcrWarning.isNotBlank()
                         val datePositionLabel = ReceiptValidationEngine.datePositionLabel(record.billDate, selectedDate)
                         val datePositionColor = when {
                             datePositionLabel.startsWith("ก่อนวันงาน") -> DateBeforeBlue
@@ -1480,14 +1497,14 @@ private fun StoreWorkScreen(
                                     Text(
                                         when {
                                             dateInvalid -> "ต้องแก้ไข"
-                                            record.ocrWarnings.isNotBlank() -> "ควรตรวจ"
+                                            visibleOcrWarning.isNotBlank() -> "ควรตรวจ"
                                             else -> "ใช้ได้"
                                         },
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = when {
                                             dateInvalid -> MaterialTheme.colorScheme.error
-                                            record.ocrWarnings.isNotBlank() -> WarningOrange
+                                            visibleOcrWarning.isNotBlank() -> WarningOrange
                                             else -> SuccessGreen
                                         }
                                     )
@@ -1522,12 +1539,11 @@ private fun StoreWorkScreen(
                                         color = datePositionColor
                                     )
                                 }
-                                if (record.ocrWarnings.isNotBlank()) {
-                                    Text(
-                                        UserFacingOcrMessages.warning(record.ocrWarnings),
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
+                                if (dateInfoText.isNotBlank()) {
+                                    Text(dateInfoText, fontSize = 10.sp, color = Primary)
+                                }
+                                if (visibleOcrWarning.isNotBlank()) {
+                                    Text(visibleOcrWarning, fontSize = 10.sp, color = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }
@@ -1913,7 +1929,9 @@ private fun PosCard(
     val dateMissing = !record.noReceipt && record.billDate.isBlank()
     val timeMissing = !record.noReceipt && record.billTime.isBlank()
     val dateWarning = !record.noReceipt && !dateWarningText.isNullOrBlank()
-    val hasValidationWarning = customerMissing || dateMissing || timeMissing || dateWarning || record.ocrWarnings.isNotBlank()
+    val visibleOcrWarning = UserFacingOcrMessages.warning(record.ocrWarnings)
+    val dateInfoText = UserFacingOcrMessages.dateInfo(record.ocrRawBillDate, record.billDate)
+    val hasValidationWarning = customerMissing || dateMissing || timeMissing || dateWarning || visibleOcrWarning.isNotBlank()
 
     val hasData = record.customerNo.isNotBlank() || record.noReceipt
     val summaryText = when {
@@ -2077,7 +2095,18 @@ private fun PosCard(
                         )
                     }
 
-                    if (record.ocrWarnings.isNotBlank()) {
+                    if (dateInfoText.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(9.dp),
+                            color = PrimarySoft,
+                            border = BorderStroke(1.dp, Primary.copy(alpha = 0.22f))
+                        ) {
+                            Text(dateInfoText, modifier = Modifier.padding(9.dp), color = Primary, fontSize = 10.5.sp)
+                        }
+                    }
+                    if (visibleOcrWarning.isNotBlank()) {
                         Spacer(Modifier.height(8.dp))
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -2085,12 +2114,7 @@ private fun PosCard(
                             color = Color(0xFFFFF1F1),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                         ) {
-                            Text(
-                                UserFacingOcrMessages.warning(record.ocrWarnings),
-                                modifier = Modifier.padding(9.dp),
-                                color = MaterialTheme.colorScheme.error,
-                                fontSize = 10.5.sp
-                            )
+                            Text(visibleOcrWarning, modifier = Modifier.padding(9.dp), color = MaterialTheme.colorScheme.error, fontSize = 10.5.sp)
                         }
                     }
 
