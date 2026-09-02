@@ -1,0 +1,86 @@
+name: Round92 finalize production
+
+on:
+  push:
+    branches:
+      - round92-date-runtime-user-ui
+    paths:
+      - 'tools/round92_apply.py'
+      - '.github/workflows/round92-finalize.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Round92
+        uses: actions/checkout@v4
+        with:
+          ref: round92-date-runtime-user-ui
+          fetch-depth: 0
+
+      - name: Apply Round92 production source
+        run: python tools/round92_apply.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Work Plan tests
+        run: node tests/workplan-store-normalizer.test.js
+
+      - name: Admin OCR pattern tests
+        run: node tests/ocr-pattern-engine.test.js
+
+      - name: Admin JavaScript syntax
+        run: |
+          node --check web-admin/ocr-admin-ux.js
+          node --check web-admin/ocr-pattern-engine.js
+          node --check web-admin/ocr-simple.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests including Round92 mixed-date and UI guards
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify patch whitespace
+        run: git diff --check
+
+      - name: Commit verified production source
+        run: |
+          if git diff --quiet; then
+            echo 'No production changes to commit'
+            exit 0
+          fi
+          git config user.name 'SKDC_SMART'
+          git config user.email 'somchaibutphon@gmail.com'
+          git add android-app/app/src/main/java/com/receiptocr/app/ocr/TemplateSequenceFallback.kt \
+                  android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt \
+                  android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt \
+                  android-app/app/build.gradle.kts \
+                  .github/workflows/android-ci.yml
+          git commit -m 'Round92 finalize mixed date runtime and user UI'
+          git push origin HEAD:round92-date-runtime-user-ui
