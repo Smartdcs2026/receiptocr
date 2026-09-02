@@ -98,6 +98,17 @@ object ReceiptDateOcrNormalizer {
             return exact
         }
 
+        // OCR ของบิลความร้อนอาจทำตัวคั่นหายหนึ่งตำแหน่ง เช่น 20/0869 หรือ 20/08769
+        // รักษาขอบเขตที่ยังอ่านได้ แล้วแก้เฉพาะ token ที่รวมกันตามจำนวนหลักจาก Admin
+        recoverPartiallySeparatedDate(
+            cleaned = cleaned,
+            order = order,
+            calendar = calendar,
+            configuredYearDigits = dateYearDigits,
+            referenceDate = referenceDate,
+            maxDistanceDays = maxAutoCorrectionDistanceDays
+        )?.let { return it }
+
         // กรณีเดือนถูก OCR แทรก/สลับเป็นเลขที่ไม่มีจริง เช่น 20/28/2026
         // จะยอมแก้ก็ต่อเมื่อการตัดตัวเลขหนึ่งหลัก + กฎ Admin + วันงาน
         // เหลือวันที่จริงเพียงคำตอบเดียวเท่านั้น
@@ -179,6 +190,70 @@ object ReceiptDateOcrNormalizer {
         val date = buildDate(year, month, day)
             ?: return Result(null, original = cleaned, warning = invalidCalendarWarning(day, month, cleaned))
         return verifyDistance(date, cleaned, referenceDate, maxDistanceDays)
+    }
+
+    private fun recoverPartiallySeparatedDate(
+        cleaned: String,
+        order: DateOrder,
+        calendar: DateCalendar,
+        configuredYearDigits: Int,
+        referenceDate: LocalDate,
+        maxDistanceDays: Long
+    ): Result? {
+        val visibleParts = cleaned.split('/').map { it.trim() }
+        if (visibleParts.size != 2 || visibleParts.any { it.isBlank() || !it.all(Char::isDigit) }) return null
+
+        val yearLengths = when (configuredYearDigits) {
+            2 -> listOf(2)
+            4 -> listOf(4)
+            else -> listOf(2, 4)
+        }
+        val accepted = linkedSetOf<LocalDate>()
+
+        fun accept(parts: List<String>) {
+            if (parts.size != 3) return
+            val tokens = tokensByOrder(parts, order)
+            val day = tokens.day.toIntOrNull() ?: return
+            val month = tokens.month.toIntOrNull() ?: return
+            val year = normalizeYear(tokens.year, calendar, referenceDate) ?: return
+            val date = buildDate(year, month, day) ?: return
+            val distance = abs(ChronoUnit.DAYS.between(referenceDate, date))
+            if (distance <= maxDistanceDays) accepted += date
+        }
+
+        yearLengths.forEach { yearLength ->
+            val lengths = layoutFor(order, yearLength)
+            val left = visibleParts[0]
+            val right = visibleParts[1]
+
+            if (left.length == lengths[0] &&
+                right.length >= lengths[1] + lengths[2] &&
+                right.length <= lengths[1] + lengths[2] + 2) {
+                val second = right.take(lengths[1])
+                val thirdRaw = right.drop(lengths[1])
+                shrinkToLength(thirdRaw, lengths[2]).forEach { third ->
+                    accept(listOf(left, second, third))
+                }
+            }
+
+            if (right.length == lengths[2] &&
+                left.length >= lengths[0] + lengths[1] &&
+                left.length <= lengths[0] + lengths[1] + 2) {
+                val first = left.take(lengths[0])
+                val secondRaw = left.drop(lengths[0])
+                shrinkToLength(secondRaw, lengths[1]).forEach { second ->
+                    accept(listOf(first, second, right))
+                }
+            }
+        }
+
+        if (accepted.size != 1) return null
+        return Result(
+            value = accepted.single().format(output),
+            corrected = true,
+            original = cleaned,
+            warning = "เติม/ปรับตัวคั่นวันที่ตามลำดับและจำนวนหลักที่ Admin กำหนด"
+        )
     }
 
     private fun recoverNoisyDate(

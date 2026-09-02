@@ -540,7 +540,7 @@ object UniversalTemplateInterpreter {
         val max = exactLen ?: field.maxLength.coerceAtLeast(min)
 
         return when (field.type) {
-            "BILL_DATE" -> capture("BILL_DATE", "$OCR_DIGIT{1,2}[./-]$OCR_DIGIT{1,2}[./-]$OCR_DIGIT{2,4}")
+            "BILL_DATE" -> capture("BILL_DATE", datePattern(field))
             "BILL_TIME" -> capture("BILL_TIME", "$OCR_DIGIT{1,2}[:.]$OCR_DIGIT{2}(?::$OCR_DIGIT{2})?")
             "YEAR_VALUE", "YEAR" -> capture("YEAR_VALUE", "$OCR_DIGIT{${exactLen ?: 2}}")
             "MONTH_VALUE", "MONTH" -> capture("MONTH_VALUE", "$OCR_DIGIT{2}")
@@ -565,8 +565,8 @@ object UniversalTemplateInterpreter {
                 }
                 capture("POS_NUMBER", "$prefix$OCR_DIGIT{$digits}")
             }
-            // อ่านเลขเต็มก่อน แล้วใช้เงื่อนไขเป็นคำเตือนภายหลัง เพื่อไม่ตัดเลขท้ายทิ้ง
-            "CUSTOMER_VALUE" -> capture("CUSTOMER_VALUE", "$OCR_DIGIT{1,18}(?!$OCR_DIGIT)")
+            // จำนวนหลักของลูกค้ามาจาก Admin เพื่อรักษาขอบเขตช่องถัดไป
+            "CUSTOMER_VALUE" -> capture("CUSTOMER_VALUE", "$OCR_DIGIT{$min,$max}(?!$OCR_DIGIT)")
             "EMPLOYEE_CODE" -> capture("EMPLOYEE_CODE", "[A-Za-z0-9]{$min,$max}")
             "NUMBER_TEXT" -> "$OCR_DIGIT{$min,$max}"
             "ALNUM_TEXT" -> "[A-Za-z0-9]{$min,$max}"
@@ -667,6 +667,26 @@ object UniversalTemplateInterpreter {
         }
     }
 
+    private fun datePattern(field: OcrTemplateField): String {
+        val order = field.dateOrder.trim().uppercase().let {
+            if (it in setOf("DMY", "MDY", "YMD")) it else "DMY"
+        }
+        val yearLengths = when (field.dateYearDigits) {
+            2 -> listOf(2)
+            4 -> listOf(4)
+            else -> listOf(2, 4)
+        }
+        val layouts = yearLengths.map { yearLength ->
+            when (order) {
+                "YMD" -> listOf(yearLength, 2, 2)
+                else -> listOf(2, 2, yearLength)
+            }
+        }
+        return layouts.joinToString("|", "(?:", ")") { lengths ->
+            "$OCR_DIGIT{${lengths[0]}}[./-]$OCR_DIGIT{${lengths[1]}}[./-]$OCR_DIGIT{${lengths[2]}}"
+        }
+    }
+
     private fun literalPattern(raw: String): String? {
         val value = raw.trim()
         if (value.isBlank()) return null
@@ -677,6 +697,7 @@ object UniversalTemplateInterpreter {
                 when (character) {
                     '0' -> "[0Oo]"
                     '1' -> "[1Iil|]"
+                    'U', 'u', 'V', 'v' -> "[UuVvOo0]"
                     else -> Regex.escape(character.toString())
                 }
             }.joinToString("\\s*")
@@ -702,7 +723,12 @@ object UniversalTemplateInterpreter {
         val pos = fields["POS_NUMBER"]?.let(::parsePosNumber)
         if (pos != null) score += 20
 
-        val date = fields["BILL_DATE"]?.let { normalizeDate(it, workDate) }
+        val scoreDateField = template.recognition.rows.asSequence()
+            .flatMap { it.fields.asSequence() }
+            .firstOrNull { it.type == "BILL_DATE" }
+        val date = fields["BILL_DATE"]?.let {
+            ReceiptDateOcrNormalizer.normalizeForField(it, scoreDateField, workDate).value
+        }
         if (date != null) {
             val parsed = parseDate(date)
             if (parsed != null) {

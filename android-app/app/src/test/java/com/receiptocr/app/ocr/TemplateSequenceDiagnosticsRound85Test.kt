@@ -65,4 +65,31 @@ class TemplateSequenceDiagnosticsRound85Test {
         assertTrue(detail.contains("36:00"))
         assertTrue(detail.contains("ใช้ไม่ได้"))
     }
+    @Test
+    fun round90UsesAdminSlotsWhenUIsReadAsOAndDateLosesSeparator() {
+        val detail = TemplateSequenceFallback.diagnose(
+            rawTexts = listOf("R202039030O400072 20/08769 17:18"),
+            templates = listOf(mb02)
+        ).joinToString(" ")
+        assertTrue(detail.contains("อ่านลำดับครบ"))
+    }
+
+    @Test
+    fun round90UsesAdminSlotsWhenUIsReadAsZero() {
+        val detail = TemplateSequenceFallback.diagnose(
+            rawTexts = listOf("R2020390300400072 20/0869 17:18"),
+            templates = listOf(mb02)
+        ).joinToString(" ")
+        assertTrue(detail.contains("อ่านลำดับครบ"))
+    }
+
+    @Test
+    fun round90RejectsShiftedCustomerLengthInsteadOfMovingFieldBoundary() {
+        val detail = TemplateSequenceFallback.diagnose(
+            rawTexts = listOf("R20203903U400072 20/08/69 17:18"),
+            templates = listOf(mb02)
+        ).joinToString(" ")
+        assertFalse(detail.contains("อ่านลำดับครบ"))
+    }
+
 }

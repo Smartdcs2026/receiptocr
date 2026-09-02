@@ -187,7 +187,7 @@ class ReceiptDateOcrNormalizerTest {
     }
 
     @Test
-    fun noisyThaiDateWithOneExtraDigitIsNotGuessedWhenAmbiguous() {
+    fun partiallySeparatedThaiDatePreservesAdminDayMonthBoundary() {
         val result = ReceiptDateOcrNormalizer.normalize(
             raw = "20/08769",
             configuredFormat = "DATE",
@@ -197,8 +197,23 @@ class ReceiptDateOcrNormalizerTest {
             dateYearDigits = 2,
             dateExample = "22/08/69"
         )
-        assertNull(result.value)
+        assertEquals("20/08/2026", result.value)
+        assertTrue(result.corrected)
         assertEquals("20/08769", result.original)
+    }
+
+    @Test
+    fun missingSecondSeparatorUsesAdminLengths() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "20/0869",
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = "DMY",
+            dateCalendar = "BUDDHIST",
+            dateYearDigits = 2
+        )
+        assertEquals("20/08/2026", result.value)
+        assertTrue(result.corrected)
     }
 
     @Test

@@ -262,19 +262,44 @@ object PosEvidenceFusion {
             }
         }
 
-        // หน้าต่างซ้อนกันใน pass เดียวอาจสร้างหลักฐานซ้ำจำนวนมาก
-        // เหลือเฉพาะชุดที่ลึก/ครบที่สุดต่อ pass + POS + ค่า core เดียวกัน
+        // OCR candidate หลายแบบใน pass เดียวกันอาจอ่านคนละส่วนของ record ได้ดี
+        // เช่น candidate หนึ่งอ่านวันที่ได้ แต่อีก candidate ใน pass เดียวกันอ่านเวลาได้
+        // รวมหลักฐานได้เฉพาะ pass + template + POS + ลูกค้าเดียวกันเท่านั้น
+        // เพื่อไม่ให้ข้อมูลไหลข้าม POS/ข้ามบิล และถ้าค่า field เดียวกันขัดกันจะไม่เดา
+        return mergeEvidenceWithinSamePass(results)
+    }
+
+    private fun mergeEvidenceWithinSamePass(results: List<Evidence>): List<Evidence> {
+        if (results.isEmpty()) return emptyList()
         return results.groupBy { evidence ->
             listOf(
                 evidence.passIndex.toString(),
                 evidence.template.templateId,
                 evidence.pos.toString(),
-                evidence.fields["CUSTOMER_VALUE"].orEmpty(),
-                evidence.fields["BILL_DATE"].orEmpty(),
-                evidence.fields["BILL_TIME"].orEmpty(),
-                evidence.fields["STORE_ID"].orEmpty()
+                evidence.fields["CUSTOMER_VALUE"].orEmpty()
             ).joinToString("|")
-        }.values.mapNotNull { group -> group.maxByOrNull { it.score } }
+        }.values.mapNotNull { group ->
+            val base = group.maxByOrNull { it.score } ?: return@mapNotNull null
+            val merged = linkedMapOf<String, String>()
+            val fieldTypes = group.flatMap { it.fields.keys }.toSet()
+
+            fieldTypes.forEach { type ->
+                val values = group.mapNotNull { evidence ->
+                    evidence.fields[type]?.trim()?.takeIf { it.isNotBlank() }
+                }.distinct()
+
+                // รับเฉพาะเมื่อทุก candidate ที่อ่าน field นี้ได้ให้ค่าเดียวกัน
+                // ถ้ามีหลายค่า ถือว่ายังคลุมเครือและปล่อยให้ consensus ข้าม pass ตัดสินแทน
+                if (values.size == 1) merged[type] = values.single()
+            }
+
+            base.copy(
+                fields = merged,
+                depth = group.maxOf { it.depth },
+                score = group.maxOf { it.score } +
+                    merged.keys.count { it in setOf("CUSTOMER_VALUE", "BILL_DATE", "BILL_TIME", "STORE_ID") } * 10
+            )
+        }
     }
 
     private fun resolvePosCandidate(
@@ -445,11 +470,7 @@ object PosEvidenceFusion {
         field: OcrTemplateField,
         referenceDate: LocalDate
     ): Pair<String, IntRange>? {
-        val lengths = Regex("\\d+").findAll(field.example.orEmpty()).map { it.value.length }.toList()
-            .takeIf { it.size == 3 } ?: when (field.dateOrder.uppercase()) {
-                "YMD" -> listOf(if (field.dateYearDigits == 2) 2 else 4, 2, 2)
-                else -> listOf(2, 2, if (field.dateYearDigits == 2) 2 else 4)
-            }
+        val layouts = dateLayouts(field)
 
         fun accept(raw: String, range: IntRange): Pair<String, IntRange>? {
             val normalized = ReceiptDateOcrNormalizer.normalizeForField(
@@ -460,32 +481,33 @@ object PosEvidenceFusion {
             return normalized.value?.let { it to range }
         }
 
-        val separated = Regex(
-            "${fixedDigits(lengths[0])}\\s*[./-]\\s*${fixedDigits(lengths[1])}\\s*[./-]\\s*${fixedDigits(lengths[2])}",
-            RegexOption.IGNORE_CASE
-        )
-        separated.findAll(text).forEach { match ->
-            accept(match.value, match.range)?.let { return it }
-        }
+        layouts.forEach { lengths ->
+            val separated = Regex(
+                """${fixedDigits(lengths[0])}\s*[./-]\s*${fixedDigits(lengths[1])}\s*[./-]\s*${fixedDigits(lengths[2])}""",
+                RegexOption.IGNORE_CASE
+            )
+            separated.findAll(text).forEach { match ->
+                accept(match.value, match.range)?.let { return it }
+            }
 
-        val total = lengths.sum()
-        val compact = Regex("(?<![0-9OoIl|SsZzBbGg])${fixedDigits(total)}(?![0-9OoIl|SsZzBbGg])")
-        compact.findAll(text).forEach { match ->
-            val digits = normalizeDigits(match.value).filter(Char::isDigit)
-            if (digits.length == total) {
-                var cursor = 0
-                val raw = lengths.map { length ->
-                    digits.substring(cursor, cursor + length).also { cursor += length }
-                }.joinToString("/")
-                accept(raw, match.range)?.let { return it }
+            val total = lengths.sum()
+            val compact = Regex("(?<![0-9OoIl|SsZzBbGg])${fixedDigits(total)}(?![0-9OoIl|SsZzBbGg])")
+            compact.findAll(text).forEach { match ->
+                val digits = normalizeDigits(match.value).filter(Char::isDigit)
+                if (digits.length == total) {
+                    var cursor = 0
+                    val raw = lengths.map { length ->
+                        digits.substring(cursor, cursor + length).also { cursor += length }
+                    }.joinToString("/")
+                    accept(raw, match.range)?.let { return it }
+                }
             }
         }
 
-        // OCR ของบิลความร้อนมักทำ '/' หายหรือมีเลขแทรก เช่น 20/08769
-        // ให้ date engine เป็นผู้ตัดสินตามลำดับ/ระบบปี/จำนวนหลักจาก Admin + วันงาน
-        // ไม่ตัดเลขเองแบบ hard-code แบรนด์
+        // OCR บิลความร้อนอาจทำ '/' หายหรือมีเลขแทรก เช่น 20/08769
+        // ส่งค่าดิบให้ date normalizer ตัดสินด้วยกฎ Admin + วันงาน
         val noisy = Regex(
-            "(?<![0-9OoIl|SsZzBbGg])(?:$DIGIT\\s*){1,4}\\s*[./-]\\s*(?:$DIGIT\\s*){2,8}(?![0-9OoIl|SsZzBbGg])",
+            """(?<![0-9OoIl|SsZzBbGg])(?:$DIGIT\s*){1,4}\s*[./-]\s*(?:$DIGIT\s*){2,8}(?![0-9OoIl|SsZzBbGg])""",
             RegexOption.IGNORE_CASE
         )
         noisy.findAll(text).forEach { match ->
@@ -576,7 +598,7 @@ object PosEvidenceFusion {
                 val length = sampleDigits.takeIf { it > 0 } ?: min.takeIf { min == max }
                 capture("CUSTOMER_VALUE", length?.let(::fixedDigits) ?: rangedDigits(min, max))
             }
-            "BILL_DATE" -> capture("BILL_DATE", datePattern(sample))
+            "BILL_DATE" -> capture("BILL_DATE", datePattern(field))
             "BILL_TIME" -> capture("BILL_TIME", timePattern(sample))
             "STORE_ID" -> {
                 val length = sampleDigits.takeIf { it > 0 } ?: min.takeIf { min == max } ?: min
@@ -632,11 +654,27 @@ object PosEvidenceFusion {
         return "$prefix${fixedDigits(digits)}"
     }
 
-    private fun datePattern(sample: String): String {
-        val groups = Regex("\\d+").findAll(sample).map { it.value.length }.toList()
-        val lengths = if (groups.size == 3) groups else listOf(2, 2, 4)
-        return "${fixedDigits(lengths[0])}\\s*[./-]\\s*${fixedDigits(lengths[1])}\\s*[./-]\\s*${fixedDigits(lengths[2])}"
+    private fun dateLayouts(field: OcrTemplateField): List<List<Int>> {
+        val order = field.dateOrder.trim().uppercase().let {
+            if (it in setOf("DMY", "MDY", "YMD")) it else "DMY"
+        }
+        val yearLengths = when (field.dateYearDigits) {
+            2 -> listOf(2)
+            4 -> listOf(4)
+            else -> listOf(2, 4)
+        }
+        return yearLengths.map { yearLength ->
+            when (order) {
+                "YMD" -> listOf(yearLength, 2, 2)
+                else -> listOf(2, 2, yearLength)
+            }
+        }
     }
+
+    private fun datePattern(field: OcrTemplateField): String = dateLayouts(field)
+        .joinToString("|", "(?:", ")") { lengths ->
+            """${fixedDigits(lengths[0])}\s*[./-]\s*${fixedDigits(lengths[1])}\s*[./-]\s*${fixedDigits(lengths[2])}"""
+        }
 
     private fun timePattern(sample: String): String {
         val groups = Regex("\\d+").findAll(sample).map { it.value.length }.toList()
@@ -678,7 +716,7 @@ object PosEvidenceFusion {
                 '2', 'Z', 'z' -> "[2Zz]"
                 '5', 'S', 's' -> "[5Ss]"
                 '8', 'B', 'b' -> "[8Bb]"
-                'U', 'u', 'V', 'v' -> "[UuVv]"
+                'U', 'u', 'V', 'v' -> "[UuVvOo0]"
                 else -> Regex.escape(character.toString())
             }
         }.joinToString("\\s*")

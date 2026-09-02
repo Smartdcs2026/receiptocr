@@ -195,6 +195,7 @@ function renderFieldEditor(){
   $("dateOrder").value=f.dateOrder||"DMY";
   $("dateCalendar").value=f.dateCalendar||"AUTO";
   $("dateYearDigits").value=String(Number(f.dateYearDigits||0));
+  renderDateFieldPreview(f);
   $("posBox").classList.toggle("hidden",f.type!=="POS_NUMBER");
   $("posPrefixes").value=f.posPrefixes||"";
   $("posDigits").value=f.posDigits||2;
@@ -204,10 +205,28 @@ function renderFieldEditor(){
   $("compositeBox").classList.toggle("hidden",f.type!=="COMPOSITE_CODE");
   if(f.type==="COMPOSITE_CODE"){$("compositePrefix").value=f.prefix||"";$("compositeSeparator").value=f.separator||"";renderSegments(f)}
 }
+function renderDateFieldPreview(f){
+  const host=$("dateFormatPreview");
+  if(!host)return;
+  if(!f||f.type!=="BILL_DATE"){host.innerHTML="";return}
+  const order=String(f.dateOrder||"DMY").toUpperCase();
+  const calendar=String(f.dateCalendar||"AUTO").toUpperCase();
+  const yearDigits=Number(f.dateYearDigits||0);
+  const orderLabel={DMY:"วัน / เดือน / ปี",MDY:"เดือน / วัน / ปี",YMD:"ปี / เดือน / วัน"}[order]||"วัน / เดือน / ปี";
+  const calendarLabel={BUDDHIST:"พ.ศ. เท่านั้น",GREGORIAN:"ค.ศ. เท่านั้น",AUTO:"รับทั้ง พ.ศ. และ ค.ศ."}[calendar]||"รับทั้ง พ.ศ. และ ค.ศ.";
+  const digitLabel=yearDigits===2?"ปี 2 หลัก":yearDigits===4?"ปี 4 หลัก":"ปี 2 และ 4 หลัก";
+  const years=[];
+  if(calendar!=="BUDDHIST"){if(yearDigits!==4)years.push("26");if(yearDigits!==2)years.push("2026")}
+  if(calendar!=="GREGORIAN"){if(yearDigits!==4)years.push("69");if(yearDigits!==2)years.push("2569")}
+  const examples=[...new Set(years)].map(y=>order==="MDY"?`08/31/${y}`:order==="YMD"?`${y}/08/31`:`31/08/${y}`);
+  host.innerHTML=`<strong>รูปแบบที่เลือก:</strong> ${orderLabel} • ${calendarLabel} • ${digitLabel}${examples.length?` • ตัวอย่าง ${examples.join(", ")}`:""}`;
+}
+
 function updateField(){
   const f=currentField();if(!f)return;
   f.example=$("fieldExample").value.trim();f.format=$("fieldFormat").value;f.minLength=+$("fieldMinLength").value||0;f.maxLength=+$("fieldMaxLength").value||1;f.required=$("fieldRequired").checked;f.literal=$("fieldLiteral").value;f.compareTo=$("fieldCompareTo").value;f.posPrefixes=$("posPrefixes").value.trim();f.posDigits=+$("posDigits").value||2;f.separatorValue=$("separatorValue").value;f.dateOrder=$("dateOrder").value;f.dateCalendar=$("dateCalendar").value;f.dateYearDigits=+$("dateYearDigits").value||0;
   if(f.type==="COMPOSITE_CODE"){f.prefix=$("compositePrefix").value;f.separator=$("compositeSeparator").value}
+  renderDateFieldPreview(f);
   renderRows();
 }
 ["fieldExample","fieldFormat","fieldMinLength","fieldMaxLength","fieldRequired","fieldLiteral","fieldCompareTo","dateOrder","dateCalendar","dateYearDigits","posPrefixes","posDigits","separatorValue","compositePrefix","compositeSeparator"].forEach(id=>{$(id).oninput=updateField;$(id).onchange=updateField});

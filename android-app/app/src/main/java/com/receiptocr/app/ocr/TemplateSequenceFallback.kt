@@ -407,19 +407,26 @@ object TemplateSequenceFallback {
         val order = field.dateOrder.trim().uppercase().let {
             if (it in setOf("DMY", "MDY", "YMD")) it else "DMY"
         }
-        val day = rangedDigits(1, 2)
-        val month = rangedDigits(1, 2)
-        val year = when (field.dateYearDigits) {
-            2 -> fixedDigits(2)
-            4 -> fixedDigits(4)
-            else -> "(?:${fixedDigits(2)}|${fixedDigits(4)})"
+        val yearLengths = when (field.dateYearDigits) {
+            2 -> listOf(2)
+            4 -> listOf(4)
+            else -> listOf(2, 4)
         }
-        val parts = when (order) {
-            "MDY" -> listOf(month, day, year)
-            "YMD" -> listOf(year, month, day)
-            else -> listOf(day, month, year)
+        val layouts = yearLengths.map { yearLength ->
+            when (order) {
+                "YMD" -> listOf(yearLength, 2, 2)
+                else -> listOf(2, 2, yearLength)
+            }
         }
-        return parts.joinToString("\\s*[./-]\\s*")
+        return layouts.joinToString("|", "(?:", ")") { lengths ->
+            val first = fixedDigits(lengths[0])
+            val second = fixedDigits(lengths[1])
+            val third = fixedDigits(lengths[2])
+            val exact = """$first\s*[./-]\s*$second\s*[./-]\s*$third"""
+            val mergedTail = """$first\s*[./-]\s*${rangedDigits(lengths[1] + lengths[2], lengths[1] + lengths[2] + 2)}"""
+            val mergedHead = """${rangedDigits(lengths[0] + lengths[1], lengths[0] + lengths[1] + 2)}\s*[./-]\s*$third"""
+            "(?:$exact|$mergedTail|$mergedHead)"
+        }
     }
 
     private fun timePattern(sample: String): String {
@@ -464,7 +471,7 @@ object TemplateSequenceFallback {
                 '2', 'Z', 'z' -> "[2Zz]"
                 '5', 'S', 's' -> "[5Ss]"
                 '8', 'B', 'b' -> "[8Bb]"
-                'U', 'u', 'V', 'v' -> "[UuVv]"
+                'U', 'u', 'V', 'v' -> "[UuVvOo0]"
                 else -> Regex.escape(character.toString())
             }
         }.joinToString("\\s*")

@@ -66,4 +66,23 @@ class PosEvidenceFusionRound90Test {
         assertEquals("17:18", result.getValue(2)["BILL_TIME"])
         assertFalse("POS1 bad evidence must not block or alter POS2", result.containsKey(1))
     }
+    @Test
+    fun resolvesMb02WhenAllPassesHaveLiteralOrDateOcrNoise() {
+        val result = PosEvidenceFusion.fuseTextPasses(
+            rawTexts = listOf(
+                "R2020390300400072 20/08769 17:18",
+                "R202039030O400072 20/08769 17:18",
+                "R202039030V400072 20/0869 17:18"
+            ),
+            template = mb02,
+            allowedPos = setOf(1, 2, 3),
+            referenceDate = LocalDate.of(2026, 9, 2)
+        )
+
+        assertTrue(result.containsKey(2))
+        assertEquals("039030", result.getValue(2)["CUSTOMER_VALUE"])
+        assertEquals("20/08/2026", result.getValue(2)["BILL_DATE"])
+        assertEquals("17:18", result.getValue(2)["BILL_TIME"])
+    }
+
 }
