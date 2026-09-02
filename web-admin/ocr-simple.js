@@ -242,7 +242,8 @@ async function save(){
     await saveBrandReceiptRule();
     await AdminAuth.json("/api/ocr-templates",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({template:t})});
     await SwalSmall.ok("บันทึกรูปแบบแล้ว",t.templateName);
-    $("editorPanel").classList.add("hidden");editing=null;await loadPatterns();
+    // บันทึกแล้วอยู่หน้าเดิมต่อ เพื่อให้ตรวจ/แก้รูปแบบซ้ำได้ทันที
+    await loadPatterns();
   }catch(e){SwalSmall.error("บันทึกไม่สำเร็จ",e.message)}
 }
 async function deletePattern(i=null){
@@ -287,7 +288,7 @@ $("addCjExampleBtn").onclick=()=>{
   showEditor();
   $("testInputText").value=editing.sampleText;
   $("testStoreCode").value="0652";
-  $("testPosCount").value="5";
+  $("testAllowedPos").value="1,2,3,4,5";
 };
 $("addLgoExampleBtn").onclick=()=>{
   editing=makePattern(1);
@@ -309,7 +310,7 @@ $("addLgoExampleBtn").onclick=()=>{
   showEditor();
   $("testInputText").value=editing.sampleText;
   $("testStoreCode").value="1705";
-  $("testPosCount").value="3";
+  $("testAllowedPos").value="1,2,3";
 };
 $("brandId").onchange=()=>{editing=null;$("editorPanel").classList.add("hidden");loadPatterns()};
 ["dateCountingMode","maxBeforeDays","afterOldestMax","afterOldestOne","afterOldestWork"].forEach(id=>{$(id).oninput=()=>{brandReceiptRule=buildReceiptRule();renderDateRule()};$(id).onchange=()=>{brandReceiptRule=buildReceiptRule();renderDateRule()}});
@@ -478,11 +479,12 @@ function validateParsedRecord(fields,configuredRows,recordNumber){
     if(!ok)validationPassed=false;
   }
 
-  const posCount=Number($("testPosCount").value||0);
-  if(editing.validation.mustMatchPos&&posCount&&fields.POS_NUMBER){
+  const allowedPos=String($("testAllowedPos")?.value||"")
+    .split(/[,;\s]+/).map(value=>Number(value)).filter(value=>Number.isInteger(value)&&value>0);
+  if(editing.validation.mustMatchPos&&allowedPos.length&&fields.POS_NUMBER){
     const n=posNumberValue(fields.POS_NUMBER);
-    const ok=n!==null && n>=1 && n<=posCount;
-    checks.push({ok,text:ok?`${label}: หมายเลขเครื่องอยู่ในช่วง (${fields.POS_NUMBER})`:`${label}: หมายเลขเครื่อง ${fields.POS_NUMBER} ไม่อยู่ในช่วง 1-${posCount}`});
+    const ok=n!==null&&allowedPos.includes(n);
+    checks.push({ok,text:ok?`${label}: หมายเลขเครื่องตรงกับรายการ (${fields.POS_NUMBER})`:`${label}: หมายเลขเครื่อง ${fields.POS_NUMBER} ไม่อยู่ในรายการ ${allowedPos.join(", ")}`});
     if(!ok)validationPassed=false;
   }
 

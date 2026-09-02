@@ -785,23 +785,37 @@ object UniversalTemplateInterpreter {
         if (parts.size != 3) return null
         val a = parts[0].toIntOrNull() ?: return null
         val b = parts[1].toIntOrNull() ?: return null
-        var y = parts[2].toIntOrNull() ?: return null
-        if (y in 2400..2999) y -= 543
-        if (y < 100) y += 2000
+        val rawYear = parts[2].toIntOrNull() ?: return null
+
+        val years = when {
+            rawYear in 2400..2999 -> listOf(rawYear - 543)
+            rawYear < 100 -> listOf(
+                2000 + rawYear,
+                1900 + rawYear,
+                2500 + rawYear - 543
+            ).filter { it in 1900..2200 }.distinct()
+            else -> listOf(rawYear)
+        }
 
         val candidates = mutableListOf<LocalDate>()
-        fun addCandidate(day: Int, month: Int) {
-            runCatching { LocalDate.of(y, month, day) }.getOrNull()?.let(candidates::add)
+        fun addCandidate(year: Int, day: Int, month: Int) {
+            runCatching { LocalDate.of(year, month, day) }.getOrNull()?.let(candidates::add)
         }
-        when {
-            a > 12 && b in 1..12 -> addCandidate(a, b)
-            b > 12 && a in 1..12 -> addCandidate(b, a)
-            else -> {
-                addCandidate(a, b)
-                if (a != b) addCandidate(b, a)
+        years.forEach { year ->
+            when {
+                a > 12 && b in 1..12 -> addCandidate(year, a, b)
+                b > 12 && a in 1..12 -> addCandidate(year, b, a)
+                else -> {
+                    addCandidate(year, a, b)
+                    if (a != b) addCandidate(year, b, a)
+                }
             }
         }
+
+        // รูปแบบบิลในระบบอนุญาตวันที่ใกล้วันงานเท่านั้น (สูงสุดยังต่ำกว่า 45 วัน)
+        // จึงไม่ยอมให้ปีที่อ่านเพี้ยนแต่ยังเป็นวันที่จริง เช่น 2061 ผ่านเป็น core field
         return candidates.distinct()
+            .filter { kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(referenceDate, it)) <= 45 }
             .minByOrNull { kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(referenceDate, it)) }
             ?.format(outDate)
     }

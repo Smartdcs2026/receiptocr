@@ -1626,7 +1626,10 @@ private fun StoreWorkScreen(
                 ) { Text(if (hasDateWarning) "นำข้อมูลไปแก้ไข" else "ใช้ข้อมูลนี้") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingOcrResult = null }) { Text("ยกเลิก") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { ocrReadDetailsOpen = true }) { Text("ดูข้อความที่อ่านได้") }
+                    TextButton(onClick = { pendingOcrResult = null }) { Text("ยกเลิก") }
+                }
             }
         )
     }

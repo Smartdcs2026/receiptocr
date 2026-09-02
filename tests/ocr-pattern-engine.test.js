@@ -126,4 +126,25 @@ const dateWarning=engine.findRecords([cjRow],"19/07/2025 22:41 BNO:S26080652N02-
 assert.equal(dateWarning.records.length,1);
 assert.equal(dateWarning.records[0].fields.BILL_DATE,"19/07/2025");
 
+// MB: POS คือหลักสุดท้ายของรหัส 3 หลักหลัง R ไม่ใช่เลข 3 หลักทั้งชุด
+const mbRow=[
+  field("LITERAL",{example:"R",literal:"R",minLength:1,maxLength:1}),
+  field("NUMBER_TEXT",{example:"20",minLength:2,maxLength:2}),
+  field("POS_NUMBER",{example:"1",posDigits:1,minLength:1,maxLength:1}),
+  field("CUSTOMER_VALUE",{example:"051846",minLength:6,maxLength:6}),
+  field("LITERAL",{example:"U",literal:"U",minLength:1,maxLength:1}),
+  field("NUMBER_TEXT",{example:"110030",minLength:6,maxLength:6}),
+  field("BILL_DATE",{example:"20/08/69",minLength:8,maxLength:8}),
+  field("BILL_TIME",{example:"17:51",minLength:5,maxLength:5})
+];
+const mb=engine.findRecords([mbRow],[
+  "R201051846U110030 20/08/69 17:51",
+  "R202039030U400072 20/08/69 17:18"
+].join("\n"));
+assert.equal(mb.records.length,2);
+assert.deepEqual(mb.records.map(record=>record.fields.POS_NUMBER),["1","2"]);
+assert.deepEqual(mb.records.map(record=>record.fields.CUSTOMER_VALUE),["051846","039030"]);
+assert.deepEqual(mb.records.map(record=>record.fields.BILL_DATE),["20/08/69","20/08/69"]);
+assert.deepEqual(mb.records.map(record=>record.fields.BILL_TIME),["17:51","17:18"]);
+
 console.log("OCR pattern engine: Admin-driven CJ/L-go, noisy text, four POS and warning-value tests passed");
