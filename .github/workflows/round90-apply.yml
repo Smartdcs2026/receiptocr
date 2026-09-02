@@ -76,7 +76,7 @@ jobs:
         run: |
           git config user.name 'SKDC_SMART'
           git config user.email 'somchaibutphon@gmail.com'
-          git rm tools/round90_apply.py tools/round90_apply_v2.py .github/workflows/round90-apply.yml
+          git rm -f tools/round90_apply.py tools/round90_apply_v2.py .github/workflows/round90-apply.yml
           git add -A
           git commit -m 'Round90 unify Admin date rules and targeted receipt-line OCR'
           git push origin HEAD:round90-unified-date-admin-receipt-line
