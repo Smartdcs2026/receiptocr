@@ -7,6 +7,7 @@ on:
       - round76-ocr-correction-store-identity
       - round77-workplan-store-normalization
       - round78-ocr-robustness-multi-image-admin-ux
+      - round80-admin-apk-rule-parity
     paths:
       - 'android-app/**'
       - 'web-admin/**'
