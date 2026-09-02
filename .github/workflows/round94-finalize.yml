@@ -8,6 +8,7 @@ on:
       - 'tools/round94_apply.py'
       - 'tools/round94_escape_fix.py'
       - 'tools/round94_posprefix_fix.py'
+      - 'tools/round94_strict_mapping_fix.py'
       - '.github/workflows/round94-finalize.yml'
   workflow_dispatch:
 
@@ -35,6 +36,7 @@ jobs:
           python tools/round94_apply.py
           python tools/round94_escape_fix.py
           python tools/round94_posprefix_fix.py
+          python tools/round94_strict_mapping_fix.py
 
       - name: Set up Node
         uses: actions/setup-node@v4
