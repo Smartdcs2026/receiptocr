@@ -11,8 +11,8 @@ android {
         applicationId = "com.receiptocr.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 83
-        versionName = "0.82.0"
+        versionCode = 84
+        versionName = "0.83.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
