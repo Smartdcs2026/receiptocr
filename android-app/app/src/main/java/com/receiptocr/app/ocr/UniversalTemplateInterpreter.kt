@@ -414,10 +414,16 @@ object UniversalTemplateInterpreter {
         val maxJoin = (template.recognition.lineTolerance + 3).coerceIn(3, 6)
         fun collect(source: List<String>, joinPenalty: Int) {
             val joined = normalizeLine(source.joinToString(" "))
-            row.regex.findAll(joined).forEach { match ->
-                val fields = extractFields(row, match)
-                val score = score(template, fields, work, workDate) - joinPenalty
-                if (score > 0) found += TemplateMatch(template, fields, score, source)
+            val compact = joined.replace(
+                Regex("(?<=[A-Za-z0-9OoIl|])\\s+(?=[A-Za-z0-9OoIl|])"),
+                ""
+            )
+            listOf(joined, compact).distinct().forEach { candidateText ->
+                row.regex.findAll(candidateText).forEach { match ->
+                    val fields = extractFields(row, match)
+                    val score = score(template, fields, work, workDate) - joinPenalty
+                    if (score > 0) found += TemplateMatch(template, fields, score, source)
+                }
             }
         }
         lines.indices.forEach { start ->
@@ -651,7 +657,13 @@ object UniversalTemplateInterpreter {
         return when {
             value.matches(Regex("BNO\\s*:\\s*S", RegexOption.IGNORE_CASE)) -> "[B8]N[O0]\\s*[:;]\\s*[S$5]"
             value.matches(Regex("BNO\\s*:", RegexOption.IGNORE_CASE)) -> "[B8]N[O0]\\s*[:;]"
-            else -> Regex.escape(value).replace("\\ ", "\\s+")
+            else -> value.map { character ->
+                when (character) {
+                    '0' -> "[0Oo]"
+                    '1' -> "[1Iil|]"
+                    else -> Regex.escape(character.toString())
+                }
+            }.joinToString("\\s*")
         }
     }
 
