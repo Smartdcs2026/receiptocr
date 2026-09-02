@@ -1,0 +1,81 @@
+name: Round90 apply and verify
+
+on:
+  push:
+    branches:
+      - round90-unified-date-admin-receipt-line
+    paths:
+      - 'tools/round90_apply.py'
+      - '.github/workflows/round90-apply.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test-clean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: round90-unified-date-admin-receipt-line
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply Round90 patches
+        run: python tools/round90_apply.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Admin OCR pattern tests
+        run: node tests/ocr-pattern-engine.test.js
+
+      - name: Work-plan store tests
+        run: node tests/workplan-store-normalizer.test.js
+
+      - name: Admin syntax
+        run: |
+          node --check web-admin/ocr-pattern-engine.js
+          node --check web-admin/ocr-simple.js
+          node --check web-admin/ocr-admin-ux.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Commit verified Round90 source and remove temporary files
+        run: |
+          git config user.name 'SKDC_SMART'
+          git config user.email 'somchaibutphon@gmail.com'
+          git rm tools/round90_apply.py .github/workflows/round90-apply.yml
+          git add -A
+          git commit -m 'Round90 unify Admin date rules and targeted receipt-line OCR'
+          git push origin HEAD:round90-unified-date-admin-receipt-line
