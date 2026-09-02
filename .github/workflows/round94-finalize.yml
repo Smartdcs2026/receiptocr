@@ -9,6 +9,7 @@ on:
       - 'tools/round94_escape_fix.py'
       - 'tools/round94_posprefix_fix.py'
       - 'tools/round94_strict_mapping_fix.py'
+      - 'tools/round94_field_language_fix.py'
       - '.github/workflows/round94-finalize.yml'
   workflow_dispatch:
 
@@ -37,6 +38,7 @@ jobs:
           python tools/round94_escape_fix.py
           python tools/round94_posprefix_fix.py
           python tools/round94_strict_mapping_fix.py
+          python tools/round94_field_language_fix.py
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -88,6 +90,7 @@ jobs:
       - name: Verify field-work duplicate wording exists
         run: |
           grep -Fq 'พบ POS $pos ซ้ำในภาพ' android-app/app/src/main/java/com/receiptocr/app/ui/UserFacingOcrMessages.kt
+          grep -Fq 'พบบิล POS ${record.posNumber} ซ้ำ' android-app/app/src/main/java/com/receiptocr/app/validation/ReceiptValidationEngine.kt
 
       - name: Verify patch whitespace
         run: git diff --check
