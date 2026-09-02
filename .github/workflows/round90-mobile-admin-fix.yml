@@ -21,7 +21,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply Round90 finalizer to real source
-        run: python3 tools/round90_finalize_production_v2.py
+        run: python3 tools/round90_finalize_production_v3.py
 
       - name: Set up Node
         uses: actions/setup-node@v4
