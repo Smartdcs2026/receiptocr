@@ -10,6 +10,7 @@ on:
       - round90-unified-date-admin-receipt-line
       - round91-confidence-regression-guard
       - round92-date-runtime-user-ui
+      - round93-admin-date-variants-ui-duplicate-fix
     paths:
       - 'android-app/**'
       - 'web-admin/**'
