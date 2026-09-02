@@ -45,8 +45,8 @@ replace_once(
 pipeline = "android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt"
 replace_once(
     pipeline,
-    '''            imagePath = imagePath,\n            templates = templates\n        )''',
-    '''            imagePath = imagePath,\n            templates = templates,\n            posIdentityRule = receiptRule.posIdentityRule\n        )'''
+    '''        val strictTemplateResult = UniversalTemplateInterpreter.apply(\n            mlTexts = mlTexts,\n            imageWidth = imageWidth,\n            imageHeight = imageHeight,\n            records = records,\n            work = work,\n            workDate = workDate,\n            imagePath = imagePath,\n            templates = templates\n        )''',
+    '''        val strictTemplateResult = UniversalTemplateInterpreter.apply(\n            mlTexts = mlTexts,\n            imageWidth = imageWidth,\n            imageHeight = imageHeight,\n            records = records,\n            work = work,\n            workDate = workDate,\n            imagePath = imagePath,\n            templates = templates,\n            posIdentityRule = receiptRule.posIdentityRule\n        )'''
 )
 
 print("Round94 strict interpreter POS mapping fix applied")
