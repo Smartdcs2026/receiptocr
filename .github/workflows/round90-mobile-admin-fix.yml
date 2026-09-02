@@ -1,4 +1,4 @@
-name: Round90 noisy Mb02 diagnostic
+name: Round90 finalize production
 
 on:
   push:
@@ -6,31 +6,80 @@ on:
     paths:
       - ".github/workflows/round90-mobile-admin-fix.yml"
 
+permissions:
+  contents: write
+
 jobs:
-  diagnose:
+  finalize-production:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Round90
+        uses: actions/checkout@v4
         with:
           ref: round90-unified-date-admin-receipt-line
-      - name: Prepare exact production patch plus diagnostic
-        run: python3 tools/round90_fusion_diagnostic.py
-      - uses: actions/setup-java@v4
+          fetch-depth: 0
+
+      - name: Apply Round90 v4 to real production source
+        run: python3 tools/round90_finalize_production_v4.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Work Plan tests
+        run: node tests/workplan-store-normalizer.test.js
+
+      - name: Admin OCR pattern tests
+        run: node tests/ocr-pattern-engine.test.js
+
+      - name: Admin JavaScript syntax
+        run: |
+          node --check web-admin/ocr-admin-ux.js
+          node --check web-admin/ocr-pattern-engine.js
+          node --check web-admin/ocr-simple.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install Android 35 SDK
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - name: Run exact noisy Mb_02 test and show collected evidence
+
+      - name: Android unit tests including noisy Mb_02
         working-directory: android-app
         run: |
           chmod +x gradlew
-          set +e
-          ./gradlew testDebugUnitTest --tests 'com.receiptocr.app.ocr.PosEvidenceFusionRound90Test.resolvesMb02WhenAllPassesHaveLiteralOrDateOcrNoise' --stacktrace
-          rc=$?
-          echo '----- ROUND90 FUSION DEBUG -----'
-          cat /tmp/round90_fusion_debug.txt || true
-          echo '----- END DEBUG -----'
-          exit $rc
+          ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify patch whitespace
+        run: git diff --check
+
+      - name: Commit verified production source
+        run: |
+          git config user.name "SKDC_SMART"
+          git config user.email "somchaibutphon@gmail.com"
+          git add \
+            android-app/app/build.gradle.kts \
+            android-app/app/src/main/java/com/receiptocr/app/ocr/ReceiptDateOcrNormalizer.kt \
+            android-app/app/src/main/java/com/receiptocr/app/ocr/PosEvidenceFusion.kt \
+            android-app/app/src/main/java/com/receiptocr/app/ocr/TemplateSequenceFallback.kt \
+            android-app/app/src/main/java/com/receiptocr/app/ocr/UniversalTemplateInterpreter.kt \
+            android-app/app/src/test/java/com/receiptocr/app/ocr/ReceiptDateOcrNormalizerTest.kt \
+            android-app/app/src/test/java/com/receiptocr/app/ocr/TemplateSequenceDiagnosticsRound85Test.kt \
+            android-app/app/src/test/java/com/receiptocr/app/ocr/PosEvidenceFusionRound90Test.kt \
+            web-admin/index.html \
+            web-admin/ocr-simple.js
+          git commit -m "Round90 finalize Admin schema-driven OCR production"
+          git push origin HEAD:round90-unified-date-admin-receipt-line
