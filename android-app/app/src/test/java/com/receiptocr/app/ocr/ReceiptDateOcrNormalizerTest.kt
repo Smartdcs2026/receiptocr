@@ -215,4 +215,90 @@ class ReceiptDateOcrNormalizerTest {
         )
         assertEquals("20/08/2026", result.value)
     }
+
+    // Round90 completion: ชุดตัวอย่างที่ Admin ต้องรองรับตามรูปแบบบิลแต่ละแบรนด์
+    @Test
+    fun dmyGregorianFourDigit_31_08_2026() {
+        assertAdminDate("31/08/2026", "DMY", "GREGORIAN", 4)
+    }
+
+    @Test
+    fun dmyGregorianTwoDigit_31_08_26() {
+        assertAdminDate("31/08/26", "DMY", "GREGORIAN", 2)
+    }
+
+    @Test
+    fun dmyBuddhistFourDigit_31_08_2569() {
+        assertAdminDate("31/08/2569", "DMY", "BUDDHIST", 4)
+    }
+
+    @Test
+    fun dmyBuddhistTwoDigit_31_08_69() {
+        assertAdminDate("31/08/69", "DMY", "BUDDHIST", 2)
+    }
+
+    @Test
+    fun mdyGregorianFourDigit_08_31_2026() {
+        assertAdminDate("08/31/2026", "MDY", "GREGORIAN", 4)
+    }
+
+    @Test
+    fun mdyGregorianTwoDigit_08_31_26() {
+        assertAdminDate("08/31/26", "MDY", "GREGORIAN", 2)
+    }
+
+    @Test
+    fun mdyBuddhistFourDigit_08_31_2569() {
+        assertAdminDate("08/31/2569", "MDY", "BUDDHIST", 4)
+    }
+
+    @Test
+    fun mdyBuddhistTwoDigit_08_31_69() {
+        assertAdminDate("08/31/69", "MDY", "BUDDHIST", 2)
+    }
+
+    @Test
+    fun adminYearDigitRuleRejectsFourDigitYearWhenTwoDigitsRequired() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "31/08/2026",
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = "DMY",
+            dateCalendar = "GREGORIAN",
+            dateYearDigits = 2
+        )
+        assertNull(result.value)
+        assertTrue(result.warning.orEmpty().contains("2 หลัก"))
+    }
+
+    @Test
+    fun adminOrderRuleRejectsMdyTextWhenDmyIsRequired() {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = "08/31/2026",
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = "DMY",
+            dateCalendar = "GREGORIAN",
+            dateYearDigits = 4
+        )
+        assertNull(result.value)
+    }
+
+    private fun assertAdminDate(
+        raw: String,
+        order: String,
+        calendar: String,
+        yearDigits: Int
+    ) {
+        val result = ReceiptDateOcrNormalizer.normalize(
+            raw = raw,
+            configuredFormat = "DATE",
+            referenceDate = LocalDate.of(2026, 9, 2),
+            dateOrder = order,
+            dateCalendar = calendar,
+            dateYearDigits = yearDigits
+        )
+        assertEquals("31/08/2026", result.value)
+        assertFalse(result.corrected)
+    }
 }
