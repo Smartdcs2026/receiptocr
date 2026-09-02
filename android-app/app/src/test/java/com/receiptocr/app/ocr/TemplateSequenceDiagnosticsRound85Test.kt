@@ -4,6 +4,7 @@ import com.receiptocr.app.config.OcrTemplateField
 import com.receiptocr.app.config.OcrTemplateRecognition
 import com.receiptocr.app.config.OcrTemplateRow
 import com.receiptocr.app.config.UniversalOcrTemplate
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
