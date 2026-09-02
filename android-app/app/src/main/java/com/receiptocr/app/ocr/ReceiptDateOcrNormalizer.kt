@@ -91,6 +91,13 @@ object ReceiptDateOcrNormalizer {
         )
         if (exact.value != null) return exact
 
+        // ถ้าข้อความมีตัวคั่นครบ 3 ส่วนแล้ว จำนวนหลักของปีคือหลักฐานที่ชัดเจน
+        // ห้าม noisy recovery ลบเลขจากปี 4 หลักให้กลายเป็น 2 หลัก (หรือกลับกัน)
+        // เพื่อบังคับใช้กติกาที่ Admin เลือกอย่างเคร่งครัด
+        if (hasExplicitStructuredYearDigitMismatch(cleaned, order, dateYearDigits)) {
+            return exact
+        }
+
         // กรณีเดือนถูก OCR แทรก/สลับเป็นเลขที่ไม่มีจริง เช่น 20/28/2026
         // จะยอมแก้ก็ต่อเมื่อการตัดตัวเลขหนึ่งหลัก + กฎ Admin + วันงาน
         // เหลือวันที่จริงเพียงคำตอบเดียวเท่านั้น
@@ -123,6 +130,18 @@ object ReceiptDateOcrNormalizer {
         val month: String,
         val year: String
     )
+
+    private fun hasExplicitStructuredYearDigitMismatch(
+        cleaned: String,
+        order: DateOrder,
+        configuredYearDigits: Int
+    ): Boolean {
+        if (configuredYearDigits !in setOf(2, 4)) return false
+        val parts = cleaned.split('/').map { it.trim() }
+        if (parts.size != 3) return false
+        val yearDigits = tokensByOrder(parts, order).year.count(Char::isDigit)
+        return yearDigits > 0 && yearDigits != configuredYearDigits
+    }
 
     private fun parseStructured(
         cleaned: String,
@@ -223,22 +242,25 @@ object ReceiptDateOcrNormalizer {
         configuredYearDigits: Int,
         dateExample: String?
     ): List<List<Int>> {
+        // เมื่อ Admin ระบุจำนวนหลักของปีแล้ว ให้ค่านี้มีสิทธิ์เหนือ example เสมอ
+        if (configuredYearDigits in setOf(2, 4)) {
+            return listOf(layoutFor(order, configuredYearDigits))
+        }
+
         val exampleGroups = Regex("\\d+").findAll(dateExample.orEmpty())
             .map { it.value.length }
             .toList()
         if (exampleGroups.size == 3) return listOf(exampleGroups)
 
-        val yearLengths = when (configuredYearDigits) {
-            2 -> listOf(2)
-            4 -> listOf(4)
-            else -> listOf(2, 4)
-        }
-        return yearLengths.map { yearLength ->
-            when (order) {
-                DateOrder.YMD -> listOf(yearLength, 2, 2)
-                DateOrder.DMY, DateOrder.MDY -> listOf(2, 2, yearLength)
-            }
-        }
+        return listOf(
+            layoutFor(order, 2),
+            layoutFor(order, 4)
+        )
+    }
+
+    private fun layoutFor(order: DateOrder, yearLength: Int): List<Int> = when (order) {
+        DateOrder.YMD -> listOf(yearLength, 2, 2)
+        DateOrder.DMY, DateOrder.MDY -> listOf(2, 2, yearLength)
     }
 
     private fun splitByLengths(value: String, lengths: List<Int>): List<String> {
