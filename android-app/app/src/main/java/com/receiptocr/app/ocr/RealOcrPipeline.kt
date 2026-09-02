@@ -56,7 +56,7 @@ object RealOcrPipeline {
             )
         }
 
-        val templateResult = UniversalTemplateInterpreter.apply(
+        val strictTemplateResult = UniversalTemplateInterpreter.apply(
             mlTexts = mlTexts,
             imageWidth = imageWidth,
             imageHeight = imageHeight,
@@ -66,6 +66,19 @@ object RealOcrPipeline {
             imagePath = imagePath,
             templates = templates
         )
+
+        // ถ้าการเทียบทั้งแถวไม่ผ่าน ให้ลองแยกตามลำดับช่องและจำนวนตัวที่ Admin กำหนด
+        // ใช้เฉพาะเมื่อวิธีปกติไม่พบ POS เพื่อไม่เปลี่ยนผลของรูปแบบที่ทำงานอยู่แล้ว
+        val sequenceFallback = if (strictTemplateResult.detectedPos.isEmpty() && templates.isNotEmpty()) {
+            TemplateSequenceFallback.apply(
+                rawTexts = mlTexts.map { it.text },
+                records = records,
+                work = work,
+                imagePath = imagePath,
+                templates = templates
+            )
+        } else null
+        val templateResult = sequenceFallback?.takeIf { it.detectedPos.isNotEmpty() } ?: strictTemplateResult
 
         val shouldRunProfile = profile.regions.isNotEmpty() &&
             (!profile.profileId.startsWith("demo-", ignoreCase = true) || templates.isEmpty())
