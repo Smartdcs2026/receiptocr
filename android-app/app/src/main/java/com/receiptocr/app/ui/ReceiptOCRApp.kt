@@ -357,9 +357,9 @@ private fun WorkPlanSourceBar(
     syncing: Boolean
 ) {
     val label = when (source) {
-        WorkPlanSource.CLOUD -> "แผนงาน: Cloudflare"
-        WorkPlanSource.CACHE -> "แผนงาน: Offline cache"
-        WorkPlanSource.FALLBACK -> "แผนงาน: Demo fallback"
+        WorkPlanSource.CLOUD -> "แผนงาน: ข้อมูลล่าสุด"
+        WorkPlanSource.CACHE -> "แผนงาน: ข้อมูลที่บันทึกไว้"
+        WorkPlanSource.FALLBACK -> "แผนงาน: ข้อมูลสำรอง"
     }
     val color = when (source) {
         WorkPlanSource.CLOUD -> SuccessGreen

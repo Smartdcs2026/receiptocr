@@ -28,7 +28,18 @@ object OcrAccumulationPolicy {
         val improved = linkedSetOf<Int>()
         val conflicts = linkedMapOf<Int, String>()
 
-        val merged = originals.map { original ->
+        val workingOriginals = originals.toMutableList()
+        currentDetectedPos.sorted().forEach { detectedPos ->
+            if (workingOriginals.none { it.posNumber == detectedPos }) {
+                val freeIndex = workingOriginals.indexOfFirst { record ->
+                    record.customerNo.isBlank() && record.billDate.isBlank() && record.billTime.isBlank() &&
+                        !record.noReceipt && record.ocrSourceImagePath.isBlank()
+                }
+                if (freeIndex >= 0) workingOriginals[freeIndex] = workingOriginals[freeIndex].copy(posNumber = detectedPos)
+            }
+        }
+
+        val merged = workingOriginals.map { original ->
             if (original.posNumber !in currentDetectedPos) return@map original
 
             val template = templateRecords.firstOrNull { it.posNumber == original.posNumber } ?: original

@@ -88,7 +88,7 @@ object UniversalTemplateInterpreter {
         if (allMatches.isEmpty()) {
             return UniversalTemplateResult(
                 records = records,
-                message = "อ่านภาพแล้ว แต่ยังแยกข้อมูลบิลไม่ได้ครบ กรุณาถ่ายภาพให้ตัวอักษรชัดขึ้น",
+                message = "อ่านข้อความได้ แต่ยังแยกข้อมูลตามรูปแบบบิลนี้ไม่ได้",
                 usedUniversalTemplate = true
             )
         }
@@ -104,31 +104,39 @@ object UniversalTemplateInterpreter {
         val unmappedPos = linkedSetOf<String>()
         var acceptedStore: String? = null
 
-        val plannedPos = records.map { it.posNumber }.toSet()
-        templateMatches.forEach { match ->
-            val raw = match.fields["POS_NUMBER"] ?: return@forEach
-            val pos = parsePosNumber(raw) ?: return@forEach
-            if (pos !in plannedPos) unmappedPos += raw
-        }
         val bestMatches = templateMatches
             .mapNotNull { match ->
                 val pos = match.fields["POS_NUMBER"]?.let(::parsePosNumber) ?: return@mapNotNull null
-                if (pos !in plannedPos) null else pos to match
+                pos to match
             }
             .groupBy({ it.first }, { it.second })
             .mapNotNull { (pos, candidates) -> fuseMatches(candidates)?.let { pos to it } }
             .sortedBy { it.first }
 
+        val assignedPositions = linkedSetOf<Int>()
         bestMatches.forEach { (pos, match) ->
-            val index = updated.indexOfFirst { it.posNumber == pos }
-            if (index < 0) return@forEach
+            var index = updated.indexOfFirst { it.posNumber == pos }
+            if (index < 0) {
+                index = updated.indexOfFirst { record ->
+                    record.posNumber !in assignedPositions &&
+                        record.customerNo.isBlank() && record.billDate.isBlank() && record.billTime.isBlank() &&
+                        !record.noReceipt && record.ocrSourceImagePath.isBlank()
+                }
+                if (index >= 0) {
+                    updated[index] = updated[index].copy(posNumber = pos)
+                } else {
+                    unmappedPos += pos.toString()
+                    return@forEach
+                }
+            }
+            assignedPositions += pos
             val posWarnings = warningsByPos.getOrPut(pos) { mutableListOf() }
             posWarnings += match.recognitionWarnings
 
             val store = match.fields["STORE_ID"]
             if (match.template.validation.store.mustMatchWorkPlan && !store.isNullOrBlank()) {
-                if (!sameStore(store, work.storeCode)) {
-                    posWarnings += "รหัสร้านที่อ่านได้ ($store) ไม่ตรงกับแผนงาน (${work.storeCode})"
+                if (!sameStore(store, work.expectedReceiptStoreId)) {
+                    posWarnings += "รหัสร้านที่อ่านได้ ($store) ไม่ตรงกับแผนงาน (${work.expectedReceiptStoreId})"
                 }
             }
             if (match.template.validation.store.sameStoreAcrossAllMatches && !store.isNullOrBlank()) {
@@ -662,9 +670,9 @@ object UniversalTemplateInterpreter {
         if (fields["YEAR_VALUE"] != null) score += 10
         if (fields["MONTH_VALUE"] != null) score += 10
         val store = fields["STORE_ID"]
-        if (!store.isNullOrBlank()) score += if (sameStore(store, work.storeCode)) 50 else -40
+        if (!store.isNullOrBlank()) score += if (sameStore(store, work.expectedReceiptStoreId)) 50 else -40
         val pos = fields["POS_NUMBER"]?.let(::parsePosNumber)
-        if (pos != null) score += if (pos in 1..work.posCount) 20 else -50
+        if (pos != null) score += 20
 
         val date = fields["BILL_DATE"]?.let { normalizeDate(it, workDate) }
         if (date != null) {

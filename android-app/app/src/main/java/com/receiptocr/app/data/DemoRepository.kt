@@ -73,7 +73,10 @@ object DemoRepository {
 
     fun loadPosRecords(context: Context, work: WorkItem, date: LocalDate): List<PosRecord> {
         val prefs = context.getSharedPreferences("pos_records", Context.MODE_PRIVATE)
-        return (1..work.posCount).map { n ->
+        val savedPosNumbers = prefs.getString("${work.id}_${date}.posNumbers", "")
+            .orEmpty().split(',').mapNotNull { it.toIntOrNull() }
+        val posNumbers = if (savedPosNumbers.size == work.posCount) savedPosNumbers else (1..work.posCount).toList()
+        return posNumbers.map { n ->
             val k = "${work.id}_${date}_$n"
             val customer = prefs.getString("$k.customer", "") ?: ""
             val note = prefs.getString("$k.note", "") ?: ""
@@ -104,6 +107,10 @@ object DemoRepository {
 
     fun savePosRecords(context: Context, work: WorkItem, date: LocalDate, records: List<PosRecord>) {
         val editor = context.getSharedPreferences("pos_records", Context.MODE_PRIVATE).edit()
+        editor.putString(
+            "${work.id}_${date}.posNumbers",
+            records.take(work.posCount).joinToString(",") { it.posNumber.toString() }
+        )
         records.forEach { r ->
             val k = "${work.id}_${date}_${r.posNumber}"
             editor.putString("$k.customer", r.customerNo)
