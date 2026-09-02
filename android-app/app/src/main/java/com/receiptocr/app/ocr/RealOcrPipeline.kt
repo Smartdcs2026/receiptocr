@@ -2,11 +2,14 @@ package com.receiptocr.app.ocr
 
 import com.receiptocr.app.config.AdminOcrProfile
 import com.receiptocr.app.config.BrandReceiptRule
+import com.receiptocr.app.config.OcrFieldType
 import com.receiptocr.app.config.TemplateSource
 import com.receiptocr.app.config.UniversalOcrTemplate
+import com.receiptocr.app.config.OcrTemplateField
 import com.receiptocr.app.model.PosRecord
 import com.receiptocr.app.model.WorkItem
 import com.receiptocr.app.validation.ReceiptValidationEngine
+import com.receiptocr.app.validation.StoreReceiptIdentity
 import java.time.LocalDate
 
 enum class OcrConfidence(val label: String) {
@@ -22,12 +25,13 @@ data class RealOcrPipelineResult(
     val message: String,
     val templateName: String? = null,
     val canConfirm: Boolean = false,
-    val warnings: List<String> = emptyList()
+    val warnings: List<String> = emptyList(),
+    val diagnostics: List<String> = emptyList()
 )
 
 /**
- * จุดเข้าหลักของ OCR ภาพจริง: ML Kit -> ตำแหน่งข้อความ -> แม่แบบ -> ตรวจร้าน/POS/วันที่
- * ผลลัพธ์เป็นเพียงข้อเสนอ จนกว่าผู้ใช้จะกดยืนยันในหน้าตรวจทาน
+ * จุดเข้าหลักของ OCR ภาพจริง: ML Kit -> ตำแหน่งข้อความ -> รูปแบบ Admin -> ตรวจร้าน/POS/วันที่
+ * Round84: เมื่อรูปแบบ Admin จับ POS ได้แล้ว จะถือผลนั้นเป็นหลักและไม่ให้ profile เก่ามาผสมค่าคนละตำแหน่ง
  */
 object RealOcrPipeline {
     fun analyze(
@@ -53,7 +57,7 @@ object RealOcrPipeline {
             )
         }
 
-        val templateResult = UniversalTemplateInterpreter.apply(
+        val strictTemplateResult = UniversalTemplateInterpreter.apply(
             mlTexts = mlTexts,
             imageWidth = imageWidth,
             imageHeight = imageHeight,
@@ -64,9 +68,41 @@ object RealOcrPipeline {
             templates = templates
         )
 
-        // กฎตำแหน่งและกฎรูปแบบจาก Admin เป็นคนละแหล่งข้อมูลที่เสริมกัน
-        // เดิมเมื่อมี template ระบบจะไม่เรียก profile ทำให้ตำแหน่งที่ Admin กำหนดไม่ถูกใช้
-        val shouldRunProfile = profile.regions.isNotEmpty() &&
+        // Round88: อย่าหยุดเพียงเพราะตัวอ่านหนึ่งวิธีพบ POS บางเครื่อง
+        // ทุกวิธีมีหน้าที่ช่วยเติมเฉพาะ POS ที่ยังขาด/ยังไม่ครบ แล้วค่อยรวมผลตาม POS
+        val expectedPosSet = records.map { it.posNumber }.toSet()
+        val evidenceFusion = if (templates.isNotEmpty() && needsTemplateHelp(strictTemplateResult, expectedPosSet)) {
+            PosEvidenceFusion.apply(
+                rawTexts = mlTexts.map { it.text },
+                records = records,
+                work = work,
+                workDate = workDate,
+                imagePath = imagePath,
+                templates = templates
+            )
+        } else null
+        val afterFusion = mergeUniversalTemplateResults(records, strictTemplateResult, evidenceFusion)
+
+        val sequenceFallback = if (templates.isNotEmpty() && needsTemplateHelp(afterFusion, expectedPosSet)) {
+            TemplateSequenceFallback.apply(
+                rawTexts = mlTexts.map { it.text },
+                records = records,
+                work = work,
+                imagePath = imagePath,
+                templates = templates
+            )
+        } else null
+        val templateResult = mergeUniversalTemplateResults(records, afterFusion, sequenceFallback)
+        val duplicatePosWarnings = DuplicatePosEvidenceDetector.detect(
+            rawTexts = mlTexts.map { it.text },
+            templates = templates,
+            allowedPos = expectedPosSet
+        )
+
+        // เมื่อรูปแบบจาก Admin จับข้อมูลได้แล้ว ห้าม profile แบบตำแหน่งเก่ามาผสมลูกค้า/วันที่/เวลา
+        // เพราะสามารถทำให้ข้อมูลจากคนละส่วนของบิลเลื่อนไปอยู่ POS เดียวกันได้
+        val shouldRunProfile = templateResult.detectedPos.isEmpty() &&
+            profile.regions.isNotEmpty() &&
             (!profile.profileId.startsWith("demo-", ignoreCase = true) || templates.isEmpty())
         val profileResult = if (shouldRunProfile) {
             val passResults = mlTextPasses.filter { it.text.text.isNotBlank() }.map { pass ->
@@ -86,6 +122,7 @@ object RealOcrPipeline {
             }
             combineProfilePasses(records, passResults)
         } else null
+
         val profileFilledPos = profileResult?.records.orEmpty().mapNotNull { candidate ->
             val original = records.firstOrNull { it.posNumber == candidate.posNumber } ?: return@mapNotNull null
             candidate.posNumber.takeIf {
@@ -94,47 +131,219 @@ object RealOcrPipeline {
                     candidate.billTime != original.billTime
             }
         }
-        val detectedPos = (templateResult.detectedPos + profileFilledPos).distinct().sorted()
-        val combinedRecords = mergeRecords(records, templateResult.records, profileResult?.records.orEmpty())
+        val currentDetectedPos = (templateResult.detectedPos + profileFilledPos).distinct().sorted()
+        val currentDetectedSet = currentDetectedPos.toSet()
+        val currentStoreIdsByPos = buildStoreIdsByPos(templateResult, profileResult)
+        val defaultDateField = configuredDateField(templates)
 
-        if (detectedPos.isNotEmpty()) {
-            val detectedRecords = combinedRecords.filter { it.posNumber in detectedPos }
-            val completeCore = detectedRecords.isNotEmpty() && detectedRecords.all {
-                it.billDate.isNotBlank() && it.billTime.isNotBlank() && it.customerNo.isNotBlank()
+        val priorDateWarningsByPos = ReceiptValidationEngine.groupDateIssues(
+            records = records,
+            workDate = workDate,
+            rule = receiptRule.groupDateRule
+        ).mapNotNull { issue ->
+            validationPos(issue.code)?.let { it to issue.message }
+        }.groupBy({ it.first }, { it.second })
+
+        val recordsForAccumulation = records.map { record ->
+            val dateWarnings = priorDateWarningsByPos[record.posNumber].orEmpty()
+            if (!record.source.startsWith("OCR", ignoreCase = true) || dateWarnings.isEmpty()) return@map record
+            val warnings = buildList {
+                if (record.ocrWarnings.isNotBlank()) add(record.ocrWarnings)
+                addAll(dateWarnings)
+            }.distinct().joinToString(" • ")
+            record.copy(ocrWarnings = warnings)
+        }
+
+        val accumulation = OcrAccumulationPolicy.merge(
+            originals = recordsForAccumulation,
+            templateRecords = templateResult.records,
+            profileRecords = profileResult?.records.orEmpty(),
+            currentDetectedPos = currentDetectedSet
+        )
+
+        val combinedRecords = accumulation.records.map { record ->
+            val original = recordsForAccumulation.firstOrNull { it.posNumber == record.posNumber } ?: record
+            val currentImagePos = record.posNumber in currentDetectedSet
+            val rawCandidateDate = record.billDate.trim()
+            val rawCandidateTime = record.billTime.trim()
+            val recordDateField = dateFieldForRecord(record, templates) ?: defaultDateField
+            val dateResult = if (currentImagePos && rawCandidateDate.isNotBlank()) {
+                ReceiptDateOcrNormalizer.normalizeForField(
+                    raw = rawCandidateDate,
+                    field = recordDateField,
+                    referenceDate = workDate,
+                    allowCanonicalInput = record.source.equals("OCR-EVIDENCE", ignoreCase = true)
+                )
+            } else null
+            val timeResult = if (currentImagePos && rawCandidateTime.isNotBlank()) {
+                ReceiptTimeOcrNormalizer.normalize(rawCandidateTime)
+            } else null
+            val storeId = mergeStoreId(
+                original = original,
+                candidateStoreId = currentStoreIdsByPos[record.posNumber].orEmpty(),
+                isCurrentPos = currentImagePos
+            )
+            val safeExistingDate = if (!original.source.startsWith("OCR", ignoreCase = true)) original.billDate else ""
+            val safeExistingTime = if (!original.source.startsWith("OCR", ignoreCase = true)) original.billTime else ""
+            val acceptedDate = when {
+                dateResult?.value != null -> dateResult.value
+                currentImagePos -> safeExistingDate
+                else -> record.billDate
             }
-            val storeValues = templateResult.extracted["STORE_ID"].orEmpty() +
-                profileResult?.rawFieldSummary?.get(com.receiptocr.app.config.OcrFieldType.STORE_ID).orEmpty()
-            val storeMatched = storeValues.any { sameStoreCode(it, work.storeCode) }
-            val missingPos = records.map { it.posNumber }.filterNot { it in detectedPos }
+            val acceptedTime = when {
+                timeResult?.value != null -> timeResult.value
+                currentImagePos -> safeExistingTime
+                else -> record.billTime
+            }
+            val dateWarning = when {
+                !currentImagePos || rawCandidateDate.isBlank() -> ""
+                dateResult?.value == null ->
+                    (dateResult?.warning ?: "วันที่ที่อ่านจากภาพ ($rawCandidateDate) ไม่ตรงเงื่อนไขที่ Admin กำหนด") + " • ค่านี้จะไม่ถูกใช้เป็นวันที่ส่งงาน"
+                dateResult.corrected ->
+                    "วันที่ที่อ่านจากภาพ ${dateResult.original} ถูกปรับเป็น ${dateResult.value} ตามเงื่อนไข Admin • กรุณาตรวจเทียบกับภาพ"
+                else -> ""
+            }
+            val timeWarning = when {
+                !currentImagePos || rawCandidateTime.isBlank() -> ""
+                timeResult?.value == null ->
+                    (timeResult?.warning ?: "เวลาที่อ่านจากภาพไม่ถูกต้อง") + " • อ่านได้ $rawCandidateTime • ค่านี้จะไม่ถูกใช้เป็นเวลาส่งงาน"
+                else -> ""
+            }
+            val inheritedWarning = sanitizeLegacyOcrWarnings(record.ocrWarnings)
+            record.copy(
+                billDate = acceptedDate,
+                billTime = acceptedTime,
+                ocrRawBillDate = if (currentImagePos && rawCandidateDate.isNotBlank()) rawCandidateDate else record.ocrRawBillDate,
+                ocrRawBillTime = if (currentImagePos && rawCandidateTime.isNotBlank()) rawCandidateTime else record.ocrRawBillTime,
+                ocrStoreId = storeId,
+                ocrWarnings = listOf(inheritedWarning, dateWarning, timeWarning)
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .joinToString(" • ")
+            )
+        }
+
+        if (currentDetectedPos.isNotEmpty()) {
+            val resolvedPos = combinedRecords.filter(OcrAccumulationPolicy::isCoreComplete).map { it.posNumber }.toSet()
+            val missingPos = records.map { it.posNumber }.filterNot { it in resolvedPos }
+            val allStoreIdsByPos = combinedRecords
+                .filter { it.posNumber in resolvedPos && it.ocrStoreId.isNotBlank() }
+                .associate { it.posNumber to it.ocrStoreId }
+
+            val usedTemplateNames = templateResult.templateName.orEmpty()
+                .split(" / ").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+            val matchedTemplates = templates.filter { it.active && it.templateName in usedTemplateNames }
+            val activeTemplates = templates.filter { it.active }
+            val profileHasStore = profileResult != null && profile.regions.any { it.fieldType == OcrFieldType.STORE_ID }
+
+            // ถ้ารู้แน่ชัดว่าจับด้วยรูปแบบใด ให้ใช้กฎของรูปแบบนั้นเท่านั้น
+            // ถ้ามีรูปแบบที่ระบุว่าไม่มี STORE_ID จะไม่เอา STORE_ID จาก profile หรือรูปแบบอื่นมาบังคับ
+            val expectsStoreId = when {
+                matchedTemplates.isNotEmpty() -> matchedTemplates.all(::templateHasStoreId)
+                else -> activeTemplates.any(::templateHasStoreId) || profileHasStore
+            }
+            val requiresStoreMatch = when {
+                matchedTemplates.isNotEmpty() -> matchedTemplates.all {
+                    templateHasStoreId(it) && it.validation.store.mustMatchWorkPlan
+                }
+                else -> activeTemplates.any {
+                    templateHasStoreId(it) && it.validation.store.mustMatchWorkPlan
+                } || profileHasStore
+            }
+            val explicitNoStoreTemplate = matchedTemplates.isNotEmpty() && matchedTemplates.none(::templateHasStoreId)
+
+            val storeAssessment = if (expectsStoreId) {
+                StoreReceiptIdentity.evaluate(
+                    expectedStoreId = work.expectedReceiptStoreId,
+                    storeIdsByPos = allStoreIdsByPos
+                )
+            } else null
+            val missingStorePos = if (expectsStoreId) {
+                resolvedPos.filter { allStoreIdsByPos[it].isNullOrBlank() }.sorted()
+            } else emptyList()
+
+            val recordsWithWarnings = combinedRecords.map { record ->
+                val warningParts = buildList {
+                    if (record.ocrWarnings.isNotBlank()) add(record.ocrWarnings)
+                    if (record.posNumber in currentDetectedSet) {
+                        templateResult.validationWarnings[record.posNumber]
+                            .orEmpty()
+                            .filterNot(::isLegacyInterpreterWarning)
+                            .forEach(::add)
+                        accumulation.conflictsByPos[record.posNumber]?.let(::add)
+                    }
+                    duplicatePosWarnings[record.posNumber]?.let(::add)
+                    storeAssessment?.warningsByPos?.get(record.posNumber)?.let(::add)
+                    if (record.posNumber in missingStorePos && requiresStoreMatch) {
+                        add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามตำแหน่งที่กำหนด")
+                    }
+                }.distinct()
+                record.copy(
+                    ocrWarnings = warningParts.joinToString(" • "),
+                    ocrStoreIdExpected = if (record.posNumber in currentDetectedSet) expectsStoreId else record.ocrStoreIdExpected
+                )
+            }
+
+            val dateIssues = ReceiptValidationEngine.groupDateIssues(
+                records = recordsWithWarnings.filter { it.posNumber in resolvedPos },
+                workDate = workDate,
+                rule = receiptRule.groupDateRule
+            )
+            val allCoreComplete = missingPos.isEmpty()
+            val currentComplete = recordsWithWarnings
+                .filter { it.posNumber in currentDetectedSet }
+                .all(OcrAccumulationPolicy::isCoreComplete)
+
             val warnings = buildList {
                 addAll(imageQualityWarnings)
                 templateResult.validationWarnings.toSortedMap().forEach { (pos, items) ->
-                    items.forEach { add("POS $pos: $it") }
+                    items.filterNot(::isLegacyInterpreterWarning).forEach { add("POS $pos: $it") }
                 }
-                if (!storeMatched) add("ไม่พบรหัสร้านในภาพ กรุณาตรวจชื่อร้านกับภาพอีกครั้ง")
-                if (!completeCore) add("ข้อมูลสำคัญบางช่องอ่านได้ไม่ครบ กรุณาตรวจแก้ก่อนยืนยัน")
-                if (missingPos.isNotEmpty()) add("ยังไม่พบข้อมูลเครื่อง ${missingPos.joinToString(", ")} ในภาพ")
-                addAll(
-                    ReceiptValidationEngine.groupDateIssues(
-                        records = combinedRecords.filter { it.posNumber in detectedPos },
-                        workDate = workDate,
-                        rule = receiptRule.groupDateRule
-                    ).map { it.message }
-                )
+                accumulation.conflictsByPos.toSortedMap().forEach { (pos, warning) -> add("POS $pos: $warning") }
+                duplicatePosWarnings.toSortedMap().forEach { (_, warning) -> add(warning) }
+                storeAssessment?.warningsByPos?.toSortedMap()?.forEach { (pos, warning) -> add("POS $pos: $warning") }
+                storeAssessment?.summaryWarnings?.let(::addAll)
+                if (expectsStoreId && allStoreIdsByPos.isEmpty() && requiresStoreMatch) {
+                    add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามตำแหน่งที่กำหนด")
+                } else if (missingStorePos.isNotEmpty() && requiresStoreMatch) {
+                    add("ยังยืนยันรหัสร้านไม่ได้ใน POS ${missingStorePos.joinToString(", ")}")
+                }
+                // ถ้า Admin กำหนดรูปแบบนี้ว่าไม่มีรหัสร้าน ถือเป็นกติกาที่ตั้งใจไว้ ไม่เตือนว่าอ่านรหัสร้านไม่ได้
+                if (!expectsStoreId && !explicitNoStoreTemplate && work.expectedReceiptStoreId.isNotBlank()) {
+                    add("รูปแบบบิลนี้ไม่มีรหัสร้านสำหรับตรวจอัตโนมัติ • กรุณาตรวจข้อมูลร้านจากหลักฐานประกอบ")
+                }
+                if (!currentComplete) add("ข้อมูลสำคัญบางช่องในภาพนี้อ่านได้ไม่ครบ กรุณาตรวจแก้ก่อนยืนยัน")
+                if (missingPos.isNotEmpty()) add("ยังขาดข้อมูลเครื่อง ${missingPos.joinToString(", ")} • สามารถเพิ่มภาพบิลช่องอื่นแล้วอ่านต่อได้")
+                addAll(dateIssues.map { it.message })
+            }.distinct()
+
+            val confidence = if (allCoreComplete && warnings.isEmpty()) OcrConfidence.HIGH else OcrConfidence.MEDIUM
+            val beforeResolved = records.count(OcrAccumulationPolicy::isCoreComplete)
+            val afterResolved = resolvedPos.size
+            val newlyCompleted = currentDetectedPos.filter { pos ->
+                records.firstOrNull { it.posNumber == pos }?.let(OcrAccumulationPolicy::isCoreComplete) != true &&
+                    recordsWithWarnings.firstOrNull { it.posNumber == pos }?.let(OcrAccumulationPolicy::isCoreComplete) == true
             }
-            val confidence = if (completeCore && storeMatched && warnings.isEmpty()) OcrConfidence.HIGH else OcrConfidence.MEDIUM
+            val repaired = accumulation.improvedPos.filter { it !in newlyCompleted }.sorted()
             val successMessage = when {
-                missingPos.isNotEmpty() ->
-                    "อ่านข้อมูลได้ ${detectedPos.size} จาก ${records.size} เครื่อง • กรุณาตรวจเครื่อง ${missingPos.joinToString(", ")}"
-                templateResult.detectedPos.isNotEmpty() -> templateResult.message
-                else -> "อ่านข้อมูลจากภาพแล้ว • พบ ${detectedPos.size} เครื่อง • กรุณาตรวจทุกช่องก่อนส่ง"
+                missingPos.isEmpty() && newlyCompleted.isNotEmpty() ->
+                    "รวมข้อมูลจากภาพแล้ว • ครบ ${resolvedPos.size}/${records.size} POS • เพิ่ม ${newlyCompleted.joinToString(", ") { "POS $it" }}"
+                missingPos.isEmpty() ->
+                    "ตรวจภาพเพิ่มแล้ว • ข้อมูลครบ ${resolvedPos.size}/${records.size} POS"
+                afterResolved > beforeResolved ->
+                    "อ่านเพิ่มแล้ว • มีข้อมูล $afterResolved/${records.size} POS • ยังขาด ${missingPos.joinToString(", ") { "POS $it" }}"
+                repaired.isNotEmpty() ->
+                    "อ่านภาพเพิ่มแล้ว • ปรับข้อมูล ${repaired.joinToString(", ") { "POS $it" }} • กรุณาตรวจทาน"
+                else -> templateResult.message
             }
+
             return RealOcrPipelineResult(
                 proposedRecords = stampOcrMetadata(
-                    combinedRecords, detectedPos,
+                    recordsWithWarnings, currentDetectedPos,
                     confidence, templateResult.templateName.orEmpty()
                 ),
-                detectedPos = detectedPos,
+                detectedPos = currentDetectedPos,
                 confidence = confidence,
                 message = successMessage,
                 templateName = templateResult.templateName,
@@ -143,8 +352,6 @@ object RealOcrPipeline {
             )
         }
 
-        // ถ้า Admin มีรูปแบบบิลแล้ว ต้องไม่ข้ามไปใช้กฎสำรองเมื่อจับคู่ไม่ผ่าน
-        // เพื่อให้ทุกแบรนด์และทุกเงื่อนไขยึดข้อมูลที่ผู้ดูแลตั้งไว้จริง
         if (templates.isNotEmpty() || templateSource in setOf(TemplateSource.CLOUD, TemplateSource.CACHE)) {
             return RealOcrPipelineResult(
                 proposedRecords = records,
@@ -155,7 +362,11 @@ object RealOcrPipeline {
                 warnings = listOf(
                     *imageQualityWarnings.toTypedArray(),
                     if (templates.isEmpty()) "ยังไม่มีเงื่อนไขสำหรับแบรนด์นี้ กรุณาแจ้งผู้ดูแล"
-                    else "ยังแยกข้อมูลบิลไม่ได้ครบ กรุณาถ่ายภาพใหม่ให้ชัดเจน"
+                    else "ยังแยกข้อมูลบิลไม่ได้ครบ • ลองเพิ่มภาพบิลอีกช่องหรือถ่ายใหม่ให้ชัดขึ้น"
+                ),
+                diagnostics = TemplateSequenceFallback.diagnose(
+                    rawTexts = mlTexts.map { it.text },
+                    templates = templates
                 )
             )
         }
@@ -167,6 +378,119 @@ object RealOcrPipeline {
             message = "ยังอ่านข้อมูลจากภาพไม่ได้ครบ กรุณาถ่ายภาพใหม่ให้ชัดเจน",
             canConfirm = false,
             warnings = imageQualityWarnings + "ระบบจะไม่เดาหมายเลข POS หรือยอดลูกค้าเมื่อข้อมูลไม่ชัด"
+        )
+    }
+
+    internal fun needsTemplateHelp(
+        result: UniversalTemplateResult,
+        expectedPos: Set<Int>
+    ): Boolean {
+        val detected = result.detectedPos.toSet()
+        return expectedPos.any { pos ->
+            pos !in detected || result.records
+                .firstOrNull { it.posNumber == pos }
+                ?.let(OcrAccumulationPolicy::isCoreComplete) != true
+        }
+    }
+
+    internal fun mergeUniversalTemplateResults(
+        originals: List<PosRecord>,
+        primary: UniversalTemplateResult,
+        supplement: UniversalTemplateResult?
+    ): UniversalTemplateResult {
+        if (supplement == null || supplement.detectedPos.isEmpty()) return primary
+        if (primary.detectedPos.isEmpty()) return supplement
+
+        val primaryPos = primary.detectedPos.toSet()
+        val supplementPos = supplement.detectedPos.toSet()
+        val detected = (primaryPos + supplementPos).sorted()
+        val sourceByPos = linkedMapOf<Int, String>()
+
+        fun record(result: UniversalTemplateResult, positions: Set<Int>, pos: Int): PosRecord? =
+            if (pos in positions) result.records.firstOrNull { it.posNumber == pos } else null
+
+        fun warnings(result: UniversalTemplateResult, pos: Int): List<String> =
+            result.validationWarnings[pos].orEmpty() +
+                result.records.firstOrNull { it.posNumber == pos }
+                    ?.ocrWarnings
+                    .orEmpty()
+                    .split(" • ")
+                    .filter { it.isNotBlank() }
+
+        fun strong(result: UniversalTemplateResult, candidate: PosRecord, pos: Int): Boolean =
+            OcrAccumulationPolicy.isCoreComplete(candidate) && warnings(result, pos).isEmpty()
+
+        val mergedRecords = originals.map { original ->
+            val pos = original.posNumber
+            val p = record(primary, primaryPos, pos)
+            val s = record(supplement, supplementPos, pos)
+            when {
+                p == null && s == null -> original
+                p == null -> { sourceByPos[pos] = "S"; s!! }
+                s == null -> { sourceByPos[pos] = "P"; p }
+                strong(primary, p, pos) -> { sourceByPos[pos] = "P"; p }
+                OcrAccumulationPolicy.isCoreComplete(s) -> { sourceByPos[pos] = "S"; s }
+                else -> {
+                    sourceByPos[pos] = "M"
+                    p.copy(
+                        customerNo = p.customerNo.ifBlank { s.customerNo },
+                        billDate = p.billDate.ifBlank { s.billDate },
+                        billTime = p.billTime.ifBlank { s.billTime },
+                        noReceipt = false,
+                        noReceiptReason = "",
+                        source = if (s.ocrSourceImagePath.isNotBlank()) s.source else p.source,
+                        ocrSourceImagePath = p.ocrSourceImagePath.ifBlank { s.ocrSourceImagePath },
+                        ocrWarnings = listOf(p.ocrWarnings, s.ocrWarnings)
+                            .filter { it.isNotBlank() }.distinct().joinToString(" • "),
+                        ocrStoreId = p.ocrStoreId.ifBlank { s.ocrStoreId },
+                        ocrStoreIdExpected = p.ocrStoreIdExpected || s.ocrStoreIdExpected,
+                        ocrCounterCycle = p.ocrCounterCycle.ifBlank { s.ocrCounterCycle }
+                    )
+                }
+            }
+        }
+
+        fun fieldAt(result: UniversalTemplateResult, type: String, pos: Int): String {
+            val index = result.detectedPos.indexOf(pos)
+            if (index < 0) return ""
+            return result.extracted[type].orEmpty().getOrNull(index).orEmpty()
+        }
+
+        val fieldTypes = (primary.extracted.keys + supplement.extracted.keys).toSet()
+        val extracted = linkedMapOf<String, List<String>>()
+        fieldTypes.forEach { type ->
+            extracted[type] = detected.map { pos ->
+                val p = fieldAt(primary, type, pos)
+                val s = fieldAt(supplement, type, pos)
+                when (sourceByPos[pos]) {
+                    "S" -> s.ifBlank { p }
+                    else -> p.ifBlank { s }
+                }
+            }
+        }
+
+        val validationWarnings = linkedMapOf<Int, List<String>>()
+        detected.forEach { pos ->
+            val combined = (primary.validationWarnings[pos].orEmpty() +
+                supplement.validationWarnings[pos].orEmpty()).distinct()
+            if (combined.isNotEmpty()) validationWarnings[pos] = combined
+        }
+
+        val names = listOf(primary.templateName, supplement.templateName)
+            .filterNotNull()
+            .flatMap { it.split(" / ") }
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+
+        return UniversalTemplateResult(
+            records = mergedRecords,
+            message = "รวมผลอ่านจากหลายวิธี • พบ ${detected.size} เครื่อง",
+            templateName = names.joinToString(" / ").ifBlank { null },
+            detectedPos = detected,
+            extracted = extracted,
+            validationWarnings = validationWarnings,
+            usedUniversalTemplate = primary.usedUniversalTemplate || supplement.usedUniversalTemplate
         )
     }
 
@@ -182,7 +506,6 @@ object RealOcrPipeline {
         ) else record
     }
 
-    /** รวมผลอ่านข้อความหลายรอบ โดยไม่ให้ค่าจาก POS หนึ่งไหลไปอีก POS */
     private fun combineProfilePasses(
         originals: List<PosRecord>,
         passes: List<RuleDrivenOcrResult>
@@ -216,42 +539,82 @@ object RealOcrPipeline {
         )
     }
 
-    private fun sameStoreCode(first: String, second: String): Boolean {
-        val a = OcrTextNormalizer.normalizeDigits(first).filter(Char::isDigit).trimStart('0').ifBlank { "0" }
-        val b = OcrTextNormalizer.normalizeDigits(second).filter(Char::isDigit).trimStart('0').ifBlank { "0" }
-        return a == b
-    }
-
-    /** Template มาก่อน แล้วเติมเฉพาะช่องว่างด้วยผลจากกฎตำแหน่งของ Admin */
-    private fun mergeRecords(
-        originals: List<PosRecord>,
-        templateRecords: List<PosRecord>,
-        profileRecords: List<PosRecord>
-    ): List<PosRecord> = originals.map { original ->
-        val template = templateRecords.firstOrNull { it.posNumber == original.posNumber } ?: original
-        val profile = profileRecords.firstOrNull { it.posNumber == original.posNumber } ?: original
-        val templateChanged = template.customerNo != original.customerNo ||
-            template.billDate != original.billDate || template.billTime != original.billTime
-        val profileChanged = profile.customerNo != original.customerNo ||
-            profile.billDate != original.billDate || profile.billTime != original.billTime
-
-        template.copy(
-            customerNo = template.customerNo.ifBlank { profile.customerNo },
-            billDate = template.billDate.ifBlank { profile.billDate },
-            billTime = template.billTime.ifBlank { profile.billTime },
-            noReceipt = if (templateChanged || profileChanged) false else template.noReceipt,
-            noReceiptReason = if (templateChanged || profileChanged) "" else template.noReceiptReason,
-            source = when {
-                templateChanged && profileChanged -> "OCR-ADMIN"
-                templateChanged -> template.source
-                profileChanged -> profile.source
-                else -> original.source
-            },
-            ocrSourceImagePath = when {
-                template.ocrSourceImagePath.isNotBlank() -> template.ocrSourceImagePath
-                profile.ocrSourceImagePath.isNotBlank() -> profile.ocrSourceImagePath
-                else -> original.ocrSourceImagePath
+    private fun buildStoreIdsByPos(
+        templateResult: UniversalTemplateResult,
+        profileResult: RuleDrivenOcrResult?
+    ): Map<Int, String> {
+        val result = linkedMapOf<Int, String>()
+        val templateValues = templateResult.extracted["STORE_ID"].orEmpty()
+        if (templateValues.size == templateResult.detectedPos.size) {
+            templateResult.detectedPos.zip(templateValues).forEach { (pos, storeId) ->
+                if (storeId.isNotBlank()) result[pos] = storeId
             }
-        )
+        }
+
+        val profilePos = profileResult?.detectedPos.orEmpty()
+        val profileValues = profileResult?.rawFieldSummary?.get(OcrFieldType.STORE_ID).orEmpty()
+        if (profileValues.size == profilePos.size) {
+            profilePos.zip(profileValues).forEach { (pos, storeId) ->
+                if (storeId.isNotBlank() && result[pos].isNullOrBlank()) result[pos] = storeId
+            }
+        }
+        return result
     }
+
+    private fun mergeStoreId(
+        original: PosRecord,
+        candidateStoreId: String,
+        isCurrentPos: Boolean
+    ): String {
+        if (!isCurrentPos || candidateStoreId.isBlank()) return original.ocrStoreId
+        if (original.ocrStoreId.isBlank()) return candidateStoreId
+        if (!original.source.startsWith("OCR", ignoreCase = true)) return original.ocrStoreId
+        val oldStoreHasProblem = original.ocrWarnings.contains("ร้าน") ||
+            original.ocrWarnings.contains("STORE", ignoreCase = true)
+        return if (oldStoreHasProblem) candidateStoreId else original.ocrStoreId
+    }
+
+    private fun validationPos(code: String): Int? =
+        Regex("_POS_(\\d+)$").find(code)?.groupValues?.getOrNull(1)?.toIntOrNull()
+
+    private fun configuredDateField(templates: List<UniversalOcrTemplate>): OcrTemplateField? =
+        templates.asSequence()
+            .filter { it.active }
+            .flatMap { it.recognition.rows.asSequence() }
+            .flatMap { it.fields.asSequence() }
+            .firstOrNull { it.type == "BILL_DATE" }
+
+    private fun dateFieldForRecord(
+        record: PosRecord,
+        templates: List<UniversalOcrTemplate>
+    ): OcrTemplateField? {
+        val name = record.ocrTemplateName.trim()
+        val template = templates.firstOrNull { it.active && name.isNotBlank() && it.templateName == name }
+            ?: return null
+        return template.recognition.rows.asSequence()
+            .flatMap { it.fields.asSequence() }
+            .firstOrNull { it.type == "BILL_DATE" }
+    }
+
+    private fun templateHasStoreId(template: UniversalOcrTemplate): Boolean =
+        template.recognition.rows.any { row ->
+            row.fields.any { field ->
+                field.type == "STORE_ID" ||
+                    field.composite?.segments.orEmpty().any { it.type == "STORE_ID" }
+            }
+        }
+
+    private fun isLegacyInterpreterWarning(value: String): Boolean {
+        val warning = value.trim()
+        return (warning.startsWith("รหัสร้านที่อ่านได้") && warning.contains("ไม่ตรงกับแผนงาน")) ||
+            warning.contains("รหัสร้านในภาพไม่ตรงกันทุกชุด") ||
+            warning.startsWith("วันที่ที่อ่านได้มีรูปแบบไม่ถูกต้อง")
+    }
+
+    private fun sanitizeLegacyOcrWarnings(raw: String): String =
+        raw.split(" • ")
+            .map { it.trim() }
+            .filter { it.isNotBlank() && !isLegacyInterpreterWarning(it) }
+            .distinct()
+            .joinToString(" • ")
 }

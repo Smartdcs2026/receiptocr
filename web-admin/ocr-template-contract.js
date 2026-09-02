@@ -10,6 +10,9 @@
   const SEGMENT_TYPES=["LITERAL","YEAR_VALUE","MONTH_VALUE","DAY_VALUE","STORE_ID","POS_NUMBER","EMPLOYEE_CODE","CUSTOMER_VALUE","SEPARATOR","NUMBER_TEXT","ALNUM_TEXT","IGNORE"];
   const COMPARE_TARGETS=["NONE","BILL_DATE","WORK_DATE"];
   const COUNTER_CYCLES=["CONTINUOUS","DAILY","MONTHLY","YEARLY"];
+  const DATE_ORDERS=["DMY","MDY","YMD"];
+  const DATE_CALENDARS=["AUTO","GREGORIAN","BUDDHIST"];
+  const DATE_YEAR_DIGITS=[0,2,4];
 
   function validate(template){
     const errors=[];
@@ -28,6 +31,11 @@
         const min=Number(field.minLength),max=Number(field.maxLength);
         if(!Number.isInteger(min)||!Number.isInteger(max)||min<0||max<Math.max(1,min)||max>40)errors.push(`${location}: จำนวนหลักไม่ถูกต้อง`);
         if(!COMPARE_TARGETS.includes(String(field.compareTo||"NONE").toUpperCase()))errors.push(`${location}: เงื่อนไขเปรียบเทียบไม่รองรับ`);
+        if(field.type==="BILL_DATE"){
+          if(!DATE_ORDERS.includes(String(field.dateOrder||"DMY").toUpperCase()))errors.push(`${location}: ลำดับวันที่ไม่รองรับ`);
+          if(!DATE_CALENDARS.includes(String(field.dateCalendar||"AUTO").toUpperCase()))errors.push(`${location}: ระบบปีไม่รองรับ`);
+          if(!DATE_YEAR_DIGITS.includes(Number(field.dateYearDigits||0)))errors.push(`${location}: จำนวนหลักปีต้องเป็น 2 หรือ 4 หลัก`);
+        }
         if(field.type==="POS_NUMBER"){
           hasPos=true;
           const digits=Number(field.posDigits||2);
@@ -48,5 +56,5 @@
     return [...new Set(errors)];
   }
 
-  return {SCHEMA_VERSION,MAX_ROWS,FIELD_TYPES,SEGMENT_TYPES,COMPARE_TARGETS,COUNTER_CYCLES,validate};
+  return {SCHEMA_VERSION,MAX_ROWS,FIELD_TYPES,SEGMENT_TYPES,COMPARE_TARGETS,COUNTER_CYCLES,DATE_ORDERS,DATE_CALENDARS,DATE_YEAR_DIGITS,validate};
 });

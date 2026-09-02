@@ -88,7 +88,7 @@ object UniversalTemplateInterpreter {
         if (allMatches.isEmpty()) {
             return UniversalTemplateResult(
                 records = records,
-                message = "อ่านภาพแล้ว แต่ยังแยกข้อมูลบิลไม่ได้ครบ กรุณาถ่ายภาพให้ตัวอักษรชัดขึ้น",
+                message = "อ่านข้อความได้ แต่ยังแยกข้อมูลตามรูปแบบบิลนี้ไม่ได้",
                 usedUniversalTemplate = true
             )
         }
@@ -104,31 +104,39 @@ object UniversalTemplateInterpreter {
         val unmappedPos = linkedSetOf<String>()
         var acceptedStore: String? = null
 
-        val plannedPos = records.map { it.posNumber }.toSet()
-        templateMatches.forEach { match ->
-            val raw = match.fields["POS_NUMBER"] ?: return@forEach
-            val pos = parsePosNumber(raw) ?: return@forEach
-            if (pos !in plannedPos) unmappedPos += raw
-        }
         val bestMatches = templateMatches
             .mapNotNull { match ->
                 val pos = match.fields["POS_NUMBER"]?.let(::parsePosNumber) ?: return@mapNotNull null
-                if (pos !in plannedPos) null else pos to match
+                pos to match
             }
             .groupBy({ it.first }, { it.second })
             .mapNotNull { (pos, candidates) -> fuseMatches(candidates)?.let { pos to it } }
             .sortedBy { it.first }
 
+        val assignedPositions = linkedSetOf<Int>()
         bestMatches.forEach { (pos, match) ->
-            val index = updated.indexOfFirst { it.posNumber == pos }
-            if (index < 0) return@forEach
+            var index = updated.indexOfFirst { it.posNumber == pos }
+            if (index < 0) {
+                index = updated.indexOfFirst { record ->
+                    record.posNumber !in assignedPositions &&
+                        record.customerNo.isBlank() && record.billDate.isBlank() && record.billTime.isBlank() &&
+                        !record.noReceipt && record.ocrSourceImagePath.isBlank()
+                }
+                if (index >= 0) {
+                    updated[index] = updated[index].copy(posNumber = pos)
+                } else {
+                    unmappedPos += pos.toString()
+                    return@forEach
+                }
+            }
+            assignedPositions += pos
             val posWarnings = warningsByPos.getOrPut(pos) { mutableListOf() }
             posWarnings += match.recognitionWarnings
 
             val store = match.fields["STORE_ID"]
             if (match.template.validation.store.mustMatchWorkPlan && !store.isNullOrBlank()) {
-                if (!sameStore(store, work.storeCode)) {
-                    posWarnings += "รหัสร้านที่อ่านได้ ($store) ไม่ตรงกับแผนงาน (${work.storeCode})"
+                if (!sameStore(store, work.expectedReceiptStoreId)) {
+                    posWarnings += "รหัสร้านที่อ่านได้ ($store) ไม่ตรงกับแผนงาน (${work.expectedReceiptStoreId})"
                 }
             }
             if (match.template.validation.store.sameStoreAcrossAllMatches && !store.isNullOrBlank()) {
@@ -141,8 +149,21 @@ object UniversalTemplateInterpreter {
             }
 
             val dateRaw = match.fields["BILL_DATE"]
-            val normalizedDate = dateRaw?.let { normalizeDate(it, workDate) }
-            val time = match.fields["BILL_TIME"]?.replace('.', ':')
+            val dateField = match.template.recognition.rows.asSequence()
+                .flatMap { it.fields.asSequence() }
+                .firstOrNull { it.type == "BILL_DATE" }
+            val dateResult = dateRaw?.let {
+                ReceiptDateOcrNormalizer.normalize(
+                    raw = it,
+                    configuredFormat = dateField?.format,
+                    referenceDate = workDate,
+                    dateOrder = dateField?.dateOrder,
+                    dateCalendar = dateField?.dateCalendar,
+                    dateYearDigits = dateField?.dateYearDigits ?: 0
+                )
+            }
+            val normalizedDate = dateResult?.value
+            val time = match.fields["BILL_TIME"]?.let(ReceiptTimeOcrNormalizer::normalize)?.value
             val customer = match.fields["CUSTOMER_VALUE"]?.filter(Char::isDigit)
 
             val core = match.template.validation.requiredCore
@@ -153,7 +174,9 @@ object UniversalTemplateInterpreter {
             if (!customer.isNullOrBlank() && customerLength != null && customer.length !in customerLength) {
                 posWarnings += "ยอด/เลขลูกค้ามี ${customer.length} หลัก แต่กำหนดไว้ ${customerLength.first}-${customerLength.last} หลัก"
             }
-            if (dateRaw != null && normalizedDate == null) posWarnings += "วันที่ที่อ่านได้มีรูปแบบไม่ถูกต้อง ($dateRaw)"
+            if (dateRaw != null && normalizedDate == null) {
+                posWarnings += dateResult?.warning ?: "วันที่ที่อ่านได้ไม่ตรงเงื่อนไขที่กำหนด ($dateRaw)"
+            }
             posWarnings += comparisonWarnings(match.template, match.fields, normalizedDate, workDate)
 
             if (dateRaw.isNullOrBlank() && time.isNullOrBlank() && customer.isNullOrBlank()) return@forEach
@@ -167,6 +190,7 @@ object UniversalTemplateInterpreter {
                 noReceiptReason = "",
                 source = "OCR-TEMPLATE",
                 ocrSourceImagePath = imagePath,
+                ocrTemplateName = match.template.templateName,
                 ocrWarnings = posWarnings.distinct().joinToString(" • "),
                 ocrCounterCycle = match.template.duplicatePolicy.customerCounterCycle.uppercase()
             )
@@ -406,10 +430,16 @@ object UniversalTemplateInterpreter {
         val maxJoin = (template.recognition.lineTolerance + 3).coerceIn(3, 6)
         fun collect(source: List<String>, joinPenalty: Int) {
             val joined = normalizeLine(source.joinToString(" "))
-            row.regex.findAll(joined).forEach { match ->
-                val fields = extractFields(row, match)
-                val score = score(template, fields, work, workDate) - joinPenalty
-                if (score > 0) found += TemplateMatch(template, fields, score, source)
+            val compact = joined.replace(
+                Regex("(?<=[A-Za-z0-9OoIl|])\\s+(?=[A-Za-z0-9OoIl|])"),
+                ""
+            )
+            listOf(joined, compact).distinct().forEach { candidateText ->
+                row.regex.findAll(candidateText).forEach { match ->
+                    val fields = extractFields(row, match)
+                    val score = score(template, fields, work, workDate) - joinPenalty
+                    if (score > 0) found += TemplateMatch(template, fields, score, source)
+                }
             }
         }
         lines.indices.forEach { start ->
@@ -510,7 +540,7 @@ object UniversalTemplateInterpreter {
         val max = exactLen ?: field.maxLength.coerceAtLeast(min)
 
         return when (field.type) {
-            "BILL_DATE" -> capture("BILL_DATE", "$OCR_DIGIT{1,2}[./-]$OCR_DIGIT{1,2}[./-]$OCR_DIGIT{2,4}")
+            "BILL_DATE" -> capture("BILL_DATE", datePattern(field))
             "BILL_TIME" -> capture("BILL_TIME", "$OCR_DIGIT{1,2}[:.]$OCR_DIGIT{2}(?::$OCR_DIGIT{2})?")
             "YEAR_VALUE", "YEAR" -> capture("YEAR_VALUE", "$OCR_DIGIT{${exactLen ?: 2}}")
             "MONTH_VALUE", "MONTH" -> capture("MONTH_VALUE", "$OCR_DIGIT{2}")
@@ -535,8 +565,8 @@ object UniversalTemplateInterpreter {
                 }
                 capture("POS_NUMBER", "$prefix$OCR_DIGIT{$digits}")
             }
-            // อ่านเลขเต็มก่อน แล้วใช้เงื่อนไขเป็นคำเตือนภายหลัง เพื่อไม่ตัดเลขท้ายทิ้ง
-            "CUSTOMER_VALUE" -> capture("CUSTOMER_VALUE", "$OCR_DIGIT{1,18}(?!$OCR_DIGIT)")
+            // จำนวนหลักของลูกค้ามาจาก Admin เพื่อรักษาขอบเขตช่องถัดไป
+            "CUSTOMER_VALUE" -> capture("CUSTOMER_VALUE", "$OCR_DIGIT{$min,$max}(?!$OCR_DIGIT)")
             "EMPLOYEE_CODE" -> capture("EMPLOYEE_CODE", "[A-Za-z0-9]{$min,$max}")
             "NUMBER_TEXT" -> "$OCR_DIGIT{$min,$max}"
             "ALNUM_TEXT" -> "[A-Za-z0-9]{$min,$max}"
@@ -637,13 +667,40 @@ object UniversalTemplateInterpreter {
         }
     }
 
+    private fun datePattern(field: OcrTemplateField): String {
+        val order = field.dateOrder.trim().uppercase().let {
+            if (it in setOf("DMY", "MDY", "YMD")) it else "DMY"
+        }
+        val yearLengths = when (field.dateYearDigits) {
+            2 -> listOf(2)
+            4 -> listOf(4)
+            else -> listOf(2, 4)
+        }
+        val layouts = yearLengths.map { yearLength ->
+            when (order) {
+                "YMD" -> listOf(yearLength, 2, 2)
+                else -> listOf(2, 2, yearLength)
+            }
+        }
+        return layouts.joinToString("|", "(?:", ")") { lengths ->
+            "$OCR_DIGIT{${lengths[0]}}[./-]$OCR_DIGIT{${lengths[1]}}[./-]$OCR_DIGIT{${lengths[2]}}"
+        }
+    }
+
     private fun literalPattern(raw: String): String? {
         val value = raw.trim()
         if (value.isBlank()) return null
         return when {
             value.matches(Regex("BNO\\s*:\\s*S", RegexOption.IGNORE_CASE)) -> "[B8]N[O0]\\s*[:;]\\s*[S$5]"
             value.matches(Regex("BNO\\s*:", RegexOption.IGNORE_CASE)) -> "[B8]N[O0]\\s*[:;]"
-            else -> Regex.escape(value).replace("\\ ", "\\s+")
+            else -> value.map { character ->
+                when (character) {
+                    '0' -> "[0Oo]"
+                    '1' -> "[1Iil|]"
+                    'U', 'u', 'V', 'v' -> "[UuVvOo0]"
+                    else -> Regex.escape(character.toString())
+                }
+            }.joinToString("\\s*")
         }
     }
 
@@ -662,11 +719,16 @@ object UniversalTemplateInterpreter {
         if (fields["YEAR_VALUE"] != null) score += 10
         if (fields["MONTH_VALUE"] != null) score += 10
         val store = fields["STORE_ID"]
-        if (!store.isNullOrBlank()) score += if (sameStore(store, work.storeCode)) 50 else -40
+        if (!store.isNullOrBlank()) score += if (sameStore(store, work.expectedReceiptStoreId)) 50 else -40
         val pos = fields["POS_NUMBER"]?.let(::parsePosNumber)
-        if (pos != null) score += if (pos in 1..work.posCount) 20 else -50
+        if (pos != null) score += 20
 
-        val date = fields["BILL_DATE"]?.let { normalizeDate(it, workDate) }
+        val scoreDateField = template.recognition.rows.asSequence()
+            .flatMap { it.fields.asSequence() }
+            .firstOrNull { it.type == "BILL_DATE" }
+        val date = fields["BILL_DATE"]?.let {
+            ReceiptDateOcrNormalizer.normalizeForField(it, scoreDateField, workDate).value
+        }
         if (date != null) {
             val parsed = parseDate(date)
             if (parsed != null) {
@@ -765,23 +827,37 @@ object UniversalTemplateInterpreter {
         if (parts.size != 3) return null
         val a = parts[0].toIntOrNull() ?: return null
         val b = parts[1].toIntOrNull() ?: return null
-        var y = parts[2].toIntOrNull() ?: return null
-        if (y in 2400..2999) y -= 543
-        if (y < 100) y += 2000
+        val rawYear = parts[2].toIntOrNull() ?: return null
+
+        val years = when {
+            rawYear in 2400..2999 -> listOf(rawYear - 543)
+            rawYear < 100 -> listOf(
+                2000 + rawYear,
+                1900 + rawYear,
+                2500 + rawYear - 543
+            ).filter { it in 1900..2200 }.distinct()
+            else -> listOf(rawYear)
+        }
 
         val candidates = mutableListOf<LocalDate>()
-        fun addCandidate(day: Int, month: Int) {
-            runCatching { LocalDate.of(y, month, day) }.getOrNull()?.let(candidates::add)
+        fun addCandidate(year: Int, day: Int, month: Int) {
+            runCatching { LocalDate.of(year, month, day) }.getOrNull()?.let(candidates::add)
         }
-        when {
-            a > 12 && b in 1..12 -> addCandidate(a, b)
-            b > 12 && a in 1..12 -> addCandidate(b, a)
-            else -> {
-                addCandidate(a, b)
-                if (a != b) addCandidate(b, a)
+        years.forEach { year ->
+            when {
+                a > 12 && b in 1..12 -> addCandidate(year, a, b)
+                b > 12 && a in 1..12 -> addCandidate(year, b, a)
+                else -> {
+                    addCandidate(year, a, b)
+                    if (a != b) addCandidate(year, b, a)
+                }
             }
         }
+
+        // รูปแบบบิลในระบบอนุญาตวันที่ใกล้วันงานเท่านั้น (สูงสุดยังต่ำกว่า 45 วัน)
+        // จึงไม่ยอมให้ปีที่อ่านเพี้ยนแต่ยังเป็นวันที่จริง เช่น 2061 ผ่านเป็น core field
         return candidates.distinct()
+            .filter { kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(referenceDate, it)) <= 45 }
             .minByOrNull { kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(referenceDate, it)) }
             ?.format(outDate)
     }

@@ -1,11 +1,12 @@
 package com.receiptocr.app.ocr
 
 /**
- * แปลงอักขระที่ OCR มักอ่านสลับกัน และค้นหาเลข POS โดยไม่ผูกกับแบรนด์
+ * แปลงอักขระที่ระบบอ่านภาพมักอ่านสลับกัน และค้นหาเลข POS โดยไม่ผูกกับแบรนด์
  * ใช้ร่วมกันทั้งแม่แบบและกฎตำแหน่ง เพื่อให้ผลจากสองทางตีความเหมือนกัน
  */
 object OcrTextNormalizer {
     private const val OCR_DIGITS = "0-9OoIl|"
+    private const val DENSE_DIGITS = "0-9OoIl|SsZzBb"
     private val labeledPos = Regex(
         "(?i)(?:\\bP\\s*\\.?\\s*O\\s*\\.?\\s*S\\.?|\\bTERMINAL\\b|เครื่อง)" +
             "\\s*[:#=\\-]?\\s*(?:(?:N\\s*[O0]|NO|NUMBER)\\s*\\.?\\s*)?" +
@@ -13,6 +14,7 @@ object OcrTextNormalizer {
     )
     private val prefixedPos = Regex("(?i)\\b([NB])\\s*([$OCR_DIGITS]{1,3})\\b")
     private val standalonePos = Regex("(?i)^\\s*(?:[NB]\\s*)?([$OCR_DIGITS]{1,3})\\s*$")
+    private val denseVBetweenNumbers = Regex("([$DENSE_DIGITS]{4,})[Vv]([$DENSE_DIGITS]{4,})")
 
     fun normalizeDigits(value: String): String = value.map { character ->
         when (character) {
@@ -28,8 +30,43 @@ object OcrTextNormalizer {
             val digits = normalizeDigits(match.groupValues[1]).filter(Char::isDigit)
             if (digits.isBlank()) match.value else "POS N${digits.padStart(2, '0')}"
         }
-        return normalized.replace(Regex("\\s*([:/.-])\\s*"), "${'$'}1")
+        normalized = normalized.replace(Regex("\\s*([:/\\.#-])\\s*"), "${'$'}1")
+        return normalizeDenseReceiptCode(normalized)
     }
+
+    /**
+     * บิลพิมพ์แบบจุดบางรุ่นทำให้ตัวอักษรในชุดเลขติดกันถูกอ่านคลาดได้
+     * แก้เฉพาะตัวที่อยู่คั่นกลางชุดตัวเลขยาว เพื่อไม่กระทบข้อความทั่วไป
+     */
+    internal fun normalizeDenseReceiptCode(value: String): String {
+        var normalized = value
+
+        // U ที่คั่นกลางเลขมักถูกอ่านคล้าย V ในตัวพิมพ์แบบจุด
+        normalized = denseVBetweenNumbers.replace(normalized) { match ->
+            "${match.groupValues[1]}U${match.groupValues[2]}"
+        }
+
+        // แก้ตัวที่มีรูปร่างคล้ายเลข เฉพาะเมื่อถูกประกบด้วยตัวเลขเท่านั้น
+        normalized = replaceDigitLikeBetweenDigits(normalized, 'S', '5')
+        normalized = replaceDigitLikeBetweenDigits(normalized, 's', '5')
+        normalized = replaceDigitLikeBetweenDigits(normalized, 'Z', '2')
+        normalized = replaceDigitLikeBetweenDigits(normalized, 'z', '2')
+        normalized = replaceDigitLikeBetweenDigits(normalized, 'B', '8')
+        normalized = replaceDigitLikeBetweenDigits(normalized, 'b', '8')
+
+        // เลข 9 ท้ายส่วนวันที่อาจถูกอ่านเป็น g แต่ต้องอยู่ติดกับเลขและตามด้วยขอบเขตข้อมูล
+        normalized = normalized.replace(
+            Regex("(?<=[0-9OoIl|])[g](?=\\b|[\\s:/.-])"),
+            "9"
+        )
+        return normalized
+    }
+
+    private fun replaceDigitLikeBetweenDigits(value: String, from: Char, to: Char): String =
+        value.replace(
+            Regex("(?<=[0-9OoIl|])${Regex.escape(from.toString())}(?=[0-9OoIl|])"),
+            to.toString()
+        )
 
     /** คืนทุกเลข POS ที่มีคำกำกับหรือคำนำหน้า N/B ในข้อความเดียว */
     fun findPosNumbers(value: String): List<Int> {

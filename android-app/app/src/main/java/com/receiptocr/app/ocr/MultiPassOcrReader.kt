@@ -98,6 +98,24 @@ object MultiPassOcrReader {
             passOrigins += 0 to top
         }
 
+        // Round90: เพิ่มแถบแนวนอนที่บางกว่าเพื่ออ่านข้อความรหัสบิลที่ตัวเลขชิดกัน
+        // เช่น R201... / R202... บนบิลซ้อน โดยไม่ผูกกับแบรนด์หรือ prefix ใด
+        // การ crop ที่บางช่วยให้ ML Kit ไม่ต้องลดรายละเอียดของทั้งภาพก่อนอ่านข้อความเล็ก
+        val linePassCount = (expectedRecords * 2 + 5).coerceIn(9, 13)
+        val lineRatio = (0.42f / expectedRecords.coerceAtLeast(1)).coerceIn(0.09f, 0.15f)
+        val lineHeight = (source.height * lineRatio).toInt().coerceIn(1, source.height)
+        val lineTravel = (source.height - lineHeight).coerceAtLeast(0)
+        val lineTops = (0 until linePassCount).map { index ->
+            if (linePassCount == 1) 0 else (lineTravel.toLong() * index / (linePassCount - 1)).toInt()
+        }.distinct()
+        lineTops.forEachIndexed { index, top ->
+            val cropSource = if (index % 2 == 0) sharpened else highContrast
+            val crop = Bitmap.createBitmap(cropSource, 0, top, cropSource.width, lineHeight)
+            bitmaps += crop
+            tasks += recognizer.process(InputImage.fromBitmap(crop, 0))
+            passOrigins += 0 to top
+        }
+
         return Tasks.whenAllSuccess<Text>(tasks).continueWith { completed ->
             try {
                 if (!completed.isSuccessful) {

@@ -109,6 +109,13 @@ object WorkPlanRepository {
         return if (value.equals("null", true) || value.equals("undefined", true)) fallback else value
     }
 
+    private fun JSONObject.receiptStoreId(): String =
+        cleanString("receiptStoreId").ifBlank {
+            cleanString("receipt_store_id").ifBlank {
+                cleanString("billStoreCode").ifBlank { cleanString("bill_store_code") }
+            }
+        }
+
     private fun parseItems(raw: String): List<WorkItem> {
         val root = JSONObject(raw)
         val a = root.optJSONArray("items") ?: return emptyList()
@@ -133,6 +140,7 @@ object WorkPlanRepository {
                         latitude = o.cleanString("latitude"),
                         longitude = o.cleanString("longitude"),
                         storeNote = o.cleanString("storeNote"),
+                        receiptStoreId = o.receiptStoreId(),
                         reviewStatus = o.cleanString("reviewStatus"),
                         returnReason = o.cleanString("returnReason"),
                         planStatus = o.cleanString("planStatus", "ACTIVE"),
