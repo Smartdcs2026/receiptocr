@@ -8,6 +8,7 @@ on:
       - round77-workplan-store-normalization
       - round78-ocr-robustness-multi-image-admin-ux
       - round90-unified-date-admin-receipt-line
+      - round91-confidence-regression-guard
     paths:
       - 'android-app/**'
       - 'web-admin/**'

@@ -1,0 +1,80 @@
+name: Round91 finalize production
+
+on:
+  push:
+    branches: ["round91-confidence-regression-guard"]
+    paths:
+      - ".github/workflows/round91-finalize.yml"
+      - "tools/round91_confidence_patch.py"
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Round91
+        uses: actions/checkout@v4
+        with:
+          ref: round91-confidence-regression-guard
+          fetch-depth: 0
+
+      - name: Apply confidence details to production source
+        run: python3 tools/round91_confidence_patch.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Work Plan tests
+        run: node tests/workplan-store-normalizer.test.js
+
+      - name: Admin OCR pattern tests
+        run: node tests/ocr-pattern-engine.test.js
+
+      - name: Admin JavaScript syntax
+        run: |
+          node --check web-admin/ocr-admin-ux.js
+          node --check web-admin/ocr-pattern-engine.js
+          node --check web-admin/ocr-simple.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Android unit tests including cross-template regression guard
+        working-directory: android-app
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify patch whitespace
+        run: git diff --check
+
+      - name: Commit verified production source
+        run: |
+          git config user.name "SKDC_SMART"
+          git config user.email "somchaibutphon@gmail.com"
+          git add android-app/app/src/main/java/com/receiptocr/app/ocr/PosEvidenceFusion.kt
+          if git diff --cached --quiet; then
+            echo "Production confidence source already up to date"
+          else
+            git commit -m "Round91 add field-level OCR confidence details"
+            git push origin HEAD:round91-confidence-regression-guard
+          fi
