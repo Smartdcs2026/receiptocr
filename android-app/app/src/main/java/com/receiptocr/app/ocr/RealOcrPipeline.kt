@@ -28,9 +28,8 @@ data class RealOcrPipelineResult(
 )
 
 /**
- * จุดเข้าหลักของ OCR ภาพจริง: ML Kit -> ตำแหน่งข้อความ -> แม่แบบ -> ตรวจร้าน/POS/วันที่
- * Round78 hotfix: ใช้ลำดับการอ่านภาพแบบ Round77 ที่ผ่านการทดสอบจริง
- * แต่ยังคงการสะสมข้อมูลจากภาพบิลหลายช่องของ Round78
+ * จุดเข้าหลักของ OCR ภาพจริง: ML Kit -> ตำแหน่งข้อความ -> รูปแบบ Admin -> ตรวจร้าน/POS/วันที่
+ * Round84: เมื่อรูปแบบ Admin จับ POS ได้แล้ว จะถือผลนั้นเป็นหลักและไม่ให้ profile เก่ามาผสมค่าคนละตำแหน่ง
  */
 object RealOcrPipeline {
     fun analyze(
@@ -67,8 +66,8 @@ object RealOcrPipeline {
             templates = templates
         )
 
-        // ถ้าการเทียบทั้งแถวไม่ผ่าน ให้ลองแยกตามลำดับช่องและจำนวนตัวที่ Admin กำหนด
-        // ใช้เฉพาะเมื่อวิธีปกติไม่พบ POS เพื่อไม่เปลี่ยนผลของรูปแบบที่ทำงานอยู่แล้ว
+        // ถ้า strict ไม่ผ่าน ให้ใช้ตัวอ่านตามลำดับช่อง Admin แบบ Round84
+        // ช่องที่ Admin ระบุว่าจำเป็นจะถูกอ่านตามลำดับจริง ห้ามข้ามแล้วเลื่อนข้อมูล
         val sequenceFallback = if (strictTemplateResult.detectedPos.isEmpty() && templates.isNotEmpty()) {
             TemplateSequenceFallback.apply(
                 rawTexts = mlTexts.map { it.text },
@@ -80,7 +79,10 @@ object RealOcrPipeline {
         } else null
         val templateResult = sequenceFallback?.takeIf { it.detectedPos.isNotEmpty() } ?: strictTemplateResult
 
-        val shouldRunProfile = profile.regions.isNotEmpty() &&
+        // เมื่อรูปแบบจาก Admin จับข้อมูลได้แล้ว ห้าม profile แบบตำแหน่งเก่ามาผสมลูกค้า/วันที่/เวลา
+        // เพราะสามารถทำให้ข้อมูลจากคนละส่วนของบิลเลื่อนไปอยู่ POS เดียวกันได้
+        val shouldRunProfile = templateResult.detectedPos.isEmpty() &&
+            profile.regions.isNotEmpty() &&
             (!profile.profileId.startsWith("demo-", ignoreCase = true) || templates.isEmpty())
         val profileResult = if (shouldRunProfile) {
             val passResults = mlTextPasses.filter { it.text.text.isNotBlank() }.map { pass ->
@@ -169,13 +171,25 @@ object RealOcrPipeline {
 
             val usedTemplateNames = templateResult.templateName.orEmpty()
                 .split(" / ").map { it.trim() }.filter { it.isNotBlank() }.toSet()
-            val usedTemplates = templates.filter { it.active && it.templateName in usedTemplateNames }
-                .ifEmpty { templates.filter { it.active } }
-            val expectsStoreId = usedTemplates.any(::templateHasStoreId) ||
-                profile.regions.any { it.fieldType == OcrFieldType.STORE_ID }
-            val requiresStoreMatch = usedTemplates.any {
-                it.validation.store.mustMatchWorkPlan && templateHasStoreId(it)
-            } || profile.regions.any { it.fieldType == OcrFieldType.STORE_ID }
+            val matchedTemplates = templates.filter { it.active && it.templateName in usedTemplateNames }
+            val activeTemplates = templates.filter { it.active }
+            val profileHasStore = profileResult != null && profile.regions.any { it.fieldType == OcrFieldType.STORE_ID }
+
+            // ถ้ารู้แน่ชัดว่าจับด้วยรูปแบบใด ให้ใช้กฎของรูปแบบนั้นเท่านั้น
+            // ถ้ามีรูปแบบที่ระบุว่าไม่มี STORE_ID จะไม่เอา STORE_ID จาก profile หรือรูปแบบอื่นมาบังคับ
+            val expectsStoreId = when {
+                matchedTemplates.isNotEmpty() -> matchedTemplates.all(::templateHasStoreId)
+                else -> activeTemplates.any(::templateHasStoreId) || profileHasStore
+            }
+            val requiresStoreMatch = when {
+                matchedTemplates.isNotEmpty() -> matchedTemplates.all {
+                    templateHasStoreId(it) && it.validation.store.mustMatchWorkPlan
+                }
+                else -> activeTemplates.any {
+                    templateHasStoreId(it) && it.validation.store.mustMatchWorkPlan
+                } || profileHasStore
+            }
+            val explicitNoStoreTemplate = matchedTemplates.isNotEmpty() && matchedTemplates.none(::templateHasStoreId)
 
             val storeAssessment = if (expectsStoreId) {
                 StoreReceiptIdentity.evaluate(
@@ -198,8 +212,8 @@ object RealOcrPipeline {
                         accumulation.conflictsByPos[record.posNumber]?.let(::add)
                     }
                     storeAssessment?.warningsByPos?.get(record.posNumber)?.let(::add)
-                    if (record.posNumber in missingStorePos) {
-                        add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามตำแหน่งที่ Admin กำหนด")
+                    if (record.posNumber in missingStorePos && requiresStoreMatch) {
+                        add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามตำแหน่งที่กำหนด")
                     }
                 }.distinct()
                 record.copy(
@@ -227,11 +241,12 @@ object RealOcrPipeline {
                 storeAssessment?.warningsByPos?.toSortedMap()?.forEach { (pos, warning) -> add("POS $pos: $warning") }
                 storeAssessment?.summaryWarnings?.let(::addAll)
                 if (expectsStoreId && allStoreIdsByPos.isEmpty() && requiresStoreMatch) {
-                    add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามตำแหน่งที่ Admin กำหนด")
+                    add("ยังยืนยันร้านไม่ได้ • ไม่พบรหัสร้านตามตำแหน่งที่กำหนด")
                 } else if (missingStorePos.isNotEmpty() && requiresStoreMatch) {
                     add("ยังยืนยันรหัสร้านไม่ได้ใน POS ${missingStorePos.joinToString(", ")}")
                 }
-                if (!expectsStoreId && work.expectedReceiptStoreId.isNotBlank()) {
+                // ถ้า Admin กำหนดรูปแบบนี้ว่าไม่มีรหัสร้าน ถือเป็นกติกาที่ตั้งใจไว้ ไม่เตือนว่าอ่านรหัสร้านไม่ได้
+                if (!expectsStoreId && !explicitNoStoreTemplate && work.expectedReceiptStoreId.isNotBlank()) {
                     add("รูปแบบบิลนี้ไม่มีรหัสร้านสำหรับตรวจอัตโนมัติ • กรุณาตรวจข้อมูลร้านจากหลักฐานประกอบ")
                 }
                 if (!currentComplete) add("ข้อมูลสำคัญบางช่องในภาพนี้อ่านได้ไม่ครบ กรุณาตรวจแก้ก่อนยืนยัน")
