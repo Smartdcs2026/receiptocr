@@ -13,15 +13,30 @@ object SubmissionRepository {
     fun submit(context: Context, workPlanItemId: Int, records: List<PosRecord>, storeNote: String): Long {
         val token = AppAuthRepository.token(context)
         if (token.isBlank()) throw IllegalStateException("กรุณาเข้าสู่ระบบใหม่")
-        val payload = JSONObject().put("workPlanItemId", workPlanItemId).put("storeNote", storeNote).put("records", JSONArray().apply {
-            records.forEach { r ->
-                put(JSONObject().put("posNumber", r.posNumber).put("customerNo", r.customerNo)
-                    .put("billDate", r.billDate).put("billTime", r.billTime).put("note", r.note)
-                    .put("noReceipt", r.noReceipt).put("noReceiptReason", r.noReceiptReason).put("source", r.source)
-                    .put("ocrConfidence", r.ocrConfidence).put("ocrTemplateName", r.ocrTemplateName)
-                    .put("ocrCounterCycle", r.ocrCounterCycle))
-            }
-        })
+        val payload = JSONObject()
+            .put("workPlanItemId", workPlanItemId)
+            .put("storeNote", storeNote)
+            .put("records", JSONArray().apply {
+                records.forEach { r ->
+                    // posNumber ยังคงเป็นลำดับช่องของงาน 1..จำนวนเครื่อง เพื่อให้ระบบรับข้อมูลเดิมได้
+                    // receiptPosNumber คือหมายเลขเครื่องที่พิมพ์บนบิลจริง เช่น 101 / N02
+                    put(
+                        JSONObject()
+                            .put("posNumber", r.posNumber)
+                            .put("receiptPosNumber", r.receiptPosNumber)
+                            .put("customerNo", r.customerNo)
+                            .put("billDate", r.billDate)
+                            .put("billTime", r.billTime)
+                            .put("note", r.note)
+                            .put("noReceipt", r.noReceipt)
+                            .put("noReceiptReason", r.noReceiptReason)
+                            .put("source", r.source)
+                            .put("ocrConfidence", r.ocrConfidence)
+                            .put("ocrTemplateName", r.ocrTemplateName)
+                            .put("ocrCounterCycle", r.ocrCounterCycle)
+                    )
+                }
+            })
         val c = URL("$SUBMISSION_API_BASE_URL/api/app/submissions").openConnection() as HttpURLConnection
         c.requestMethod = "POST"
         c.connectTimeout = 7000
@@ -32,7 +47,8 @@ object SubmissionRepository {
         c.outputStream.use { it.write(payload.toString().toByteArray()) }
         return try {
             val code = c.responseCode
-            val body = (if (code in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+            val body = (if (code in 200..299) c.inputStream else c.errorStream)
+                ?.bufferedReader()?.use { it.readText() }.orEmpty()
             if (code !in 200..299) {
                 val error = runCatching {
                     val root = JSONObject(body)
@@ -47,6 +63,8 @@ object SubmissionRepository {
                 throw IllegalStateException(error.ifBlank { "ส่งข้อมูลไม่สำเร็จ กรุณาตรวจข้อมูลอีกครั้ง" })
             }
             JSONObject(body).optLong("submissionId", 0L)
-        } finally { c.disconnect() }
+        } finally {
+            c.disconnect()
+        }
     }
 }
