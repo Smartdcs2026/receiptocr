@@ -134,7 +134,7 @@ const mbRow=[
   field("CUSTOMER_VALUE",{example:"051846",minLength:6,maxLength:6}),
   field("LITERAL",{example:"U",literal:"U",minLength:1,maxLength:1}),
   field("NUMBER_TEXT",{example:"110030",minLength:6,maxLength:6}),
-  field("BILL_DATE",{example:"20/08/69",minLength:8,maxLength:8}),
+  field("BILL_DATE",{example:"20/08/69",dateOrder:"DMY",dateCalendar:"BUDDHIST",dateYearDigits:2,minLength:8,maxLength:8}),
   field("BILL_TIME",{example:"17:51",minLength:5,maxLength:5})
 ];
 const mb=engine.findRecords([mbRow],[
@@ -146,7 +146,6 @@ assert.deepEqual(mb.records.map(record=>record.fields.POS_NUMBER),["1","2"]);
 assert.deepEqual(mb.records.map(record=>record.fields.CUSTOMER_VALUE),["051846","039030"]);
 assert.deepEqual(mb.records.map(record=>record.fields.BILL_DATE),["20/08/69","20/08/69"]);
 assert.deepEqual(mb.records.map(record=>record.fields.BILL_TIME),["17:51","17:18"]);
-
 
 // Round90: วันที่ต้องจับตามลำดับและจำนวนหลักของปีที่ Admin ตั้ง ไม่ใช้ regex วันที่แบบเดียวทุกแบรนด์
 const ymdRow=[
@@ -161,4 +160,30 @@ assert.equal(ymdOk.records.length,1);
 const ymdWrong=engine.findRecords([ymdRow],"20/08/2026 07:55 Rcpt#101002715");
 assert.equal(ymdWrong.records.length,0);
 
-console.log("OCR pattern engine: Admin-driven CJ/L-go, noisy text, four POS and warning-value tests passed");
+// Round90 completion: รูปแบบวันที่ที่ผู้ดูแลต้องกำหนดได้ต่อรูปแบบบิล/แบรนด์
+function assertAdminDateShape(raw,dateOrder,dateCalendar,dateYearDigits){
+  const row=[
+    field("BILL_DATE",{example:raw,dateOrder,dateCalendar,dateYearDigits}),
+    field("BILL_TIME",{example:"12:34",minLength:5,maxLength:5})
+  ];
+  const parsed=engine.findRecords([row],`${raw} 12:34`);
+  assert.equal(parsed.records.length,1,`${raw} ${dateOrder} ${dateCalendar} ${dateYearDigits}`);
+  assert.equal(parsed.records[0].fields.BILL_DATE,raw);
+}
+assertAdminDateShape("31/08/2026","DMY","GREGORIAN",4);
+assertAdminDateShape("31/08/26","DMY","GREGORIAN",2);
+assertAdminDateShape("31/08/2569","DMY","BUDDHIST",4);
+assertAdminDateShape("31/08/69","DMY","BUDDHIST",2);
+assertAdminDateShape("08/31/2026","MDY","GREGORIAN",4);
+assertAdminDateShape("08/31/26","MDY","GREGORIAN",2);
+assertAdminDateShape("08/31/2569","MDY","BUDDHIST",4);
+assertAdminDateShape("08/31/69","MDY","BUDDHIST",2);
+
+const adminTwoDigitOnly=[
+  field("BILL_DATE",{example:"31/08/69",dateOrder:"DMY",dateCalendar:"BUDDHIST",dateYearDigits:2}),
+  field("BILL_TIME",{example:"12:34",minLength:5,maxLength:5})
+];
+assert.equal(engine.findRecords([adminTwoDigitOnly],"31/08/69 12:34").records.length,1);
+assert.equal(engine.findRecords([adminTwoDigitOnly],"31/08/2569 12:34").records.length,0);
+
+console.log("OCR pattern engine: Admin-driven CJ/L-go/MB, noisy text, multi-POS and full date-shape tests passed");
