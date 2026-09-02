@@ -245,7 +245,7 @@ object OcrTemplateRepository {
             separatorValue = f.optString("separatorValue").takeIf { it.isNotBlank() && it != "null" },
             tokenGap = f.optInt("tokenGap", 0).coerceIn(0, 8),
             composite = composite
-        )
+        ).alignLengthWithExample()
     }
 
     private fun referenceTemplates(brand: String): LoadedOcrTemplates {
