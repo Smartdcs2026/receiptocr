@@ -52,8 +52,13 @@ jobs:
           PY
           chmod +x gradlew
           ./gradlew testDebugUnitTest --tests 'com.receiptocr.app.ocr.PosEvidenceFusionRound90Test.resolvesMb02WhenAllPassesHaveLiteralOrDateOcrNoise' --stacktrace || true
-          test -f round90_diag_result.txt || echo 'ROUND90_NOISY_RESULT_FILE_NOT_CREATED' > round90_diag_result.txt
-          cp round90_diag_result.txt ../round90_diag_result.txt
+          if [ -f app/round90_diag_result.txt ]; then
+            cp app/round90_diag_result.txt ../round90_diag_result.txt
+          elif [ -f round90_diag_result.txt ]; then
+            cp round90_diag_result.txt ../round90_diag_result.txt
+          else
+            echo 'ROUND90_NOISY_RESULT_FILE_NOT_CREATED' > ../round90_diag_result.txt
+          fi
 
       - name: Commit diagnostic result only
         run: |
