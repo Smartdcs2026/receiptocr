@@ -6,6 +6,7 @@ on:
       - round96-critical-receipt-alerts-field-ux
     paths:
       - 'tools/round96_apply_final.py'
+      - 'tools/round96_fix_message_regressions.py'
       - '.github/workflows/round96-finalize.yml'
   workflow_dispatch:
 
@@ -29,7 +30,9 @@ jobs:
           echo "Round95 production baseline is preserved"
 
       - name: Apply Round96 production source
-        run: python tools/round96_apply_final.py
+        run: |
+          python tools/round96_apply_final.py
+          python tools/round96_fix_message_regressions.py
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -72,6 +75,7 @@ jobs:
           grep -q 'versionName = "0.96.0"' android-app/app/build.gradle.kts
           grep -Fq 'พบบิลซ้ำในร้านเดียวกัน' android-app/app/src/main/java/com/receiptocr/app/ocr/DuplicatePosEvidenceDetector.kt
           grep -Fq 'บิลผิดร้าน • รหัสร้านบนบิลไม่ตรงกับงาน' android-app/app/src/main/java/com/receiptocr/app/ui/UserFacingOcrMessages.kt
+          grep -Fq 'บิลสลับร้าน • ตรวจบิล' android-app/app/src/main/java/com/receiptocr/app/ui/UserFacingOcrMessages.kt
           grep -Fq 'CriticalRed = Color(0xFFB42318)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -Fq 'WarningSoft = Color(0xFFFFF7E6)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -Fq 'แก้บิลซ้ำก่อน' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
