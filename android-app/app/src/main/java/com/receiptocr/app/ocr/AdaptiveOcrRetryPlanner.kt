@@ -5,11 +5,12 @@ import java.io.File
 /**
  * วางแผนการอ่านซ้ำแบบเพิ่มความพยายามทีละระดับ โดยไม่ตัดวิธีอ่านเดิมออก
  *
- * ระดับ 1 = เก็บวิธี Round97 ทั้งหมด + เพิ่มวิธีเสริมที่ปลอดภัยสำหรับตัวอักษรจาง/ขาด
- * ระดับ 2 = เพิ่มช่วงครอปที่เลื่อนตำแหน่งและ threshold อีกแบบ เพื่อหาอักขระที่รอบแรกตกหล่น
- * ระดับ 3 = เพิ่มวิธีเข้มขึ้นอีกสำหรับภาพยาก และคงใช้ระดับนี้เมื่อกดอ่านซ้ำต่อไป
+ * ระดับ 1 = เก็บวิธี Round97/98 ทั้งหมด + วิธีเสริมที่ปลอดภัยสำหรับตัวอักษรจาง/ขาด
+ * ระดับ 2 = เพิ่มช่วงครอปที่เลื่อนตำแหน่ง threshold อีกแบบ และขยายข้อความเล็กก่อนอ่าน
+ * ระดับ 3 = เพิ่มขอบตัวอักษรที่เข้มขึ้นและช่วงบรรทัดขนาดเล็กมาก
+ * ระดับ 4 = รอบช่วยภาพยาก เพิ่มการอ่านภาพเอียงเล็กน้อยและครอปพื้นที่ย่อยที่ขยายใหญ่
  *
- * ตัว planner ไม่ตีความตัวเลขและไม่แก้ค่าบิล จึงไม่เกี่ยวกับการเดาข้อมูล
+ * ทุกระดับเป็นการเพิ่มหลักฐาน ไม่แก้ตัวเลข ไม่เติมข้อมูล และไม่เดาค่าบิล
  */
 data class AdaptiveOcrRetryPlan(
     val level: Int,
@@ -18,7 +19,10 @@ data class AdaptiveOcrRetryPlan(
     val addShiftedLineCrops: Boolean,
     val addCoarseAdaptive: Boolean,
     val addStrongEdgePass: Boolean,
-    val addMicroLineCrops: Boolean
+    val addMicroLineCrops: Boolean,
+    val addUpscaledLineCrops: Boolean,
+    val addSkewRescuePasses: Boolean,
+    val addUpscaledGridCrops: Boolean
 )
 
 object AdaptiveOcrRetryPlanner {
@@ -27,7 +31,7 @@ object AdaptiveOcrRetryPlanner {
         val touchedAt: Long
     )
 
-    private const val MAX_LEVEL = 3
+    private const val MAX_LEVEL = 4
     private const val MAX_TRACKED_IMAGES = 64
     private val attempts = linkedMapOf<String, AttemptState>()
 
@@ -50,7 +54,10 @@ object AdaptiveOcrRetryPlanner {
             addShiftedLineCrops = level >= 2,
             addCoarseAdaptive = level >= 2,
             addStrongEdgePass = level >= 3,
-            addMicroLineCrops = level >= 3
+            addMicroLineCrops = level >= 3,
+            addUpscaledLineCrops = level >= 2,
+            addSkewRescuePasses = level >= 4,
+            addUpscaledGridCrops = level >= 4
         )
     }
 
