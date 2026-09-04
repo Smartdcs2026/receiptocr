@@ -5,8 +5,8 @@ import java.io.File
 /**
  * วางแผนการอ่านซ้ำแบบเพิ่มความพยายามทีละระดับ โดยไม่ตัดวิธีอ่านเดิมออก
  *
- * ระดับ 1 = วิธีอ่านเดิมทั้งหมด
- * ระดับ 2 = เพิ่มวิธีช่วยตัวอักษรจาง/ขาดและช่วงครอปที่เลื่อนตำแหน่ง
+ * ระดับ 1 = เก็บวิธี Round97 ทั้งหมด + เพิ่มวิธีเสริมที่ปลอดภัยสำหรับตัวอักษรจาง/ขาด
+ * ระดับ 2 = เพิ่มช่วงครอปที่เลื่อนตำแหน่งและ threshold อีกแบบ เพื่อหาอักขระที่รอบแรกตกหล่น
  * ระดับ 3 = เพิ่มวิธีเข้มขึ้นอีกสำหรับภาพยาก และคงใช้ระดับนี้เมื่อกดอ่านซ้ำต่อไป
  *
  * ตัว planner ไม่ตีความตัวเลขและไม่แก้ค่าบิล จึงไม่เกี่ยวกับการเดาข้อมูล
@@ -45,10 +45,10 @@ object AdaptiveOcrRetryPlanner {
         val level = attempt.coerceIn(1, MAX_LEVEL)
         return AdaptiveOcrRetryPlan(
             level = level,
-            addFineAdaptive = level >= 2,
-            addFaintTextPass = level >= 2,
+            addFineAdaptive = true,
+            addFaintTextPass = true,
             addShiftedLineCrops = level >= 2,
-            addCoarseAdaptive = level >= 3,
+            addCoarseAdaptive = level >= 2,
             addStrongEdgePass = level >= 3,
             addMicroLineCrops = level >= 3
         )
