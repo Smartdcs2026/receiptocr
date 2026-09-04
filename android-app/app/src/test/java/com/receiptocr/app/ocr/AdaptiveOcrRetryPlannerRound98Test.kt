@@ -7,11 +7,11 @@ import org.junit.Test
 
 class AdaptiveOcrRetryPlannerRound98Test {
     @Test
-    fun first_attempt_keeps_round97_baseline_only() {
+    fun first_attempt_keeps_round97_baseline_and_adds_safe_supplement() {
         val plan = AdaptiveOcrRetryPlanner.planForAttempt(1)
         assertEquals(1, plan.level)
-        assertFalse(plan.addFineAdaptive)
-        assertFalse(plan.addFaintTextPass)
+        assertTrue(plan.addFineAdaptive)
+        assertTrue(plan.addFaintTextPass)
         assertFalse(plan.addShiftedLineCrops)
         assertFalse(plan.addCoarseAdaptive)
         assertFalse(plan.addStrongEdgePass)
@@ -25,7 +25,7 @@ class AdaptiveOcrRetryPlannerRound98Test {
         assertTrue(plan.addFineAdaptive)
         assertTrue(plan.addFaintTextPass)
         assertTrue(plan.addShiftedLineCrops)
-        assertFalse(plan.addCoarseAdaptive)
+        assertTrue(plan.addCoarseAdaptive)
         assertFalse(plan.addStrongEdgePass)
         assertFalse(plan.addMicroLineCrops)
     }
