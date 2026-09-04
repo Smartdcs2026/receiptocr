@@ -31,16 +31,24 @@ class AdaptiveOcrRetryPlannerRound98Test {
     }
 
     @Test
-    fun third_and_later_attempts_use_strongest_safe_plan() {
+    fun third_attempt_preserves_round98_strong_plan_even_when_round100_adds_later_level() {
         val third = AdaptiveOcrRetryPlanner.planForAttempt(3)
         val later = AdaptiveOcrRetryPlanner.planForAttempt(99)
         assertEquals(3, third.level)
-        assertEquals(third, later)
         assertTrue(third.addFineAdaptive)
         assertTrue(third.addFaintTextPass)
         assertTrue(third.addShiftedLineCrops)
         assertTrue(third.addCoarseAdaptive)
         assertTrue(third.addStrongEdgePass)
         assertTrue(third.addMicroLineCrops)
+
+        // Round100 may add a later rescue level, but it must never remove the Round98 plan.
+        assertTrue(later.level >= third.level)
+        assertTrue(later.addFineAdaptive)
+        assertTrue(later.addFaintTextPass)
+        assertTrue(later.addShiftedLineCrops)
+        assertTrue(later.addCoarseAdaptive)
+        assertTrue(later.addStrongEdgePass)
+        assertTrue(later.addMicroLineCrops)
     }
 }
