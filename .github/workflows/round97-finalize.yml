@@ -58,10 +58,10 @@ jobs:
               raise SystemExit('Models.kt receiptStoreId field marker not found')
           text=text.replace(old,new,1)
           old='''    val expectedReceiptStoreId: String\n        get() = receiptStoreId.trim()'''
-          new='''    val expectedReceiptStoreId: String\n        get() {\n            val explicit = receiptStoreId.trim()\n            if (explicit.isNotBlank()) return explicit\n            val raw = storeCode.trim()\n            val temporary = Regex("(?:^|[-_ ])(?:TEMP|TMP|NEW|PENDING)(?:[-_ ]|$)", RegexOption.IGNORE_CASE).containsMatchIn(raw) || raw.contains("ชั่วคราว")\n            return if (receiptStoreIdPending || temporary) "" else raw.filter(Char::isDigit)\n        }'''
+          new='''    val expectedReceiptStoreId: String\n        get() = if (receiptStoreIdPending) "" else receiptStoreId.trim().ifBlank { storeCode.filter(Char::isDigit) }'''
           if old not in text:
               raise SystemExit('Models.kt expectedReceiptStoreId marker not found')
-          models.write_text(text,encoding='utf-8')
+          models.write_text(text.replace(old,new,1),encoding='utf-8')
 
           repo=Path('android-app/app/src/main/java/com/receiptocr/app/data/remote/WorkPlanRepository.kt')
           text=repo.read_text(encoding='utf-8')
@@ -70,6 +70,24 @@ jobs:
           if old not in text:
               raise SystemExit('WorkPlanRepository.kt receiptStoreId parse marker not found')
           repo.write_text(text.replace(old,new,1),encoding='utf-8')
+
+          test=Path('android-app/app/src/test/java/com/receiptocr/app/model/WorkItemStoreCodeTest.kt')
+          t=test.read_text(encoding='utf-8')
+          old='''    private fun work(storeCode: String, receiptStoreId: String = "") = WorkItem('''
+          new='''    private fun work(storeCode: String, receiptStoreId: String = "", receiptStoreIdPending: Boolean = false) = WorkItem('''
+          if old not in t:
+              raise SystemExit('WorkItemStoreCodeTest helper marker not found')
+          t=t.replace(old,new,1)
+          old='''        receiptStoreId = receiptStoreId\n    )'''
+          new='''        receiptStoreId = receiptStoreId,\n        receiptStoreIdPending = receiptStoreIdPending\n    )'''
+          if old not in t:
+              raise SystemExit('WorkItemStoreCodeTest constructor marker not found')
+          t=t.replace(old,new,1)
+          marker='''    @Test\n    fun planCodeWithoutDigitsCannotPretendToBeReceiptStoreId() {\n        assertEquals("", work("CJ").expectedReceiptStoreId)\n    }'''
+          addition='''    @Test\n    fun planCodeWithoutDigitsCannotPretendToBeReceiptStoreId() {\n        assertEquals("", work("CJ").expectedReceiptStoreId)\n    }\n\n    @Test\n    fun pendingTemporaryPlanCodeDoesNotBecomeReceiptStoreId() {\n        assertEquals("", work("TEMP-CJ-00001", receiptStoreIdPending = true).expectedReceiptStoreId)\n    }'''
+          if marker not in t:
+              raise SystemExit('WorkItemStoreCodeTest final marker not found')
+          test.write_text(t.replace(marker,addition,1),encoding='utf-8')
           PY
 
       - name: Set up Node
@@ -121,7 +139,8 @@ jobs:
           grep -Fq 'ดูรายการ' web-admin/workplans-smart.js
           grep -Fq 'รหัสร้านบนบิล' web-admin/workplans-smart.js
           grep -Fq 'receiptStoreIdPending: Boolean = false' android-app/app/src/main/java/com/receiptocr/app/model/Models.kt
-          grep -Fq 'receiptStoreIdPending || temporary' android-app/app/src/main/java/com/receiptocr/app/model/Models.kt
+          grep -Fq 'if (receiptStoreIdPending)' android-app/app/src/main/java/com/receiptocr/app/model/Models.kt
+          grep -Fq 'pendingTemporaryPlanCodeDoesNotBecomeReceiptStoreId' android-app/app/src/test/java/com/receiptocr/app/model/WorkItemStoreCodeTest.kt
           grep -Fq 'StoreLocationRepository.applySaved' android-app/app/src/main/java/com/receiptocr/app/data/remote/WorkPlanRepository.kt
 
       - name: Verify patch whitespace
