@@ -1,0 +1,91 @@
+name: Round95 finalize production
+
+on:
+  push:
+    branches:
+      - round95-date-proof-store-review-calendar-field-ui
+    paths:
+      - 'tools/round95_apply.py'
+      - '.github/workflows/round95-finalize.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout Round95
+        uses: actions/checkout@v4
+        with:
+          ref: round95-date-proof-store-review-calendar-field-ui
+          fetch-depth: 0
+
+      - name: Verify Round94 production baseline
+        run: |
+          git merge-base --is-ancestor 3e11a67b98d207b92fdabe52485b8aefb1234e8c HEAD
+          echo "Round94 production baseline is preserved"
+
+      - name: Apply Round95 production source
+        run: python tools/round95_apply.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Preserve Admin and Round94 regressions
+        run: |
+          node tests/workplan-store-normalizer.test.js
+          node tests/ocr-pattern-engine.test.js
+          node tests/round94-admin-pos-mapping.test.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests including Round94 and Round95 guards
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify Round95 version and field UX
+        run: |
+          grep -q 'versionCode = 97' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.95.0"' android-app/app/build.gradle.kts
+          grep -Fq 'homeListState.animateScrollToItem(0)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -Fq 'อ่านข้อมูลจากบิล' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -Fq 'ตรวจจากภาพแล้ว รหัสบนบิลคือ' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -Fq 'วันที่บนบิลอ่านไม่ครบ กรุณาตรวจภาพบิล' android-app/app/src/main/java/com/receiptocr/app/ocr/ReceiptDateOcrNormalizer.kt
+
+      - name: Verify patch whitespace
+        run: git diff --check
+
+      - name: Commit verified production source
+        run: |
+          git config user.name "SKDC_SMART"
+          git config user.email "somchaibutphon@gmail.com"
+          git add android-app
+          if git diff --cached --quiet; then
+            echo "No production changes to commit"
+          else
+            git commit -m "Round95 deterministic date proof store review and field UX"
+            git push origin HEAD:round95-date-proof-store-review-calendar-field-ui
+          fi
