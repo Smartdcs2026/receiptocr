@@ -1,0 +1,80 @@
+name: Round98 adaptive OCR regression
+
+on:
+  push:
+    branches: ["round98-adaptive-ocr-retry-accuracy"]
+    paths:
+      - "android-app/**"
+      - "web-admin/**"
+      - "tests/**"
+      - ".github/workflows/round98-finalize.yml"
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Round98
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Round97 production baseline
+        run: git merge-base --is-ancestor f7d53c47345cdfd03ae37f7967a4f1b470dfb0ba HEAD
+
+      - name: Verify Round98 version
+        run: |
+          grep -q 'versionCode = 100' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.98.0"' android-app/app/build.gradle.kts
+
+      - name: Verify adaptive retry is additive
+        run: |
+          grep -q 'AdaptiveOcrRetryPlanner.next(file)' android-app/app/src/main/java/com/receiptocr/app/ocr/MultiPassOcrReader.kt
+          grep -q 'addShiftedLineCrops' android-app/app/src/main/java/com/receiptocr/app/ocr/MultiPassOcrReader.kt
+          grep -q 'addMicroLineCrops' android-app/app/src/main/java/com/receiptocr/app/ocr/MultiPassOcrReader.kt
+          grep -q 'first_attempt_keeps_round97_baseline_only' android-app/app/src/test/java/com/receiptocr/app/ocr/AdaptiveOcrRetryPlannerRound98Test.kt
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Admin regression tests
+        run: |
+          node tests/workplan-store-normalizer.test.js
+          node tests/ocr-pattern-engine.test.js
+          node --check web-admin/ocr-admin-ux.js
+          node --check web-admin/ocr-pattern-engine.js
+          node --check web-admin/ocr-simple.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify no accidental rollback of core OCR files
+        run: |
+          test -f android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt
+          test -f android-app/app/src/main/java/com/receiptocr/app/ocr/OcrAccumulationPolicy.kt
+          test -f android-app/app/src/main/java/com/receiptocr/app/ocr/MultiTemplateSequenceCollector.kt
+          test -f android-app/app/src/main/java/com/receiptocr/app/ocr/DuplicatePosEvidenceDetector.kt
