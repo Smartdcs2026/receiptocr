@@ -7,16 +7,16 @@ import org.junit.Test
 
 class AdaptiveOcrRetryPlannerRound100Test {
     @Test
-    fun first_attempt_does_not_use_heavy_rescue_passes() {
+    fun first_attempt_adds_safe_small_text_enlargement_but_not_heavy_rescue() {
         val plan = AdaptiveOcrRetryPlanner.planForAttempt(1)
         assertEquals(1, plan.level)
-        assertFalse(plan.addUpscaledLineCrops)
+        assertTrue(plan.addUpscaledLineCrops)
         assertFalse(plan.addSkewRescuePasses)
         assertFalse(plan.addUpscaledGridCrops)
     }
 
     @Test
-    fun second_attempt_adds_small_text_enlargement() {
+    fun second_attempt_keeps_small_text_enlargement_and_adds_shifted_reading() {
         val plan = AdaptiveOcrRetryPlanner.planForAttempt(2)
         assertEquals(2, plan.level)
         assertTrue(plan.addUpscaledLineCrops)
