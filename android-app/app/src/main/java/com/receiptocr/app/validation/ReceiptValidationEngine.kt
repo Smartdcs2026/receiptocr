@@ -202,10 +202,14 @@ object ReceiptValidationEngine {
         issues: MutableList<ValidationIssue>
     ) {
         records.filter { !it.noReceipt }.forEach { record ->
-            if (record.ocrWarnings.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS")) {
+            val warning = record.ocrWarnings
+            val duplicate = warning.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS") ||
+                warning.contains("พบบิลซ้ำ") || warning.contains("มากกว่า 1 ใบในภาพ") ||
+                (warning.contains("POS") && warning.contains("ซ้ำ"))
+            if (duplicate) {
                 issues += block(
                     "DUPLICATE_POS_EVIDENCE_POS_${record.posNumber}",
-                    "พบบิล POS ${record.posNumber} ซ้ำ • กรุณาตรวจภาพบิลก่อนส่ง"
+                    "พบบิลซ้ำ • POS ${record.posNumber} มีมากกว่า 1 ใบ"
                 )
             }
         }

@@ -100,14 +100,20 @@ private val PrimarySoft = Color(0xFFEFF4FF)
 private val TextMain = Color(0xFF152033)
 private val TextSub = Color(0xFF667085)
 private val Border = Color(0xFFE3E8F0)
-private val SuccessGreen = Color(0xFF37A26C)
+private val SuccessGreen = Color(0xFF24885A)
+private val SuccessSoft = Color(0xFFEAF8F0)
 private val DraftBlue = Color(0xFF93D4F7)
-private val WarningOrange = Color(0xFF9A4A00)
+private val WarningOrange = Color(0xFF8A4B08)
+private val WarningSoft = Color(0xFFFFF7E6)
+private val WarningBorder = Color(0xFFE4B067)
+private val CriticalRed = Color(0xFFB42318)
+private val CriticalSoft = Color(0xFFFFF1F0)
+private val CriticalBorder = Color(0xFFE3A29B)
 private val DefaultBlue = Color(0xFF5D7FC8)
 private val DateBeforeBlue = Color(0xFF2563C9)
 private val DateExactGreen = Color(0xFF188A55)
 private val DateAfterOrange = Color(0xFFC66A05)
-private val ErrorSoft = Color(0xFFFFF1E4)
+private val ErrorSoft = CriticalSoft
 
 private enum class WorkTab(val title: String) {
     BILL_AND_DATA("งานบิล"),
@@ -1102,16 +1108,36 @@ private fun StoreWorkScreen(
                         .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
                     if (message.isNotBlank()) {
+                        val messageCritical = message.contains("บิลผิดร้าน") || message.contains("บิลซ้ำ") ||
+                            message.contains("ร้านอื่น") || message.contains("ไม่สำเร็จ") || message.contains("ต้องแก้")
+                        val messageCaution = !messageCritical && (message.contains("ตรวจ") || message.contains("ยังขาด") ||
+                            message.contains("ยังอ่าน") || message.contains("กรุณา") || message.contains("แก้วันที่"))
+                        val messageSuccess = !messageCritical && !messageCaution && (message.contains("สำเร็จ") ||
+                            message.contains("บันทึก") || message.contains("ส่งข้อมูลแล้ว"))
+                        val messageBg = when {
+                            messageCritical -> CriticalSoft
+                            messageCaution -> WarningSoft
+                            messageSuccess -> SuccessSoft
+                            else -> PrimarySoft
+                        }
+                        val messageFg = when {
+                            messageCritical -> CriticalRed
+                            messageCaution -> WarningOrange
+                            messageSuccess -> SuccessGreen
+                            else -> Primary
+                        }
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
-                            color = if (message.contains("สำเร็จ")) Color(0xFFEAF8F0) else PrimarySoft
+                            color = messageBg,
+                            border = BorderStroke(1.dp, messageFg.copy(alpha = 0.22f))
                         ) {
                             Text(
                                 text = message,
                                 modifier = Modifier.padding(10.dp),
-                                color = if (message.contains("สำเร็จ")) SuccessGreen else Primary,
-                                fontSize = 12.sp
+                                color = messageFg,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                         Spacer(Modifier.height(8.dp))
@@ -1266,7 +1292,7 @@ private fun StoreWorkScreen(
             },
             title = {
                 Text(
-                    "ยังอ่านบิลไม่ครบ",
+                    "อ่านบิลยังไม่ครบ",
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
@@ -1276,16 +1302,11 @@ private fun StoreWorkScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "ระบบยังอ่านข้อมูลที่จำเป็นจากภาพนี้ไม่ครบ",
+                        "ถ่ายใหม่ให้เห็น วันที่ เวลา เลขลูกค้า และ POS ชัดเจน",
                         color = TextMain,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        "กรุณาตรวจว่าภาพเห็นวันที่ เวลา เลข/ยอดลูกค้า และหมายเลขเครื่องชัดเจน แล้วลองอ่านอีกครั้ง",
-                        color = TextSub,
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp
                     )
                 }
             },
@@ -1358,6 +1379,10 @@ private fun StoreWorkScreen(
         val hasHardIntegrityBlock = proposal.warnings.any { it.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS") || (it.contains("POS") && it.contains("ซ้ำ")) } ||
             proposal.proposedRecords.any { it.ocrWarnings.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS") || (it.ocrWarnings.contains("POS") && it.ocrWarnings.contains("ซ้ำ")) }
         val hasCriticalIntegrityWarning = hasStoreReviewWarning || hasHardIntegrityBlock
+        val criticalReceiptMessages = buildList {
+            if (hasHardIntegrityBlock) add("พบบิลซ้ำ • แก้บิลซ้ำก่อน")
+            if (hasStoreReviewWarning) add("บิลไม่ตรงร้าน • ตรวจรหัสร้านจากภาพ")
+        }.distinct()
         val unresolvedPos = proposal.proposedRecords
             .filter { !it.noReceipt && (it.customerNo.isBlank() || it.billDate.isBlank() || it.billTime.isBlank()) }
             .map { it.posNumber }.sorted()
@@ -1381,7 +1406,7 @@ private fun StoreWorkScreen(
                     if (hasDateWarning || hasCriticalIntegrityWarning) Icons.Outlined.ErrorOutline else Icons.Outlined.CheckCircle,
                     contentDescription = null,
                     tint = when {
-                        hasDateWarning || hasCriticalIntegrityWarning -> MaterialTheme.colorScheme.error
+                        hasDateWarning || hasCriticalIntegrityWarning -> CriticalRed
                         proposal.confidence == OcrConfidence.HIGH -> SuccessGreen
                         else -> WarningOrange
                     }
@@ -1390,9 +1415,10 @@ private fun StoreWorkScreen(
             title = {
                 Text(
                     when {
-                        hasCriticalIntegrityWarning -> "ตรวจข้อมูลบิล"
+                        hasHardIntegrityBlock -> "พบบิลซ้ำ"
+                        hasStoreReviewWarning -> "บิลไม่ตรงร้าน"
                         hasDateWarning -> "ตรวจวันที่บิล"
-                        else -> "ตรวจทานผลอ่านบิล"
+                        else -> "ตรวจข้อมูลบิล"
                     },
                     fontSize = 22.sp,
                     lineHeight = 27.sp,
@@ -1424,6 +1450,27 @@ private fun StoreWorkScreen(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    if (criticalReceiptMessages.isNotEmpty()) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            color = CriticalSoft,
+                            border = BorderStroke(1.5.dp, CriticalBorder)
+                        ) {
+                            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                criticalReceiptMessages.forEach { critical ->
+                                    Row(verticalAlignment = Alignment.Top) {
+                                        Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = CriticalRed, modifier = Modifier.size(17.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            critical, modifier = Modifier.weight(1f), color = CriticalRed,
+                                            fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center,
@@ -1597,17 +1644,20 @@ private fun StoreWorkScreen(
                             Text(
                                 "• $warning",
                                 fontSize = 11.sp,
-                                color = if (critical) MaterialTheme.colorScheme.error else WarningOrange
+                                color = if (critical) CriticalRed else WarningOrange,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     Text(
-                        if (hasDateWarning) {
-                            "เลือกใช้ชุดวันที่ให้ตรงกันก่อนส่ง"
-                        } else {
-                            "ตรวจเทียบกับภาพก่อนนำข้อมูลไปใช้งาน"
+                        when {
+                            hasHardIntegrityBlock -> "แก้บิลซ้ำก่อน"
+                            hasStoreReviewWarning -> "ตรวจรหัสร้านก่อน"
+                            hasDateWarning -> "แก้วันที่ก่อน"
+                            else -> "ตรวจข้อมูลก่อนใช้"
                         },
                         fontSize = 11.sp,
-                        color = TextSub
+                        color = TextSub,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             },
@@ -1619,8 +1669,8 @@ private fun StoreWorkScreen(
                         }
                         saveDraft()
                         message = when {
-                            hasStoreReviewWarning -> "เก็บข้อมูลที่อ่านได้แล้ว • กรุณาตรวจรหัสร้านใน POS ที่แจ้ง"
-                            hasDateWarning -> "วันที่แต่ละ POS ใช้ได้ แต่ชุดวันที่ยังใช้ร่วมกันไม่ได้"
+                            hasStoreReviewWarning -> "เก็บข้อมูลแล้ว • ตรวจรหัสร้านก่อนส่ง"
+                            hasDateWarning -> "เก็บข้อมูลแล้ว • แก้วันที่ก่อนส่ง"
                             else -> "บันทึกข้อมูลจากบิลแล้ว"
                         }
                         pendingOcrResult = null
@@ -1630,10 +1680,10 @@ private fun StoreWorkScreen(
                 ) {
                     Text(
                         when {
-                            hasHardIntegrityBlock -> "ต้องตรวจภาพก่อน"
-                            hasStoreReviewWarning -> "นำข้อมูลไปตรวจรหัสร้าน"
-                            hasDateWarning -> "นำข้อมูลไปแก้ไข"
-                            else -> "ใช้ข้อมูลนี้"
+                            hasHardIntegrityBlock -> "แก้บิลซ้ำก่อน"
+                            hasStoreReviewWarning -> "ตรวจรหัสร้าน"
+                            hasDateWarning -> "แก้วันที่"
+                            else -> "ใช้ข้อมูล"
                         }
                     )
                 }
@@ -2020,8 +2070,10 @@ private fun PosCard(
         }.joinToString(" • ")
     } else record.ocrWarnings
     val visibleOcrWarning = UserFacingOcrMessages.warning(warningForUser)
+    val criticalOcrWarning = UserFacingOcrMessages.isCritical(warningForUser)
     val dateInfoText = UserFacingOcrMessages.dateInfo(record.ocrRawBillDate, record.billDate)
     val hasValidationWarning = customerMissing || dateMissing || timeMissing || dateWarning || visibleOcrWarning.isNotBlank()
+    val hasCriticalWarning = dateWarning || criticalOcrWarning || (storeMismatch && !storeReviewValid)
 
     val hasData = record.customerNo.isNotBlank() || record.noReceipt
     val summaryText = when {
@@ -2040,7 +2092,11 @@ private fun PosCard(
         colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
         border = BorderStroke(
             width = if (hasValidationWarning) 1.5.dp else 1.dp,
-            color = if (hasValidationWarning) MaterialTheme.colorScheme.error else Border
+            color = when {
+                hasCriticalWarning -> CriticalRed
+                hasValidationWarning -> WarningBorder
+                else -> Border
+            }
         )
     ) {
         Column {
@@ -2190,21 +2246,21 @@ private fun PosCard(
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
-                            color = if (storeReviewValid) Color(0xFFEAF8F0) else Color(0xFFFFF1F1),
-                            border = BorderStroke(1.dp, if (storeReviewValid) SuccessGreen else MaterialTheme.colorScheme.error)
+                            color = if (storeReviewValid) SuccessSoft else CriticalSoft,
+                            border = BorderStroke(1.5.dp, if (storeReviewValid) SuccessGreen else CriticalBorder)
                         ) {
                             Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                                 Text(
-                                    if (storeReviewValid) "ยืนยันรหัสร้านแล้ว" else "ตรวจรหัสร้าน",
-                                    color = if (storeReviewValid) SuccessGreen else MaterialTheme.colorScheme.error,
+                                    if (storeReviewValid) "ยืนยันรหัสร้านแล้ว" else "บิลไม่ตรงร้าน",
+                                    color = if (storeReviewValid) SuccessGreen else CriticalRed,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text("รหัสร้านในงาน: ${expectedStoreId.ifBlank { "ไม่พบ" }}", color = TextMain, fontSize = 12.sp)
                                 Text("รหัสที่อ่านจากบิล: ${record.ocrStoreId.ifBlank { "อ่านไม่พบ" }}", color = TextMain, fontSize = 12.sp)
                                 if (!storeReviewValid) {
                                     Text(
-                                        "ตรวจตัวเลขจากภาพบิลก่อนยืนยัน ระบบจะไม่แก้รหัสร้านให้อัตโนมัติ",
-                                        color = TextSub, fontSize = 11.sp, lineHeight = 16.sp
+                                        "ตรวจรหัสจากภาพก่อนยืนยัน",
+                                        color = TextMain, fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold
                                     )
                                     Button(
                                         onClick = {
@@ -2226,13 +2282,9 @@ private fun PosCard(
                                         enabled = expectedStoreId.isNotBlank() && record.ocrStoreId.isNotBlank(),
                                         colors = ButtonDefaults.buttonColors(containerColor = Primary)
                                     ) {
-                                        Text("ตรวจจากภาพแล้ว รหัสบนบิลคือ $expectedStoreId", textAlign = TextAlign.Center)
+                                        Text("ยืนยันรหัสร้าน $expectedStoreId", textAlign = TextAlign.Center)
                                     }
-                                    OutlinedButton(
-                                        onClick = { /* คงข้อมูลที่อ่านถูกไว้ และปล่อยสถานะบล็อกจนเปลี่ยนบิล */ },
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text("บิลนี้เป็นร้านอื่น") }
-                                    Text("หากเป็นบิลร้านอื่น ให้เปลี่ยนภาพบิลก่อนส่งงาน", color = MaterialTheme.colorScheme.error, fontSize = 10.5.sp)
+                                    Text("ถ้าเป็นร้านอื่น ให้เปลี่ยนภาพบิลก่อนส่ง", color = CriticalRed, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
                                 } else {
                                     Text(
                                         "ยืนยันโดย ${record.storeReviewConfirmedBy.ifBlank { "ผู้ใช้งาน" }} • ${record.storeReviewConfirmedAt}",
@@ -2259,10 +2311,14 @@ private fun PosCard(
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(9.dp),
-                            color = Color(0xFFFFF1F1),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                            color = if (criticalOcrWarning) CriticalSoft else WarningSoft,
+                            border = BorderStroke(1.dp, if (criticalOcrWarning) CriticalBorder else WarningBorder)
                         ) {
-                            Text(visibleOcrWarning, modifier = Modifier.padding(9.dp), color = MaterialTheme.colorScheme.error, fontSize = 10.5.sp)
+                            Text(
+                                visibleOcrWarning, modifier = Modifier.padding(9.dp),
+                                color = if (criticalOcrWarning) CriticalRed else WarningOrange,
+                                fontSize = 10.5.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
 
