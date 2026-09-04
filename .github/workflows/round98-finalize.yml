@@ -33,7 +33,7 @@ jobs:
           grep -q 'AdaptiveOcrRetryPlanner.next(file)' android-app/app/src/main/java/com/receiptocr/app/ocr/MultiPassOcrReader.kt
           grep -q 'addShiftedLineCrops' android-app/app/src/main/java/com/receiptocr/app/ocr/MultiPassOcrReader.kt
           grep -q 'addMicroLineCrops' android-app/app/src/main/java/com/receiptocr/app/ocr/MultiPassOcrReader.kt
-          grep -q 'first_attempt_keeps_round97_baseline_only' android-app/app/src/test/java/com/receiptocr/app/ocr/AdaptiveOcrRetryPlannerRound98Test.kt
+          grep -q 'first_attempt_keeps_round97_baseline_and_adds_safe_supplement' android-app/app/src/test/java/com/receiptocr/app/ocr/AdaptiveOcrRetryPlannerRound98Test.kt
 
       - name: Set up Node
         uses: actions/setup-node@v4
