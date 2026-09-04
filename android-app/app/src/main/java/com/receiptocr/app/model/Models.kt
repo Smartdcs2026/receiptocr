@@ -33,6 +33,7 @@ data class WorkItem(
     val longitude: String,
     val storeNote: String = "",
     val receiptStoreId: String = "",
+    val receiptStoreIdPending: Boolean = false,
     val reviewStatus: String = "",
     val returnReason: String = "",
     val planStatus: String = "ACTIVE",
@@ -42,7 +43,7 @@ data class WorkItem(
     val status: WorkStatus = WorkStatus.NOT_STARTED
 ) {
     val expectedReceiptStoreId: String
-        get() = receiptStoreId.trim().ifBlank { storeCode.filter(Char::isDigit) }
+        get() = if (receiptStoreIdPending) "" else receiptStoreId.trim().ifBlank { storeCode.filter(Char::isDigit) }
 }
 
 data class PosRecord(

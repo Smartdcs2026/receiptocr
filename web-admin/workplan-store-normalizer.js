@@ -7,6 +7,10 @@
 
   function clean(value){return String(value??"").trim()}
   function digitsOnly(value){return clean(value).replace(/\D+/g,"")}
+  function looksTemporaryStoreCode(value){
+    const text=clean(value);
+    return /(?:^|[-_ ])(?:temp|tmp|new|pending)(?:[-_ ]|$)/i.test(text)||/ชั่วคราว/.test(text);
+  }
 
   function templateStoreLengths(items){
     const lengths=new Set();
@@ -35,10 +39,10 @@
   function normalizeStoreCode(rawStoreCode,fixedLength=null){
     const raw=clean(rawStoreCode);
     const digits=digitsOnly(raw);
-    if(!digits)return {ok:false,raw,receiptStoreId:"",error:"รหัสร้านไม่มีตัวเลขสำหรับใช้เทียบบิล"};
+    if(!digits)return {ok:false,raw,receiptStoreId:"",error:"รหัสร้านยังไม่มีเลขสำหรับเทียบบิล"};
     const length=Number(fixedLength||0);
     if(length>0&&digits.length>length){
-      return {ok:false,raw,receiptStoreId:digits,error:`รหัสร้าน ${raw} มีตัวเลข ${digits.length} หลัก แต่รูปแบบบิลกำหนด ${length} หลัก`};
+      return {ok:false,raw,receiptStoreId:digits,error:`รหัสร้าน ${raw} มีตัวเลข ${digits.length} หลัก แต่รหัสบนบิลใช้ ${length} หลัก`};
     }
     const receiptStoreId=length>0?digits.padStart(length,"0"):digits;
     return {ok:true,raw,receiptStoreId,fixedLength:length||null};
@@ -47,6 +51,17 @@
   function resolveFixedLength(templateItems){
     const lengths=templateStoreLengths(templateItems);
     return lengths.length===1?lengths[0]:null;
+  }
+
+  function pendingReceiptStore(row,reason){
+    return {
+      ...row,
+      receiptStoreId:"",
+      receipt_store_id:"",
+      receiptStoreIdPending:true,
+      receiptStoreIdSource:"PENDING_CONFIRMATION",
+      receiptStoreIdNote:reason||"รอยืนยันรหัสร้านบนบิล"
+    };
   }
 
   async function enrichRows(rows,loadTemplates){
@@ -63,18 +78,43 @@
     }));
 
     const errors=[];
+    const warnings=[];
     const enriched=list.map((row,index)=>{
       const fixedLength=rules.get(clean(row.brand))||null;
-      const normalized=normalizeStoreCode(row.receiptStoreId||row.receipt_store_id||row.storeCode,fixedLength);
-      if(!normalized.ok){errors.push(`รายการ ${index+1}: ${normalized.error}`);return row}
+      const explicit=clean(row.receiptStoreId||row.receipt_store_id);
+      if(explicit){
+        const normalized=normalizeStoreCode(explicit,fixedLength);
+        if(!normalized.ok){errors.push(`รายการ ${index+1}: ${normalized.error}`);return row}
+        return {
+          ...row,
+          receiptStoreId:normalized.receiptStoreId,
+          receipt_store_id:normalized.receiptStoreId,
+          receiptStoreIdPending:false,
+          receiptStoreIdSource:"FILE_CONFIRMED"
+        };
+      }
+
+      const planCode=clean(row.storeCode);
+      const digits=digitsOnly(planCode);
+      if(!digits||looksTemporaryStoreCode(planCode)||(fixedLength&&digits.length>fixedLength)){
+        warnings.push(`รายการ ${index+1}: รหัสบนบิลรอยืนยัน`);
+        return pendingReceiptStore(row,"รหัสแผนงานยังไม่ใช้เทียบบิล");
+      }
+
+      const normalized=normalizeStoreCode(planCode,fixedLength);
+      if(!normalized.ok){
+        warnings.push(`รายการ ${index+1}: รหัสบนบิลรอยืนยัน`);
+        return pendingReceiptStore(row,"รหัสแผนงานยังไม่ใช้เทียบบิล");
+      }
       return {
         ...row,
         receiptStoreId:normalized.receiptStoreId,
         receipt_store_id:normalized.receiptStoreId,
-        receiptStoreIdSource:"IMPORT_NORMALIZED"
+        receiptStoreIdPending:false,
+        receiptStoreIdSource:"PLAN_CODE_DERIVED"
       };
     });
-    return {rows:enriched,errors,rules};
+    return {rows:enriched,errors,warnings,rules};
   }
 
   function resolveAdminAuth(){
@@ -101,5 +141,5 @@
 
   if(typeof window!=="undefined")installAdminImportHook();
 
-  return {digitsOnly,templateStoreLengths,resolveFixedLength,normalizeStoreCode,enrichRows,installAdminImportHook};
+  return {digitsOnly,looksTemporaryStoreCode,templateStoreLengths,resolveFixedLength,normalizeStoreCode,enrichRows,installAdminImportHook};
 });

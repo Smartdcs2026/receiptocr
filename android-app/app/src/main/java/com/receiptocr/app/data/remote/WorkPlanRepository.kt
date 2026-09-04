@@ -31,13 +31,13 @@ object WorkPlanRepository {
         val cloud = runCatching { fetchDay(employeeCode, date) }.getOrNull()
         if (cloud != null) {
             save(context, dayKey(employeeCode, date), cloud)
-            return LoadedWorkPlan(parseItems(cloud), WorkPlanSource.CLOUD)
+            return LoadedWorkPlan(applySavedLocations(context, parseItems(cloud)), WorkPlanSource.CLOUD)
         }
 
         val cached = read(context, dayKey(employeeCode, date))
         if (!cached.isNullOrBlank()) {
             return runCatching {
-                LoadedWorkPlan(parseItems(cached), WorkPlanSource.CACHE)
+                LoadedWorkPlan(applySavedLocations(context, parseItems(cached)), WorkPlanSource.CACHE)
             }.getOrElse { fallback(date) }
         }
 
@@ -48,7 +48,7 @@ object WorkPlanRepository {
         val cached = read(context, dayKey(employeeCode, date))
         if (!cached.isNullOrBlank()) {
             return runCatching {
-                LoadedWorkPlan(parseItems(cached), WorkPlanSource.CACHE)
+                LoadedWorkPlan(applySavedLocations(context, parseItems(cached)), WorkPlanSource.CACHE)
             }.getOrElse { fallback(date) }
         }
         return fallback(date)
@@ -109,6 +109,9 @@ object WorkPlanRepository {
         return if (value.equals("null", true) || value.equals("undefined", true)) fallback else value
     }
 
+    private fun applySavedLocations(context: Context, items: List<WorkItem>): List<WorkItem> =
+        items.map { StoreLocationRepository.applySaved(context, it) }
+
     private fun JSONObject.receiptStoreId(): String =
         cleanString("receiptStoreId").ifBlank {
             cleanString("receipt_store_id").ifBlank {
@@ -141,6 +144,7 @@ object WorkPlanRepository {
                         longitude = o.cleanString("longitude"),
                         storeNote = o.cleanString("storeNote"),
                         receiptStoreId = o.receiptStoreId(),
+                        receiptStoreIdPending = o.optBoolean("receiptStoreIdPending", o.optBoolean("receipt_store_id_pending", false)),
                         reviewStatus = o.cleanString("reviewStatus"),
                         returnReason = o.cleanString("returnReason"),
                         planStatus = o.cleanString("planStatus", "ACTIVE"),

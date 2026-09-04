@@ -27,6 +27,7 @@ const FIELD_DEFS=[
   {key:"fullName",label:"ชื่อพนักงาน",required:false,aliases:["ชื่อพนักงาน","ชื่อ-สกุล","ชื่อ สกุล","employee name"]},
   {key:"brand",label:"แบรนด์",required:true,aliases:["brand","แบรนด์"]},
   {key:"storeCode",label:"รหัสร้าน",required:true,aliases:["รหัสร้าน","store code","store id","branch code"]},
+  {key:"receiptStoreId",label:"รหัสร้านบนบิล",required:false,aliases:["รหัสร้านบนบิล","รหัสบนบิล","receipt store id","bill store id","bill store code"]},
   {key:"storeName",label:"ชื่อร้าน",required:true,aliases:["ชื่อร้าน","store name","branch name"]},
   {key:"posCount",label:"จำนวน POS",required:true,aliases:["pos","จำนวน pos","จำนวนเครื่อง","เครื่อง"]},
   {key:"businessType",label:"ประเภทร้าน",required:false,aliases:["business type","business_type","store type","ประเภทร้าน","ประเภทกิจการ","ประเภทธุรกิจ"]},
@@ -44,6 +45,7 @@ let users=[],brands=[],file=null,wb=null,sheetRows=[],analysis=null,normalized=[
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 function norm(v){return String(v??"").trim().toLowerCase().replace(/\s+/g," ")}
 function clean(v){const s=String(v??"").trim();return /^(null|undefined|n\/a)$/i.test(s)?"":s}
+function looksTemporaryStoreCode(v){return /(?:^|[-_ ])(?:temp|tmp|new|pending)(?:[-_ ]|$)/i.test(String(v||""))||/ชั่วคราว/.test(String(v||""))}
 function toGregorian(y){
   y=Number(y||0);
   if(y>=2400)y-=543;
@@ -192,6 +194,7 @@ function buildPreview(){
     const fullName=clean(get("fullName"));
     const brand=clean(get("brand"));
     const storeCode=clean(get("storeCode"));
+    const receiptStoreId=clean(get("receiptStoreId"));
     const storeName=clean(get("storeName"));
     const posCount=Number(clean(get("posCount"))||0);
     if(employeeCode)fileEmployeeCodes.add(employeeCode);
@@ -223,7 +226,9 @@ function buildPreview(){
       normalized.push({
         workDate:isoDate(year,month,dc.day),
         brand:brandMaster?.brand_name||brand,
-        storeCode,storeName,
+        storeCode,receiptStoreId,storeName,
+        receiptStoreIdPending:!receiptStoreId&&looksTemporaryStoreCode(storeCode),
+        receiptStoreIdSource:receiptStoreId?"FILE_CONFIRMED":(!receiptStoreId&&looksTemporaryStoreCode(storeCode)?"PENDING_CONFIRMATION":""),
         posCount:Number.isFinite(posCount)&&posCount>=1?Math.min(99,posCount):1,
         businessType:clean(get("businessType")),
         openClose:clean(get("openClose")),
@@ -293,9 +298,9 @@ function renderPreview(){
 
   $("previewRows").innerHTML=normalized.slice(0,200).map(x=>`
     <tr class="${x._errors.length?"rowError":""}">
-      <td>${esc(x.workDate)}</td><td>${esc(x.brand)}</td><td>${esc(x.storeCode)}</td>
+      <td>${esc(x._row)}</td><td>${esc(x.workDate)}</td><td>${esc(x.brand)}</td><td>${esc(x.storeCode)}</td>
       <td>${esc(x.storeName)}</td><td>${esc(x.posCount)}</td>
-      <td>${x._errors.length?`<span class="badText">${esc(x._errors.join(" / "))}</span>`:'<span class="goodText">พร้อมนำเข้า</span>'}</td>
+      <td>${x._errors.length?`<span class="badText">${esc(x._errors.join(" / "))}</span>`:(x.receiptStoreIdPending?'<span class="pendingText">พร้อมนำเข้า • รหัสบิลรอยืนยัน</span>':'<span class="goodText">พร้อมนำเข้า</span>')}</td>
     </tr>`).join("");
 
   $("previewPanel").classList.remove("hidden");
@@ -324,6 +329,33 @@ $("excelInput").onchange=async ev=>{
 };
 $("sheetSelect").onchange=()=>{$("headerRowInput").value="";$("yearInput").value="";$("confirmUnmapped").checked=false;analysis=null;analyzeCurrent()};
 
+function importProblemItems(){
+  const items=problems.map(message=>({row:"ทั้งไฟล์",store:"",message}));
+  normalized.forEach(x=>x._errors.forEach(message=>items.push({row:`แถว ${x._row}`,store:[x.storeCode,x.storeName].filter(Boolean).join(" • "),message})));
+  return items;
+}
+function friendlyImportError(raw){
+  const text=String(raw||"").trim();
+  if(/รหัสร้าน|store.?code/i.test(text))return "ตรวจรหัสร้านของรายการที่แจ้ง แล้วลองใหม่";
+  if(/brand|แบรนด์/i.test(text))return "ตรวจชื่อแบรนด์ของรายการที่แจ้ง แล้วลองใหม่";
+  if(/duplicate|ซ้ำ/i.test(text))return "มีร้านซ้ำในวันเดียวกัน กรุณาตรวจรายการ";
+  if(/employee|พนักงาน/i.test(text))return "รหัสพนักงานในไฟล์ไม่ตรงกับผู้ใช้งานที่เลือก";
+  if(/[ก-๙]/.test(text)&&!/[A-Z_]{5,}/.test(text))return text;
+  return "ตรวจรายการที่มีสถานะสีแดง แล้วลองนำเข้าอีกครั้ง";
+}
+async function showImportProblems(){
+  const items=importProblemItems(),shown=items.slice(0,12);
+  const html=`<div class="officeDialogIntro officeDialogIntro--danger"><span aria-hidden="true">!</span><div><strong>พบ ${items.length} จุดที่ต้องแก้</strong><p>แก้ตามรายการด้านล่าง แล้วลองนำเข้าอีกครั้ง</p></div></div><div class="round97ProblemList">${shown.map(x=>`<article><b>${esc(x.row)}</b>${x.store?`<span>${esc(x.store)}</span>`:""}<p>${esc(x.message)}</p></article>`).join("")}${items.length>shown.length?`<small>และอีก ${items.length-shown.length} รายการ</small>`:""}</div>`;
+  const result=await OfficeSwal.fire({title:"ยังนำเข้าไม่ได้",officeKind:"danger",html,showCancelButton:true,confirmButtonText:"ดูรายการ",cancelButtonText:"ปิด"});
+  if(result.isConfirmed){
+    $("previewPanel")?.scrollIntoView({behavior:"smooth",block:"start"});
+    setTimeout(()=>document.querySelector("#previewRows .rowError")?.scrollIntoView({behavior:"smooth",block:"center"}),250);
+  }
+}
+async function showImportServerError(error){
+  await OfficeSwal.fire({title:"นำเข้าไม่สำเร็จ",officeKind:"danger",html:`<div class="officeDialogNotice">${esc(friendlyImportError(error?.message||error))}</div>`,confirmButtonText:"รับทราบ"});
+}
+
 $("uploadBtn").onclick=async()=>{
   const user=$("userSelect").value;
   const u=users.find(x=>x.employee_code===user);
@@ -331,7 +363,7 @@ $("uploadBtn").onclick=async()=>{
   if(!u)return SwalSmall.error("กรุณาเลือกผู้ใช้งาน");
   if(!file)return SwalSmall.error("กรุณาเลือกไฟล์");
   if(!normalized.length)return SwalSmall.error("ไม่พบงานที่จะนำเข้า");
-  if(bad)return SwalSmall.error("ยังนำเข้าไม่ได้",`พบจุดที่ต้องแก้ไข ${bad} รายการ`);
+  if(bad){await showImportProblems();return}
   if(unmappedColumns.length&&!$("confirmUnmapped").checked)return SwalSmall.error("กรุณาตรวจคอลัมน์ที่ยังไม่ได้นำเข้า","จับคู่คอลัมน์ให้ครบ หรือยืนยันว่าเป็นคอลัมน์ที่ไม่ต้องใช้");
 
   const confirm=await OfficeSwal.fire({
@@ -372,7 +404,7 @@ $("uploadBtn").onclick=async()=>{
     $("uploadResult").textContent=`นำเข้าสำเร็จ ${result.imported} งาน${result.sourceFileDeleted?" · ลบ Excel ต้นฉบับจาก R2 แล้ว":" · เก็บข้อมูลใช้งานไว้ใน D1"}`;
     await refreshUserSummary();
   }catch(e){
-    SwalSmall.error("นำเข้าไม่สำเร็จ",e.message);
+    await showImportServerError(e);
   }finally{
     btn.disabled=false;btn.textContent="นำเข้าแผนงาน";
   }

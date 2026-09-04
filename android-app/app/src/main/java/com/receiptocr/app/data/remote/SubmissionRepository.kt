@@ -10,10 +10,14 @@ import java.net.URL
 private const val SUBMISSION_API_BASE_URL = "https://receiptocr-api.somchai147258.workers.dev"
 
 object SubmissionRepository {
-    fun submit(context: Context, workPlanItemId: Int, records: List<PosRecord>, storeNote: String): Long {
+    fun submit(context: Context, workPlanItemId: Int, records: List<PosRecord>, storeNote: String, storeLatitude: String = "", storeLongitude: String = ""): Long {
         val token = AppAuthRepository.token(context)
         if (token.isBlank()) throw IllegalStateException("กรุณาเข้าสู่ระบบใหม่")
-        val payload = JSONObject().put("workPlanItemId", workPlanItemId).put("storeNote", storeNote).put("records", JSONArray().apply {
+        val payload = JSONObject().put("workPlanItemId", workPlanItemId).put("storeNote", storeNote)
+        if (storeLatitude.isNotBlank() && storeLongitude.isNotBlank()) {
+            payload.put("storeLatitude", storeLatitude).put("storeLongitude", storeLongitude).put("storeLocationSource", "FIELD_CAPTURE")
+        }
+        payload.put("records", JSONArray().apply {
             records.forEach { r ->
                 put(JSONObject().put("posNumber", r.posNumber).put("customerNo", r.customerNo)
                     .put("billDate", r.billDate).put("billTime", r.billTime).put("note", r.note)

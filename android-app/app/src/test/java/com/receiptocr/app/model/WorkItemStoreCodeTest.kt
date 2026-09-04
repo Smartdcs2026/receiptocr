@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class WorkItemStoreCodeTest {
-    private fun work(storeCode: String, receiptStoreId: String = "") = WorkItem(
+    private fun work(storeCode: String, receiptStoreId: String = "", receiptStoreIdPending: Boolean = false) = WorkItem(
         id = 1,
         brand = "CJ",
         brandAbbr = "CJ",
@@ -18,7 +18,8 @@ class WorkItemStoreCodeTest {
         rank = "",
         latitude = "",
         longitude = "",
-        receiptStoreId = receiptStoreId
+        receiptStoreId = receiptStoreId,
+        receiptStoreIdPending = receiptStoreIdPending
     )
 
     @Test
@@ -41,5 +42,10 @@ class WorkItemStoreCodeTest {
     @Test
     fun planCodeWithoutDigitsCannotPretendToBeReceiptStoreId() {
         assertEquals("", work("CJ").expectedReceiptStoreId)
+    }
+
+    @Test
+    fun pendingTemporaryPlanCodeDoesNotBecomeReceiptStoreId() {
+        assertEquals("", work("TEMP-CJ-00001", receiptStoreIdPending = true).expectedReceiptStoreId)
     }
 }
