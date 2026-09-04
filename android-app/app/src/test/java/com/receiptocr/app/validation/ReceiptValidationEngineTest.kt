@@ -48,8 +48,8 @@ class ReceiptValidationEngineTest {
         val record = PosRecord(posNumber = 1, billDate = "2026-08-23")
         val issue = ReceiptValidationEngine.individualDateIssue(record, workDate, rule)
 
-        assertTrue(issue.orEmpty().contains("Admin"))
-        assertTrue(issue.orEmpty().contains("มาตรฐาน"))
+        assertTrue(issue.orEmpty().contains("รูปแบบวันที่ของร้าน"))
+        assertTrue(issue.orEmpty().contains("ไม่สามารถนำไปใช้ได้"))
     }
 
     @Test

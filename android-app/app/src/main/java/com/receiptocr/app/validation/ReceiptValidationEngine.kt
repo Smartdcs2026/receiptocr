@@ -51,7 +51,7 @@ object ReceiptValidationEngine {
         val match = canonicalDateShape.matchEntire(raw)
             ?: return DateParseResult(
                 code = "DATE_FORMAT",
-                message = "วันที่ยังไม่ผ่านเงื่อนไขที่ Admin กำหนดและยังแปลงเป็นมาตรฐานไม่ได้"
+                message = "วันที่ยังไม่ผ่านรูปแบบวันที่ของร้านและยังไม่สามารถนำไปใช้ได้"
             )
         val day = match.groupValues[1].toInt()
         val month = match.groupValues[2].toInt()
@@ -205,7 +205,7 @@ object ReceiptValidationEngine {
             if (record.ocrWarnings.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS")) {
                 issues += block(
                     "DUPLICATE_POS_EVIDENCE_POS_${record.posNumber}",
-                    "POS ${record.posNumber}: พบหลักฐานบิลมากกว่าหนึ่งชุดสำหรับเครื่องเดียวกัน • กรุณาตรวจบิลก่อนส่ง"
+                    "พบบิล POS ${record.posNumber} ซ้ำ • กรุณาตรวจภาพบิลก่อนส่ง"
                 )
             }
         }

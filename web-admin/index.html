@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ReceiptOCR Admin - รูปแบบบิล</title>
-  <link rel="stylesheet" href="styles.css?v=68">
+  <link rel="stylesheet" href="styles.css?v=69">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
@@ -276,12 +276,38 @@
         </div>
         <div class="dateRuleExample" id="dateRuleExample">ค่ามาตรฐาน: ย้อนหลัง 2 วันใช้ได้ถึงวันงาน ส่วนกรณีอื่นใช้ได้ถึง 2 วันหลังวันงาน</div>
       </div>
+
+
+      <div class="dateRuleEditor posIdentityRuleEditor">
+        <div class="subSectionTitle">การจับคู่รหัสเครื่อง POS ของแบรนด์นี้</div>
+        <div class="small">ใช้เมื่อบิลมีรหัสเช่น N01 และ B01 ซึ่งเป็นคนละเครื่อง แม้เลขท้ายเหมือนกัน</div>
+        <div class="simpleFormGrid two dateRuleGrid">
+          <label>วิธีใช้หมายเลขเครื่อง
+            <select id="posIdentityMode">
+              <option value="NORMAL">แบบปกติ ใช้เลข POS ตามเดิม</option>
+              <option value="PREFIX_MAPPING">แยกตามอักษรนำหน้าและจับคู่ช่องงาน</option>
+            </select>
+          </label>
+          <label>อักษรนำหน้าที่อนุญาต
+            <input id="brandPosPrefixes" placeholder="เช่น N,B">
+          </label>
+          <label style="grid-column:1/-1">จับคู่รหัสบนบิล → POS ในงาน
+            <textarea id="brandPosMappings" rows="4" placeholder="N01=1&#10;N02=2&#10;B01=3"></textarea>
+            <span class="small">หนึ่งบรรทัดต่อหนึ่งรหัส เช่น B01=3 หมายถึงบิล B01 ให้ลง POS 3</span>
+          </label>
+          <label class="checkRow" style="grid-column:1/-1">
+            <input id="allowUnmappedPosChoice" type="checkbox" checked>
+            <span>ถ้าพบรหัสใหม่ที่ยังไม่จับคู่ ให้แจ้งผู้ใช้ทันทีและห้ามเดา POS เอง</span>
+          </label>
+        </div>
+        <div id="posIdentityRuleExample" class="dateRuleExample">ค่าเริ่มต้น: ใช้เลข POS แบบเดิม จึงไม่กระทบแบรนด์ที่ใช้งานอยู่</div>
+      </div>
     </section>
 
     <section class="simpleTestPanel">
       <div class="testPanelHead">
         <div>
-          <h4>ทดสอบรูปแบบที่สร้าง <span class="readerVersion">ตัวอ่านรุ่น 68</span></h4>
+          <h4>ทดสอบรูปแบบที่สร้าง <span class="readerVersion">ตัวอ่านรุ่น 69</span></h4>
           <div class="small">วางข้อความที่อ่านจากบิล ระบบจะแสดงทุกชุดข้อมูลที่พบและแจ้งเตือนเฉพาะเงื่อนไขที่ไม่ตรง</div>
         </div>
         <button id="runPatternTestBtn" class="primary">ทดสอบ</button>
@@ -311,11 +337,11 @@
 </div>
 
 <script src="config.js"></script>
-<script src="admin-auth.js?v=68"></script>
+<script src="admin-auth.js?v=69"></script>
 <script src="content-page.js"></script>
-<script src="ocr-template-contract.js?v=68"></script>
-<script src="ocr-pattern-engine.js?v=68"></script>
-<script src="receipt-date-rules.js?v=68"></script>
-<script src="ocr-simple.js?v=90.1"></script>
+<script src="ocr-template-contract.js?v=69"></script>
+<script src="ocr-pattern-engine.js?v=69"></script>
+<script src="receipt-date-rules.js?v=69"></script>
+<script src="ocr-simple.js?v=94"></script>
 </body>
 </html>

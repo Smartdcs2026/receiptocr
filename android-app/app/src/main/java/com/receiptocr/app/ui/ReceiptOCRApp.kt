@@ -98,7 +98,7 @@ private val TextSub = Color(0xFF667085)
 private val Border = Color(0xFFE3E8F0)
 private val SuccessGreen = Color(0xFF37A26C)
 private val DraftBlue = Color(0xFF93D4F7)
-private val WarningOrange = Color(0xFFF0A53A)
+private val WarningOrange = Color(0xFF9A4A00)
 private val DefaultBlue = Color(0xFF5D7FC8)
 private val DateBeforeBlue = Color(0xFF2563C9)
 private val DateExactGreen = Color(0xFF188A55)
@@ -1325,11 +1325,20 @@ private fun StoreWorkScreen(
             .filter { it.posNumber in proposal.detectedPos }
             .any { UserFacingOcrMessages.hasVisibleWarning(it.ocrWarnings) } ||
             proposal.warnings.filterNot { it in dateWarningMessages }.any { UserFacingOcrMessages.warning(it).isNotBlank() }
+        val hasCriticalIntegrityWarning = proposal.warnings.any { raw ->
+            raw.contains("บิลผิดร้าน") ||
+                raw.contains("พบบิลสลับร้าน") ||
+                raw.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS")
+        } || proposal.proposedRecords.any { record ->
+            record.ocrWarnings.contains("บิลผิดร้าน") ||
+                record.ocrWarnings.contains("พบบิลสลับร้าน") ||
+                record.ocrWarnings.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS")
+        }
         val unresolvedPos = proposal.proposedRecords
             .filter { !it.noReceipt && (it.customerNo.isBlank() || it.billDate.isBlank() || it.billTime.isBlank()) }
             .map { it.posNumber }.sorted()
         val completedPosCount = proposal.proposedRecords.size - unresolvedPos.size
-        val shouldVibrateForReview = hasDateWarning || hasOcrReviewWarning
+        val shouldVibrateForReview = hasDateWarning || hasOcrReviewWarning || hasCriticalIntegrityWarning
 
         LaunchedEffect(proposal, shouldVibrateForReview) {
             if (shouldVibrateForReview) {
@@ -1345,10 +1354,10 @@ private fun StoreWorkScreen(
             onDismissRequest = { pendingOcrResult = null },
             icon = {
                 Icon(
-                    if (hasDateWarning) Icons.Outlined.ErrorOutline else Icons.Outlined.CheckCircle,
+                    if (hasDateWarning || hasCriticalIntegrityWarning) Icons.Outlined.ErrorOutline else Icons.Outlined.CheckCircle,
                     contentDescription = null,
                     tint = when {
-                        hasDateWarning -> MaterialTheme.colorScheme.error
+                        hasDateWarning || hasCriticalIntegrityWarning -> MaterialTheme.colorScheme.error
                         proposal.confidence == OcrConfidence.HIGH -> SuccessGreen
                         else -> WarningOrange
                     }
@@ -1356,7 +1365,11 @@ private fun StoreWorkScreen(
             },
             title = {
                 Text(
-                    if (hasDateWarning) "ตรวจวันที่บิล" else "ตรวจทานผลอ่านบิล",
+                    when {
+                        hasCriticalIntegrityWarning -> "ตรวจข้อมูลบิล"
+                        hasDateWarning -> "ตรวจวันที่บิล"
+                        else -> "ตรวจทานผลอ่านบิล"
+                    },
                     fontSize = 22.sp,
                     lineHeight = 27.sp,
                     textAlign = TextAlign.Center,
@@ -1554,7 +1567,14 @@ private fun StoreWorkScreen(
                         .filter { it.isNotBlank() }
                         .distinct()
                         .forEach { warning ->
-                            Text("• $warning", fontSize = 11.sp, color = WarningOrange)
+                            val critical = warning.contains("บิลผิดร้าน") ||
+                                warning.contains("บิลสลับร้าน") ||
+                                (warning.contains("POS") && warning.contains("ซ้ำ"))
+                            Text(
+                                "• $warning",
+                                fontSize = 11.sp,
+                                color = if (critical) MaterialTheme.colorScheme.error else WarningOrange
+                            )
                         }
                     Text(
                         if (hasDateWarning) {
@@ -1581,8 +1601,17 @@ private fun StoreWorkScreen(
                         }
                         pendingOcrResult = null
                     },
+                    enabled = !hasCriticalIntegrityWarning,
                     colors = ButtonDefaults.buttonColors(containerColor = Primary)
-                ) { Text(if (hasDateWarning) "นำข้อมูลไปแก้ไข" else "ใช้ข้อมูลนี้") }
+                ) {
+                    Text(
+                        when {
+                            hasCriticalIntegrityWarning -> "ต้องตรวจภาพก่อน"
+                            hasDateWarning -> "นำข้อมูลไปแก้ไข"
+                            else -> "ใช้ข้อมูลนี้"
+                        }
+                    )
+                }
             },
             dismissButton = {
                 TextButton(onClick = { pendingOcrResult = null }) { Text("ยกเลิก") }
@@ -1690,7 +1719,8 @@ private fun StoreWorkScreen(
                                 ocrConfidence = "",
                                 ocrTemplateName = "",
                                 ocrWarnings = "",
-                                ocrCounterCycle = "CONTINUOUS"
+                                ocrCounterCycle = "CONTINUOUS",
+                                ocrRawPosIdentity = ""
                             )
                         }
                     }

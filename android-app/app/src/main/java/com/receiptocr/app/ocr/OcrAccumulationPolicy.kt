@@ -41,6 +41,11 @@ object OcrAccumulationPolicy {
 
         val merged = workingOriginals.map { original ->
             if (original.posNumber !in currentDetectedPos) return@map original
+            if (original.noReceipt) {
+                conflicts[original.posNumber] =
+                    "พบข้อมูลของ POS ${original.posNumber} ในภาพ แต่ POS นี้ถูกระบุว่าไม่ได้บิล • ระบบยังไม่เปลี่ยนข้อมูลเดิม"
+                return@map original
+            }
 
             val template = templateRecords.firstOrNull { it.posNumber == original.posNumber } ?: original
             val profile = profileRecords.firstOrNull { it.posNumber == original.posNumber } ?: original

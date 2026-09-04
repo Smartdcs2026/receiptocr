@@ -52,7 +52,8 @@
   }
 
   function literalPattern(value){
-    const text=String(value||"").trim();
+    // ใช้ข้อความหลัง normalize เพื่อให้ Date :, Date: และช่องว่างรอบ : / - . เทียบกันได้
+    const text=normalizeText(value);
     if(/^BNO\s*:\s*S$/i.test(text))return "[B8]N[O0]\\s*[:;]\\s*[S$5]";
     if(/^BNO\s*:$/i.test(text))return "[B8]N[O0]\\s*[:;]";
     return escapeRegex(text).replace(/\\ /g,"\\s+");

@@ -13,7 +13,7 @@ object OcrTextNormalizer {
             "([$OCR_DIGITS]{1,3})"
     )
     private val prefixedPos = Regex("(?i)\\b([NB])\\s*([$OCR_DIGITS]{1,3})\\b")
-    private val standalonePos = Regex("(?i)^\\s*(?:[NB]\\s*)?([$OCR_DIGITS]{1,3})\\s*$")
+    private val standalonePos = Regex("(?i)^\\s*(?:[A-Z]{1,4}\\s*)?([$OCR_DIGITS]{1,3})\\s*$")
     private val denseVBetweenNumbers = Regex("([$DENSE_DIGITS]{4,})[Vv]([$DENSE_DIGITS]{4,})")
 
     fun normalizeDigits(value: String): String = value.map { character ->
@@ -23,6 +23,24 @@ object OcrTextNormalizer {
             else -> character
         }
     }.joinToString("")
+
+
+    /** แสดงรหัส POS ตามที่เห็นบนบิลโดยยังเก็บอักษรนำหน้าไว้ */
+    fun displayPosIdentity(value: String): String? {
+        var text = normalizeDigits(value).trim().uppercase().replace(Regex("""\s+"""), "")
+        text = text.removePrefix("POS").trimStart(':', '#', '=', '-')
+        val match = Regex("^([A-Z]{1,4})?([0-9]{1,3})$").matchEntire(text) ?: return null
+        return match.groupValues[1] + match.groupValues[2]
+    }
+
+    /** key สำหรับเทียบ mapping: N01/N1 -> N1, B01 -> B1, 01 -> 1 */
+    fun normalizePosIdentity(value: String): String? {
+        val display = displayPosIdentity(value) ?: return null
+        val match = Regex("^([A-Z]{1,4})?([0-9]{1,3})$").matchEntire(display) ?: return null
+        val number = match.groupValues[2].toIntOrNull() ?: return null
+        if (number <= 0) return null
+        return match.groupValues[1] + number.toString()
+    }
 
     fun normalizeLine(value: String): String {
         var normalized = value.trim().replace(Regex("\\s+"), " ")

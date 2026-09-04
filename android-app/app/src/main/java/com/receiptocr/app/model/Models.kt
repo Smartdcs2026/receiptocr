@@ -69,7 +69,9 @@ data class PosRecord(
     /** true เฉพาะรูปแบบบิลที่ Admin กำหนดว่ามี STORE_ID ให้ตรวจ */
     val ocrStoreIdExpected: Boolean = false,
     /** รอบที่ใช้ตรวจเลขลูกค้าซ้ำ มาจากแม่แบบเดียวกับหน้า Admin */
-    val ocrCounterCycle: String = "CONTINUOUS"
+    val ocrCounterCycle: String = "CONTINUOUS",
+    /** รหัส POS ที่เห็นบนบิลก่อนจับคู่กับช่องงาน เช่น N01 / B01 */
+    val ocrRawPosIdentity: String = ""
 )
 
 enum class AppScreen {

@@ -510,10 +510,15 @@ object TemplateSequenceFallback {
         val compact = raw.replace(Regex("\\s+"), "")
         return when (type) {
             "POS_NUMBER" -> {
-                val prefix = compact.takeWhile {
-                    it.isLetter() && it.uppercaseChar() !in setOf('O', 'I', 'S', 'Z', 'B', 'G')
+                // Round94: ในช่องหมายเลขเครื่อง อักษรนำหน้าเป็น identity จริงของเครื่อง
+                // เช่น N01 และ B01 เป็นคนละเครื่อง จึงห้ามแปลง B -> 8 ก่อนทำ Mapping
+                val prefixed = Regex("""^([A-Za-z]{1,4})([0-9OoIl|SsZzBbGg]+)$""")
+                    .matchEntire(compact)
+                if (prefixed != null) {
+                    prefixed.groupValues[1].uppercase() + normalizeDigits(prefixed.groupValues[2])
+                } else {
+                    normalizeDigits(compact)
                 }
-                prefix + normalizeDigits(compact.drop(prefix.length))
             }
             "CUSTOMER_VALUE", "STORE_ID", "YEAR_VALUE", "MONTH_VALUE", "DAY_VALUE" -> normalizeDigits(compact)
             "BILL_DATE" -> normalizeDigits(compact).replace('.', '/').replace('-', '/')

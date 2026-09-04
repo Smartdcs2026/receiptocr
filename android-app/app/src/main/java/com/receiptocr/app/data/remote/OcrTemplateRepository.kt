@@ -118,6 +118,7 @@ object OcrTemplateRepository {
             ),
             preventDuplicateImage = root.optBoolean("preventDuplicateImage", true),
             preventDuplicateReceiptData = root.optBoolean("preventDuplicateReceiptData", true),
+            posIdentityRule = parsePosIdentityRule(root.optJSONObject("posIdentityRule")),
             customerCounterMode = enumValueOfOrNull<CustomerCounterMode>(root.optString("customerCounterMode"))
                 ?: if (date.optBoolean("resetAtMonthEnd", false)) CustomerCounterMode.MONTHLY_RESET else CustomerCounterMode.CONTINUOUS
         )
@@ -125,6 +126,34 @@ object OcrTemplateRepository {
 
     private inline fun <reified T : Enum<T>> enumValueOfOrNull(raw: String?): T? =
         enumValues<T>().firstOrNull { it.name.equals(raw, ignoreCase = true) }
+
+
+    private fun parsePosIdentityRule(root: JSONObject?): PosIdentityRule {
+        if (root == null) return PosIdentityRule()
+        val prefixes = root.optJSONArray("allowedPrefixes")
+        val mappings = root.optJSONArray("mappings")
+        return PosIdentityRule(
+            enabled = root.optBoolean("enabled", false),
+            allowedPrefixes = buildList {
+                if (prefixes != null) {
+                    for (i in 0 until prefixes.length()) {
+                        prefixes.optString(i).trim().uppercase().takeIf { it.isNotBlank() }?.let(::add)
+                    }
+                }
+            }.distinct(),
+            mappings = buildList {
+                if (mappings != null) {
+                    for (i in 0 until mappings.length()) {
+                        val item = mappings.optJSONObject(i) ?: continue
+                        val receiptPos = item.optString("receiptPos").trim().uppercase()
+                        val workPos = item.optInt("workPos", 0)
+                        if (receiptPos.isNotBlank() && workPos > 0) add(PosIdentityMapping(receiptPos, workPos))
+                    }
+                }
+            },
+            allowUnmappedUserChoice = root.optBoolean("allowUnmappedUserChoice", true)
+        )
+    }
 
     private fun parseTemplate(o: JSONObject): UniversalOcrTemplate? {
         val templateId = o.optString("templateId").trim()

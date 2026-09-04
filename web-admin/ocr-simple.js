@@ -23,6 +23,40 @@ const SEGMENTS=[["LITERAL","ข้อความคงที่"],["YEAR_VALUE"
 let brands=[],patterns=[],editing=null,selectedRow=0,selectedFieldId=null,dragFieldId=null;
 let brandReceiptRule=ReceiptDateRules.defaultRule("");
 
+function normalizePosIdentityKey(value){
+  const text=String(value||"").toUpperCase().replace(/\s+/g,"").replace(/^POS[:#=\-]?/,"");
+  const m=text.match(/^([A-Z]{1,4})?(\d{1,3})$/);
+  if(!m)return null;
+  const n=Number(m[2]);
+  if(!Number.isInteger(n)||n<=0)return null;
+  return `${m[1]||""}${n}`;
+}
+function parseBrandPosMappings(value){
+  return String(value||"").split(/\n+/).map(line=>line.trim()).filter(Boolean).map(line=>{
+    const m=line.match(/^([^=:\s]+)\s*(?:=|:)\s*(\d+)$/);
+    if(!m)return null;
+    const key=normalizePosIdentityKey(m[1]);
+    const workPos=Number(m[2]);
+    return key&&workPos>0?{receiptPos:m[1].trim().toUpperCase(),workPos}:null;
+  }).filter(Boolean);
+}
+function formatBrandPosMappings(items){
+  return (items||[]).filter(x=>x&&x.receiptPos&&Number(x.workPos)>0).map(x=>`${x.receiptPos}=${x.workPos}`).join("\n");
+}
+function resolveConfiguredPos(value){
+  const numeric=posNumberValue(value);
+  const rule=buildReceiptRule().posIdentityRule||{};
+  if(!rule.enabled)return numeric;
+  const key=normalizePosIdentityKey(value);
+  if(!key)return null;
+  const prefix=(key.match(/^[A-Z]+/)||[""])[0];
+  if(!prefix)return numeric;
+  const allowed=(rule.allowedPrefixes||[]).map(x=>String(x).toUpperCase());
+  if(allowed.length&&!allowed.includes(prefix))return null;
+  const item=(rule.mappings||[]).find(x=>normalizePosIdentityKey(x.receiptPos)===key);
+  return item?Number(item.workPos):null;
+}
+
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 function makeField(type){
   const m=META[type]||META.IGNORE;
@@ -57,6 +91,14 @@ function renderDateRule(){
   $("dateRuleExample").textContent=r.resetAtMonthEnd
     ?"แบรนด์นี้ห้ามใช้วันที่บิลข้ามเดือน แม้อยู่ในช่วงจำนวนวันที่กำหนด"
     :"แบรนด์นี้ใช้วันที่ข้ามเดือนได้ตามช่วงจำนวนวันที่กำหนด";
+  const p=brandReceiptRule.posIdentityRule||{enabled:false,allowedPrefixes:[],mappings:[],allowUnmappedUserChoice:true};
+  $("posIdentityMode").value=p.enabled?"PREFIX_MAPPING":"NORMAL";
+  $("brandPosPrefixes").value=(p.allowedPrefixes||[]).join(",");
+  $("brandPosMappings").value=formatBrandPosMappings(p.mappings);
+  $("allowUnmappedPosChoice").checked=p.allowUnmappedUserChoice!==false;
+  $("posIdentityRuleExample").textContent=p.enabled
+    ?`แยกรหัสเครื่องตามอักษรนำหน้า • ตั้งไว้ ${(p.mappings||[]).length} รายการ`
+    :"ค่าเริ่มต้น: ใช้เลข POS แบบเดิม จึงไม่กระทบแบรนด์ที่ใช้งานอยู่";
 }
 function buildReceiptRule(){
   const mode=$("dateCountingMode").value;
@@ -65,6 +107,12 @@ function buildReceiptRule(){
     customerCounterMode:mode,
     preventDuplicateImage:true,
     preventDuplicateReceiptData:true,
+    posIdentityRule:{
+      enabled:$("posIdentityMode").value==="PREFIX_MAPPING",
+      allowedPrefixes:String($("brandPosPrefixes").value||"").split(/[,;\s]+/).map(x=>x.trim().toUpperCase()).filter(Boolean),
+      mappings:parseBrandPosMappings($("brandPosMappings").value),
+      allowUnmappedUserChoice:$("allowUnmappedPosChoice").checked
+    },
     groupDateRule:{
       enabled:true,
       resetAtMonthEnd:mode==="MONTHLY_RESET",
@@ -509,7 +557,7 @@ function runPatternTest(){
     result.checks.push(...checked.checks);
   });
   if(editing.validation.noDuplicatePos&&parsed.records.length){
-    const values=parsed.records.map(record=>posNumberValue(record.fields.POS_NUMBER)).filter(value=>value!==null);
+    const values=parsed.records.map(record=>resolveConfiguredPos(record.fields.POS_NUMBER)).filter(value=>value!==null);
     const unique=new Set(values);
     const ok=unique.size===values.length;
     result.checks.push({ok,text:ok?"หมายเลขเครื่องไม่ซ้ำกัน":"พบหมายเลขเครื่องซ้ำในข้อความทดสอบ"});
@@ -596,9 +644,10 @@ function validateParsedRecord(fields,configuredRows,recordNumber){
   const allowedPos=String($("testAllowedPos")?.value||"")
     .split(/[,;\s]+/).map(value=>Number(value)).filter(value=>Number.isInteger(value)&&value>0);
   if(editing.validation.mustMatchPos&&allowedPos.length&&fields.POS_NUMBER){
-    const n=posNumberValue(fields.POS_NUMBER);
+    const n=resolveConfiguredPos(fields.POS_NUMBER);
     const ok=n!==null&&allowedPos.includes(n);
-    checks.push({ok,text:ok?`${label}: หมายเลขเครื่องตรงกับรายการ (${fields.POS_NUMBER})`:`${label}: หมายเลขเครื่อง ${fields.POS_NUMBER} ไม่อยู่ในรายการ ${allowedPos.join(", ")}`});
+    const mapped=n!==null&&String(fields.POS_NUMBER).match(/[A-Za-z]/)?` → POS ${n}`:"";
+    checks.push({ok,text:ok?`${label}: หมายเลขเครื่องตรงกับรายการ (${fields.POS_NUMBER}${mapped})`:`${label}: หมายเลขเครื่อง ${fields.POS_NUMBER} ยังไม่ตรงกับ POS ที่กำหนด`});
     if(!ok)validationPassed=false;
   }
 

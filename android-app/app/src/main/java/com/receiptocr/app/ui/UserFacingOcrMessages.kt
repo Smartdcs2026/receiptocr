@@ -23,14 +23,20 @@ object UserFacingOcrMessages {
         }
         if (text.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS")) {
             val pos = Regex("POS\\s*(\\d+)").find(text)?.groupValues?.getOrNull(1)
-            messages += if (pos != null) "พบข้อมูลบิลมากกว่าหนึ่งชุดสำหรับ POS $pos กรุณาตรวจภาพบิล" else "พบข้อมูลบิลมากกว่าหนึ่งชุด กรุณาตรวจภาพบิล"
+            messages += if (pos != null)
+                "พบ POS $pos ซ้ำในภาพ กรุณาตรวจว่ามีบิลของเครื่องเดียวกันมากกว่า 1 ใบ"
+            else "พบ POS ซ้ำในภาพ กรุณาตรวจบิลก่อนใช้ข้อมูล"
         }
         if (text.contains("ภาพใหม่อ่านข้อมูล POS") && text.contains("ต่างจากข้อมูลเดิม")) {
             val pos = Regex("POS\\s*(\\d+)").find(text)?.groupValues?.getOrNull(1)
             messages += if (pos != null) "ข้อมูลจากภาพล่าสุดของ POS $pos ต่างจากข้อมูลที่บันทึกไว้ กรุณาตรวจสอบก่อนเปลี่ยน" else "ข้อมูลจากภาพล่าสุดต่างจากข้อมูลที่บันทึกไว้ กรุณาตรวจสอบก่อนเปลี่ยน"
         }
-        if (text.contains("รหัสร้าน") && text.contains("ไม่ตรง")) messages += "รหัสร้านบนบิลไม่ตรงกับร้านในแผนงาน"
-        else if (text.contains("ยืนยันร้านไม่ได้") || text.contains("ไม่พบรหัสร้าน")) messages += "ยังตรวจสอบรหัสร้านจากบิลไม่ได้ กรุณาตรวจภาพบิล"
+        when {
+            text.contains("พบบิลสลับร้าน") -> messages += "พบบิลสลับร้าน กรุณาตรวจและเปลี่ยนเป็นบิลของร้านที่กำลังทำงาน"
+            text.contains("บิลผิดร้าน") -> messages += "บิลผิดร้าน รหัสร้านบนบิลไม่ตรงกับร้านที่กำลังทำงาน"
+            text.contains("รหัสร้าน") && text.contains("ไม่ตรง") -> messages += "รหัสร้านบนบิลไม่ตรงกับร้านที่กำลังทำงาน"
+            text.contains("ยืนยันร้านไม่ได้") || text.contains("ไม่พบรหัสร้าน") -> messages += "ยังตรวจสอบรหัสร้านจากบิลไม่ได้ กรุณาตรวจภาพบิล"
+        }
         if (text.contains("ค่านี้จะไม่ถูกใช้เป็นวันที่") || text.contains("วันที่ที่อ่านจากภาพ") && text.contains("ไม่ตรง")) messages += "วันที่บิลยังไม่ถูกต้อง กรุณาตรวจจากภาพบิล"
         if (text.contains("ค่านี้จะไม่ถูกใช้เป็นเวล") || text.contains("เวลาที่อ่านจากภาพไม่ถูกต้อง")) messages += "เวลาในบิลยังไม่ถูกต้อง กรุณาตรวจจากภาพบิล"
         if (text.contains("ไม่พบวันที่")) messages += "ยังไม่พบวันที่บิล"
@@ -38,6 +44,18 @@ object UserFacingOcrMessages {
         if (text.contains("ไม่พบยอด/เลขลูกค้า") || text.contains("ยังไม่มีเลข/ยอดลูกค้า")) messages += "ยังไม่พบเลข/ยอดลูกค้า"
         if (text.contains("ยังอ่านไม่ครบ") && text.contains("ขาด POS")) {
             Regex("ขาด POS\\s+([^•]+)").find(text)?.groupValues?.getOrNull(1)?.trim()?.let { messages += "ยังอ่านไม่ครบ • ขาด POS $it" }
+        }
+        if (text.contains("ยังไม่ได้กำหนดว่าจะลง POS ใด")) {
+            val identity = Regex("""หมายเลขเครื่อง\s+([A-Za-z0-9]+)""").find(text)?.groupValues?.getOrNull(1)
+            messages += if (identity != null)
+                "พบเครื่อง $identity แต่ยังไม่ได้กำหนดช่อง POS กรุณาแจ้งผู้ดูแล"
+            else "พบหมายเลขเครื่องที่ยังไม่ได้กำหนดช่อง POS กรุณาแจ้งผู้ดูแล"
+        }
+        if (text.contains("ถูกระบุว่าไม่ได้บิล")) {
+            val pos = Regex("""POS\s*(\d+)""").find(text)?.groupValues?.getOrNull(1)
+            messages += if (pos != null)
+                "พบข้อมูลของ POS $pos แต่เครื่องนี้ถูกระบุว่าไม่ได้บิล ระบบยังไม่เปลี่ยนข้อมูลเดิม"
+            else "พบข้อมูลของเครื่องที่ถูกระบุว่าไม่ได้บิล ระบบยังไม่เปลี่ยนข้อมูลเดิม"
         }
         if (messages.isEmpty()) messages += "กรุณาตรวจข้อมูลกับภาพบิลก่อนใช้งาน"
         return messages.joinToString(" • ")

@@ -65,13 +65,28 @@ object RealOcrPipeline {
             work = work,
             workDate = workDate,
             imagePath = imagePath,
-            templates = templates
+            templates = templates,
+            posIdentityRule = receiptRule.posIdentityRule
         )
 
-        // Round88: อย่าหยุดเพียงเพราะตัวอ่านหนึ่งวิธีพบ POS บางเครื่อง
-        // ทุกวิธีมีหน้าที่ช่วยเติมเฉพาะ POS ที่ยังขาด/ยังไม่ครบ แล้วค่อยรวมผลตาม POS
+        // Round94: อ่านทุก Template ที่ตรงในภาพเดียวก่อน แล้วใช้ Round93 strict เป็นผลหลัก
+        // ตัวรวบรวมใหม่นี้เติมเฉพาะ POS ที่ strict ยังขาด/ยังอ่อน จึงไม่เขียนทับผลที่ผ่านแล้ว
         val expectedPosSet = records.map { it.posNumber }.toSet()
-        val evidenceFusion = if (templates.isNotEmpty() && needsTemplateHelp(strictTemplateResult, expectedPosSet)) {
+        val multiTemplateResult = if (templates.isNotEmpty()) {
+            MultiTemplateSequenceCollector.apply(
+                rawTexts = mlTexts.map { it.text },
+                records = records,
+                work = work,
+                workDate = workDate,
+                imagePath = imagePath,
+                templates = templates,
+                receiptRule = receiptRule
+            )
+        } else null
+        val afterMultiTemplate = mergeUniversalTemplateResults(records, strictTemplateResult, multiTemplateResult)
+
+        // Round88 safeguards remain unchanged after the Round94 supplement.
+        val evidenceFusion = if (templates.isNotEmpty() && needsTemplateHelp(afterMultiTemplate, expectedPosSet)) {
             PosEvidenceFusion.apply(
                 rawTexts = mlTexts.map { it.text },
                 records = records,
@@ -81,7 +96,7 @@ object RealOcrPipeline {
                 templates = templates
             )
         } else null
-        val afterFusion = mergeUniversalTemplateResults(records, strictTemplateResult, evidenceFusion)
+        val afterFusion = mergeUniversalTemplateResults(records, afterMultiTemplate, evidenceFusion)
 
         val sequenceFallback = if (templates.isNotEmpty() && needsTemplateHelp(afterFusion, expectedPosSet)) {
             TemplateSequenceFallback.apply(
@@ -94,10 +109,16 @@ object RealOcrPipeline {
             )
         } else null
         val templateResult = mergeUniversalTemplateResults(records, afterFusion, sequenceFallback)
+        val unmappedPosIdentities = PosIdentityResolver.findUnmappedIdentities(
+            rawTexts = mlTexts.map { it.text },
+            templates = templates,
+            rule = receiptRule.posIdentityRule
+        )
         val duplicatePosWarnings = DuplicatePosEvidenceDetector.detect(
             rawTexts = mlTexts.map { it.text },
             templates = templates,
-            allowedPos = expectedPosSet
+            allowedPos = expectedPosSet,
+            posIdentityRule = receiptRule.posIdentityRule
         )
 
         // เมื่อรูปแบบจาก Admin จับข้อมูลได้แล้ว ห้าม profile แบบตำแหน่งเก่ามาผสมลูกค้า/วันที่/เวลา
@@ -305,6 +326,9 @@ object RealOcrPipeline {
                 }
                 accumulation.conflictsByPos.toSortedMap().forEach { (pos, warning) -> add("POS $pos: $warning") }
                 duplicatePosWarnings.toSortedMap().forEach { (_, warning) -> add(warning) }
+                unmappedPosIdentities.forEach { identity ->
+                    add("พบหมายเลขเครื่อง $identity ที่ยังไม่ได้กำหนดว่าจะลง POS ใดในงานนี้")
+                }
                 storeAssessment?.warningsByPos?.toSortedMap()?.forEach { (pos, warning) -> add("POS $pos: $warning") }
                 storeAssessment?.summaryWarnings?.let(::addAll)
                 if (expectsStoreId && allStoreIdsByPos.isEmpty() && requiresStoreMatch) {
@@ -364,11 +388,14 @@ object RealOcrPipeline {
                 confidence = OcrConfidence.LOW,
                 message = templateResult.message,
                 canConfirm = false,
-                warnings = listOf(
-                    *imageQualityWarnings.toTypedArray(),
-                    if (templates.isEmpty()) "ยังไม่มีเงื่อนไขสำหรับแบรนด์นี้ กรุณาแจ้งผู้ดูแล"
-                    else "ยังแยกข้อมูลบิลไม่ได้ครบ • ลองเพิ่มภาพบิลอีกช่องหรือถ่ายใหม่ให้ชัดขึ้น"
-                ),
+                warnings = buildList {
+                    addAll(imageQualityWarnings)
+                    unmappedPosIdentities.forEach { identity ->
+                        add("พบหมายเลขเครื่อง $identity ที่ยังไม่ได้กำหนดว่าจะลง POS ใดในงานนี้")
+                    }
+                    if (templates.isEmpty()) add("ยังไม่มีเงื่อนไขสำหรับแบรนด์นี้ กรุณาแจ้งผู้ดูแล")
+                    else if (unmappedPosIdentities.isEmpty()) add("ยังแยกข้อมูลบิลไม่ได้ครบ • ลองเพิ่มภาพบิลอีกช่องหรือถ่ายใหม่ให้ชัดขึ้น")
+                },
                 diagnostics = TemplateSequenceFallback.diagnose(
                     rawTexts = mlTexts.map { it.text },
                     templates = templates

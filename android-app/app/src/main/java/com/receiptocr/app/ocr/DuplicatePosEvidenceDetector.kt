@@ -1,18 +1,24 @@
 package com.receiptocr.app.ocr
 
+import com.receiptocr.app.config.PosIdentityRule
 import com.receiptocr.app.config.UniversalOcrTemplate
 
 /**
- * ตรวจว่าภาพเดียวมีข้อมูลมากกว่าหนึ่งชุดที่อ้างถึง POS เดียวกันหรือไม่
+ * ตรวจว่าภาพเดียวมีบิลมากกว่าหนึ่งใบสำหรับ POS เดียวกันหรือไม่
  *
- * จุดสำคัญคือ OCR อ่านภาพเดิมหลายรอบ จึงห้ามถือ "พบ POS เดิมหลายครั้ง" เป็นบิลซ้ำทันที
- * จะเตือนเมื่อพบลายเซ็นข้อมูลคนละชุดอย่างมีหลักฐานจริง เช่น
- * - ในรอบอ่านข้อความเดียวกันพบ POS 1 สองชุดที่ลูกค้า/วัน/เวลาต่างกัน หรือ
- * - ชุดข้อมูลที่ต่างกันแต่ละชุดถูกยืนยันจากอย่างน้อยสองรอบอ่าน
+ * หลัก Round94:
+ * - OCR หลาย pass คือการอ่าน "ภาพเดียวกัน" หลายแบบ จึงห้ามใช้ความต่างระหว่าง pass เป็นหลักฐานว่ามีบิลซ้ำ
+ * - การแตก candidate/การเว้นวรรค/ตัวคั่นต่างกันก็ไม่ใช่บิลซ้ำ
+ * - N01/B01 ต้องผ่าน Brand POS Mapping ก่อนตัดสินว่าเป็น POS งานเดียวกันหรือไม่
+ * - เตือนเฉพาะเมื่อใน pass เดียวกัน พบข้อมูลสมบูรณ์คนละชุดจากคนละบรรทัดต้นทาง
+ *   สำหรับ POS งานเดียวกันและ Template เดียวกัน
+ *
+ * ถ้ายังพิสูจน์ไม่ได้ว่ามีบิลจริงสองใบ ให้เงียบไว้ก่อน เพื่อไม่ให้ผู้ใช้ได้รับ false warning
  */
 object DuplicatePosEvidenceDetector {
     private data class Sighting(
         val passIndex: Int,
+        val lineIndex: Int,
         val templateId: String,
         val signature: String
     )
@@ -20,45 +26,69 @@ object DuplicatePosEvidenceDetector {
     fun detect(
         rawTexts: List<String>,
         templates: List<UniversalOcrTemplate>,
-        allowedPos: Set<Int>
+        allowedPos: Set<Int>,
+        posIdentityRule: PosIdentityRule = PosIdentityRule()
     ): Map<Int, String> {
         if (rawTexts.isEmpty() || templates.none { it.active }) return emptyMap()
 
         val sightingsByPos = linkedMapOf<Int, MutableList<Sighting>>()
+
         rawTexts.forEachIndexed { passIndex, raw ->
             if (raw.isBlank()) return@forEachIndexed
-            templates.filter { it.active && it.validation.pos.mustBeUnique }.forEach { template ->
-                TemplateSequenceFallback.parseText(raw, template).forEach { fields ->
-                    val pos = OcrTextNormalizer.parsePosNumber(fields["POS_NUMBER"].orEmpty())
-                        ?: return@forEach
-                    if (allowedPos.isNotEmpty() && pos !in allowedPos) return@forEach
-                    val signature = signature(fields)
-                    if (signature.isBlank()) return@forEach
-                    sightingsByPos.getOrPut(pos) { mutableListOf() }
-                        .add(Sighting(passIndex, template.templateId, signature))
-                }
+
+            val sourceLines = raw.lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .toList()
+
+            sourceLines.forEachIndexed { lineIndex, line ->
+                templates
+                    .filter { it.active && it.validation.pos.mustBeUnique }
+                    .forEach { template ->
+                        val lineSightings = TemplateSequenceFallback.parseText(line, template)
+                            .mapNotNull { fields ->
+                                val resolved = PosIdentityResolver.resolve(
+                                    fields["POS_NUMBER"].orEmpty(),
+                                    posIdentityRule
+                                ) ?: return@mapNotNull null
+                                val pos = resolved.workPos
+                                if (allowedPos.isNotEmpty() && pos !in allowedPos) return@mapNotNull null
+                                val signature = signature(fields)
+                                if (signature.isBlank()) return@mapNotNull null
+                                pos to signature
+                            }
+                            .distinct()
+
+                        lineSightings.forEach { (pos, signature) ->
+                            sightingsByPos.getOrPut(pos) { mutableListOf() }
+                                .add(Sighting(passIndex, lineIndex, template.templateId, signature))
+                        }
+                    }
             }
         }
 
         return buildMap {
             sightingsByPos.forEach { (pos, sightings) ->
-                // One brand can have several active templates. A single receipt can be parsed
-                // differently by two templates, so that alone must never be called a duplicate.
-                val conflict = sightings.groupBy { it.templateId }.values.any { templateSightings ->
-                    val distinct = templateSightings.distinct()
-                    val samePassConflict = distinct.groupBy { it.passIndex }.values.any { passSightings ->
-                        passSightings.map { it.signature }.distinct().size >= 2
+                val conflict = sightings
+                    .groupBy { it.passIndex to it.templateId }
+                    .values
+                    .any { samePassTemplate ->
+                        val signaturesByLine = samePassTemplate
+                            .groupBy { it.lineIndex }
+                            .mapValues { (_, lineSightings) -> lineSightings.map { it.signature }.toSet() }
+
+                        val distinctPhysicalLines = signaturesByLine.entries
+                            .flatMap { (lineIndex, signatures) -> signatures.map { signature -> lineIndex to signature } }
+
+                        distinctPhysicalLines
+                            .groupBy { it.second }
+                            .keys
+                            .size >= 2 &&
+                            distinctPhysicalLines.map { it.first }.distinct().size >= 2
                     }
-                    val repeatedSignatures = distinct.groupBy { it.signature }
-                        .filterValues { group -> group.map { it.passIndex }.distinct().size >= 2 }
-                        .keys
-                    samePassConflict || repeatedSignatures.size >= 2
-                }
+
                 if (conflict) {
-                    put(
-                        pos,
-                        "พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS $pos • กรุณาตรวจว่ามีบิล POS ซ้ำหรือไม่"
-                    )
+                    put(pos, "พบบิล POS $pos ซ้ำ • กรุณาตรวจภาพบิลก่อนส่ง")
                 }
             }
         }
@@ -66,7 +96,6 @@ object DuplicatePosEvidenceDetector {
 
     private fun signature(fields: Map<String, String>): String {
         val customer = fields["CUSTOMER_VALUE"].orEmpty().filter(Char::isDigit)
-        // Separator and spacing differences are not different receipts.
         val date = OcrTextNormalizer.normalizeDigits(fields["BILL_DATE"].orEmpty()).filter(Char::isDigit)
         val time = OcrTextNormalizer.normalizeDigits(fields["BILL_TIME"].orEmpty()).filter(Char::isDigit)
         val store = fields["STORE_ID"].orEmpty().filter(Char::isDigit)

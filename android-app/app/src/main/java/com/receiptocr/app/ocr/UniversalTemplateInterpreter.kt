@@ -66,7 +66,8 @@ object UniversalTemplateInterpreter {
         work: WorkItem,
         workDate: LocalDate,
         imagePath: String,
-        templates: List<UniversalOcrTemplate>
+        templates: List<UniversalOcrTemplate>,
+        posIdentityRule: PosIdentityRule = PosIdentityRule()
     ): UniversalTemplateResult {
         if (templates.isEmpty()) {
             return UniversalTemplateResult(records, "ยังไม่มีเงื่อนไขสำหรับแบรนด์นี้ กรุณาแจ้งผู้ดูแล", usedUniversalTemplate = false)
@@ -100,14 +101,16 @@ object UniversalTemplateInterpreter {
         val updated = records.toMutableList()
         val extracted = mutableMapOf<String, MutableList<String>>()
         val accepted = mutableListOf<TemplateMatch>()
+        val acceptedWorkPos = mutableListOf<Int>()
         val warningsByPos = mutableMapOf<Int, MutableList<String>>()
         val unmappedPos = linkedSetOf<String>()
         var acceptedStore: String? = null
 
         val bestMatches = templateMatches
             .mapNotNull { match ->
-                val pos = match.fields["POS_NUMBER"]?.let(::parsePosNumber) ?: return@mapNotNull null
-                pos to match
+                val rawPos = match.fields["POS_NUMBER"].orEmpty()
+                val resolved = PosIdentityResolver.resolve(rawPos, posIdentityRule) ?: return@mapNotNull null
+                resolved.workPos to match
             }
             .groupBy({ it.first }, { it.second })
             .mapNotNull { (pos, candidates) -> fuseMatches(candidates)?.let { pos to it } }
@@ -193,9 +196,11 @@ object UniversalTemplateInterpreter {
                 ocrTemplateName = match.template.templateName,
                 ocrWarnings = posWarnings.distinct().joinToString(" • "),
                 ocrRawBillDate = dateRaw?.trim().orEmpty().ifBlank { current.ocrRawBillDate },
-                ocrCounterCycle = match.template.duplicatePolicy.customerCounterCycle.uppercase()
+                ocrCounterCycle = match.template.duplicatePolicy.customerCounterCycle.uppercase(),
+                ocrRawPosIdentity = match.fields["POS_NUMBER"].orEmpty().ifBlank { current.ocrRawPosIdentity }
             )
             accepted += match
+            acceptedWorkPos += pos
             match.fields.forEach { (k, v) -> extracted.getOrPut(k) { mutableListOf() }.add(v) }
         }
 
@@ -216,7 +221,7 @@ object UniversalTemplateInterpreter {
         }
 
         val acceptedTemplateNames = accepted.map { it.template.templateName }.distinct()
-        val posList = accepted.mapNotNull { parsePosNumber(it.fields["POS_NUMBER"].orEmpty()) }.distinct().sorted()
+        val posList = acceptedWorkPos.distinct().sorted()
         val message = buildString {
             append("อ่านข้อมูลจากภาพสำเร็จ")
             append(" • พบ ${posList.size} เครื่อง")

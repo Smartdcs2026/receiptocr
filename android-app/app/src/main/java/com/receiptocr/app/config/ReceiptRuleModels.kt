@@ -23,6 +23,24 @@ data class StoreIdentityRule(
     val requireAll: Boolean = false
 )
 
+
+/** จับคู่รหัสเครื่องที่พิมพ์บนบิล เช่น N01/B01 ไปยังช่อง POS ในงาน */
+data class PosIdentityMapping(
+    val receiptPos: String,
+    val workPos: Int
+)
+
+data class PosIdentityRule(
+    /** ปิดไว้เป็นค่าเริ่มต้นเพื่อรักษาพฤติกรรม Round93 */
+    val enabled: Boolean = false,
+    /** ตัวอักษรนำหน้าที่แบรนด์นี้อนุญาต เช่น N,B,A */
+    val allowedPrefixes: List<String> = emptyList(),
+    /** จับคู่ เช่น N01 -> POS 1, B01 -> POS 2 */
+    val mappings: List<PosIdentityMapping> = emptyList(),
+    /** ถ้าเจอรหัสใหม่ ห้ามเดา POS เอง; ให้แจ้งผู้ใช้/ผู้ดูแล */
+    val allowUnmappedUserChoice: Boolean = true
+)
+
 /**
  * กำหนดช่วงวันที่บิลเทียบกับวันงาน
  * ตัวอย่าง beforeDays=2, afterDays=2 หมายถึง วันงาน-2 ถึง วันงาน+2
@@ -59,6 +77,7 @@ data class BrandReceiptRule(
     val preventDuplicateImage: Boolean = true,
     val preventDuplicateReceiptData: Boolean = true,
     val storeIdentityRule: StoreIdentityRule = StoreIdentityRule(),
+    val posIdentityRule: PosIdentityRule = PosIdentityRule(),
     val customerCounterMode: CustomerCounterMode = CustomerCounterMode.UNSPECIFIED
 )
 
