@@ -1,16 +1,21 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ศูนย์ตรวจสอบงาน</title><link rel="stylesheet" href="styles.css?v=65"><script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script></head><body>
-<div class="reviewPage officePage">
-  <section class="pageCommandBar">
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ศูนย์ตรวจสอบงาน</title><link rel="stylesheet" href="styles.css?v=65"><link rel="stylesheet" href="review-modern.css?v=99"><script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script></head><body>
+<div class="reviewPage reviewV99 officePage">
+  <section class="pageCommandBar reviewCommandBar">
     <div class="commandFilters">
       <label>สถานะ<select id="reviewStatus"><option value="SUBMITTED">รอตรวจ</option><option value="RETURNED">ส่งกลับแก้ไข</option><option value="APPROVED">ผ่านการตรวจ</option><option value="">ทั้งหมด</option></select></label>
-      <label>ค้นหา<input id="reviewSearch" type="search" placeholder="รหัสร้าน ชื่อร้าน หรือพนักงาน"></label>
+      <label class="reviewSearchLabel">ค้นหา<input id="reviewSearch" type="search" placeholder="รหัสร้าน ชื่อร้าน หรือพนักงาน"></label>
       <button id="refreshReview" class="secondary">รีเฟรช</button>
     </div>
-    <div class="commandMeta"><strong id="reviewCount">0</strong><span>รายการ</span></div>
+    <div class="commandMeta reviewCountBox"><strong id="reviewCount">0</strong><span>รายการ</span></div>
   </section>
   <div class="reviewWorkspace">
-    <aside class="reviewQueuePanel"><header><div><strong>คิวตรวจสอบ</strong><span>เลือกงานเพื่อเปิดหลักฐาน</span></div></header><div id="reviewQueue" class="reviewQueue"><div class="officeEmpty">กำลังโหลดข้อมูล</div></div></aside>
-    <main class="reviewDetailPanel" id="reviewDetail"><div class="reviewWelcome"><div class="reviewWelcomeIcon">✓</div><strong>เลือกงานจากคิวด้านซ้าย</strong><span>ระบบจะแสดงภาพหลักฐานและข้อมูลราย POS ในพื้นที่นี้</span></div></main>
+    <aside class="reviewQueuePanel">
+      <header><div><strong>งานที่ต้องตรวจ</strong><span>เลือกงานเพื่อเทียบภาพกับข้อมูล</span></div></header>
+      <div id="reviewQueue" class="reviewQueue"><div class="officeEmpty">กำลังโหลดข้อมูล</div></div>
+    </aside>
+    <main class="reviewDetailPanel" id="reviewDetail">
+      <div class="reviewWelcome"><div class="reviewWelcomeIcon">✓</div><strong>เลือกงานจากรายการด้านซ้าย</strong><span>ภาพบิลและข้อมูลราย POS จะแสดงพร้อมกันเพื่อให้ตรวจได้เร็วขึ้น</span></div>
+    </main>
   </div>
 </div>
-<script src="config.js"></script><script src="admin-auth.js?v=65"></script><script src="content-page.js"></script><script src="review.js?v=52"></script></body></html>
+<script src="config.js"></script><script src="admin-auth.js?v=65"></script><script src="content-page.js"></script><script src="review-logic.js?v=99"></script><script src="review.js?v=99"></script></body></html>

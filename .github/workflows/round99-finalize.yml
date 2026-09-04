@@ -1,0 +1,77 @@
+name: Round99 review workspace regression
+
+on:
+  push:
+    branches: ["round99-review-workspace-data-quality"]
+    paths:
+      - "android-app/**"
+      - "web-admin/**"
+      - "tests/**"
+      - ".github/workflows/round99-finalize.yml"
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Round99
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Round98 production baseline
+        run: git merge-base --is-ancestor 05acf6cc0612679512030e23b58b97e09fd03ccf HEAD
+
+      - name: Verify Round99 version
+        run: |
+          grep -q 'versionCode = 101' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.99.0"' android-app/app/build.gradle.kts
+
+      - name: Verify Round98 OCR core was not changed
+        run: git diff --exit-code 05acf6cc0612679512030e23b58b97e09fd03ccf -- android-app/app/src/main/java/com/receiptocr/app/ocr
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Review workspace tests
+        run: |
+          node tests/review-logic.test.js
+          node --check web-admin/review-logic.js
+          node --check web-admin/review.js
+          grep -q 'review-modern.css' web-admin/review.html
+          grep -q 'review-logic.js' web-admin/review.html
+
+      - name: Admin regression tests
+        run: |
+          node tests/workplan-store-normalizer.test.js
+          node tests/ocr-pattern-engine.test.js
+          node --check web-admin/ocr-admin-ux.js
+          node --check web-admin/ocr-pattern-engine.js
+          node --check web-admin/ocr-simple.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
