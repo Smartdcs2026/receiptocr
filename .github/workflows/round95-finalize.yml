@@ -6,6 +6,7 @@ on:
       - round95-date-proof-store-review-calendar-field-ui
     paths:
       - 'tools/round95_apply.py'
+      - 'tools/round95_ui_brace_fix.py'
       - '.github/workflows/round95-finalize.yml'
   workflow_dispatch:
 
@@ -29,7 +30,9 @@ jobs:
           echo "Round94 production baseline is preserved"
 
       - name: Apply Round95 production source
-        run: python tools/round95_apply.py
+        run: |
+          python tools/round95_apply.py
+          python tools/round95_ui_brace_fix.py
 
       - name: Set up Node
         uses: actions/setup-node@v4
