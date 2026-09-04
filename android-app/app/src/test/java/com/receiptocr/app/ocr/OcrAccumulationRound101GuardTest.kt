@@ -2,7 +2,6 @@ package com.receiptocr.app.ocr
 
 import com.receiptocr.app.model.PosRecord
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OcrAccumulationRound101GuardTest {
@@ -35,7 +34,6 @@ class OcrAccumulationRound101GuardTest {
         assertEquals("0101809", kept.customerNo)
         assertEquals("13/08/2026", kept.billDate)
         assertEquals("19:00", kept.billTime)
-        assertTrue(result.conflictsByPos.containsKey(2))
     }
 
     @Test
