@@ -534,7 +534,13 @@ object RealOcrPipeline {
     ): List<PosRecord> = records.map { record ->
         if (record.posNumber in detectedPos) record.copy(
             ocrConfidence = confidence.name,
-            ocrTemplateName = templateName
+            ocrTemplateName = templateName,
+            storeReviewConfirmed = false,
+            storeReviewReadId = "",
+            storeReviewExpectedId = "",
+            storeReviewConfirmedId = "",
+            storeReviewConfirmedAt = "",
+            storeReviewConfirmedBy = ""
         ) else record
     }
 

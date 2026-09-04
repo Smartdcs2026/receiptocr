@@ -232,7 +232,13 @@ object ReceiptValidationEngine {
 
         val storeIdsByPos = ocrRecords
             .filter { it.ocrStoreId.isNotBlank() }
-            .associate { it.posNumber to it.ocrStoreId }
+            .associate { record ->
+                record.posNumber to if (StoreReceiptReview.isValid(record, work.expectedReceiptStoreId)) {
+                    work.expectedReceiptStoreId
+                } else {
+                    record.ocrStoreId
+                }
+            }
 
         val missing = ocrRecords.filter { it.ocrStoreId.isBlank() }
         missing.forEach { record ->

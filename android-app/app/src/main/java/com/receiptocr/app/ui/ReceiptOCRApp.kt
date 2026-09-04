@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -76,6 +77,7 @@ import com.receiptocr.app.config.TemplateSource
 import com.receiptocr.app.model.*
 import com.receiptocr.app.util.*
 import com.receiptocr.app.validation.ReceiptValidationEngine
+import com.receiptocr.app.validation.StoreReceiptReview
 import com.receiptocr.app.ocr.OcrConfidence
 import com.receiptocr.app.ocr.MultiPassOcrReader
 import com.receiptocr.app.ocr.RealOcrPipeline
@@ -85,6 +87,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.io.File
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -203,6 +207,7 @@ fun ReceiptOCRApp() {
                 StoreWorkScreen(
                     work = work,
                     selectedDate = selectedDate,
+                    user = user ?: UserProfile("0000", "ผู้ใช้งาน"),
                     onBack = {
                         refreshCounter++
                         screen = AppScreen.HOME
@@ -261,6 +266,11 @@ private fun HomeScreen(
     val context = LocalContext.current
     var calendarExpanded by remember { mutableStateOf(false) }
     var month by remember { mutableStateOf(YearMonth.from(selectedDate)) }
+    val homeListState = rememberLazyListState()
+
+    LaunchedEffect(calendarExpanded) {
+        if (calendarExpanded) homeListState.animateScrollToItem(0)
+    }
 
     var loadedPlan by remember(user.employeeCode, selectedDate) {
         mutableStateOf(WorkPlanRepository.loadCachedDay(context, user.employeeCode, selectedDate))
@@ -316,6 +326,7 @@ private fun HomeScreen(
         }
     ) { innerPadding ->
         LazyColumn(
+            state = homeListState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
@@ -828,6 +839,7 @@ private fun InfoRow(label: String, value: String) {
 private fun StoreWorkScreen(
     work: WorkItem,
     selectedDate: LocalDate,
+    user: UserProfile,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -1151,6 +1163,15 @@ private fun StoreWorkScreen(
                     item {
                         ReceiptPhotoSection(
                             receipts = receipts,
+                            ocrBusy = ocrBusy,
+                            onReadReceipt = {
+                                val availableImages = receipts.mapIndexedNotNull { imageIndex, path -> path?.let { imageIndex to it } }
+                                when {
+                                    availableImages.isEmpty() -> message = "กรุณาเพิ่มภาพบิลก่อนอ่านข้อมูล"
+                                    availableImages.size == 1 -> runRealOcrForWholeImage(availableImages.first().second)
+                                    else -> ocrImagePickerOpen = true
+                                }
+                            },
                             onAdd = { index ->
                                 target = "R" to index
                                 sourceDialog = true
@@ -1166,6 +1187,8 @@ private fun StoreWorkScreen(
                             ocrBusy = ocrBusy,
                             noteOptions = loadedNoteOptions.labels(NoteOptionCategory.POS_NOTE),
                             noReceiptReasons = loadedNoteOptions.labels(NoteOptionCategory.NO_RECEIPT_REASON),
+                            expectedStoreId = work.expectedReceiptStoreId,
+                            user = user,
                             onOcr = {
                                 val availableImages = receipts.mapIndexedNotNull { imageIndex, path ->
                                     path?.let { imageIndex to it }
@@ -1325,15 +1348,16 @@ private fun StoreWorkScreen(
             .filter { it.posNumber in proposal.detectedPos }
             .any { UserFacingOcrMessages.hasVisibleWarning(it.ocrWarnings) } ||
             proposal.warnings.filterNot { it in dateWarningMessages }.any { UserFacingOcrMessages.warning(it).isNotBlank() }
-        val hasCriticalIntegrityWarning = proposal.warnings.any { raw ->
-            raw.contains("บิลผิดร้าน") ||
-                raw.contains("พบบิลสลับร้าน") ||
-                raw.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS")
+        val hasStoreReviewWarning = proposal.warnings.any { raw ->
+            raw.contains("บิลผิดร้าน") || raw.contains("พบบิลสลับร้าน") ||
+                (raw.contains("รหัสร้าน") && raw.contains("ไม่ตรง"))
         } || proposal.proposedRecords.any { record ->
-            record.ocrWarnings.contains("บิลผิดร้าน") ||
-                record.ocrWarnings.contains("พบบิลสลับร้าน") ||
-                record.ocrWarnings.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS")
+            record.ocrWarnings.contains("บิลผิดร้าน") || record.ocrWarnings.contains("พบบิลสลับร้าน") ||
+                (record.ocrWarnings.contains("รหัสร้าน") && record.ocrWarnings.contains("ไม่ตรง"))
         }
+        val hasHardIntegrityBlock = proposal.warnings.any { it.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS") || (it.contains("POS") && it.contains("ซ้ำ")) } ||
+            proposal.proposedRecords.any { it.ocrWarnings.contains("พบข้อมูลมากกว่าหนึ่งชุดสำหรับ POS") || (it.ocrWarnings.contains("POS") && it.ocrWarnings.contains("ซ้ำ")) }
+        val hasCriticalIntegrityWarning = hasStoreReviewWarning || hasHardIntegrityBlock
         val unresolvedPos = proposal.proposedRecords
             .filter { !it.noReceipt && (it.customerNo.isBlank() || it.billDate.isBlank() || it.billTime.isBlank()) }
             .map { it.posNumber }.sorted()
@@ -1594,19 +1618,20 @@ private fun StoreWorkScreen(
                             if (index in records.indices) records[index] = record
                         }
                         saveDraft()
-                        message = if (hasDateWarning) {
-                            "วันที่แต่ละ POS ใช้ได้ แต่ชุดวันที่ยังใช้ร่วมกันไม่ได้"
-                        } else {
-                            "บันทึกข้อมูลจากบิลแล้ว"
+                        message = when {
+                            hasStoreReviewWarning -> "เก็บข้อมูลที่อ่านได้แล้ว • กรุณาตรวจรหัสร้านใน POS ที่แจ้ง"
+                            hasDateWarning -> "วันที่แต่ละ POS ใช้ได้ แต่ชุดวันที่ยังใช้ร่วมกันไม่ได้"
+                            else -> "บันทึกข้อมูลจากบิลแล้ว"
                         }
                         pendingOcrResult = null
                     },
-                    enabled = !hasCriticalIntegrityWarning,
+                    enabled = !hasHardIntegrityBlock,
                     colors = ButtonDefaults.buttonColors(containerColor = Primary)
                 ) {
                     Text(
                         when {
-                            hasCriticalIntegrityWarning -> "ต้องตรวจภาพก่อน"
+                            hasHardIntegrityBlock -> "ต้องตรวจภาพก่อน"
+                            hasStoreReviewWarning -> "นำข้อมูลไปตรวจรหัสร้าน"
                             hasDateWarning -> "นำข้อมูลไปแก้ไข"
                             else -> "ใช้ข้อมูลนี้"
                         }
@@ -1720,7 +1745,13 @@ private fun StoreWorkScreen(
                                 ocrTemplateName = "",
                                 ocrWarnings = "",
                                 ocrCounterCycle = "CONTINUOUS",
-                                ocrRawPosIdentity = ""
+                                ocrRawPosIdentity = "",
+                                storeReviewConfirmed = false,
+                                storeReviewReadId = "",
+                                storeReviewExpectedId = "",
+                                storeReviewConfirmedId = "",
+                                storeReviewConfirmedAt = "",
+                                storeReviewConfirmedBy = ""
                             )
                         }
                     }
@@ -1794,6 +1825,8 @@ private fun WorkTabBar(activeTab: WorkTab, onTabSelected: (WorkTab) -> Unit) {
 @Composable
 private fun ReceiptPhotoSection(
     receipts: List<String?>,
+    ocrBusy: Boolean,
+    onReadReceipt: () -> Unit,
     onAdd: (Int) -> Unit,
     onImageClick: (Int, String) -> Unit
 ) {
@@ -1810,6 +1843,23 @@ private fun ReceiptPhotoSection(
             onEmpty = onAdd,
             onImage = onImageClick
         )
+        Button(
+            onClick = onReadReceipt,
+            enabled = !ocrBusy && receipts.any { !it.isNullOrBlank() },
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Primary)
+        ) {
+            if (ocrBusy) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                Spacer(Modifier.width(7.dp))
+                Text("กำลังอ่านข้อมูลจากบิล")
+            } else {
+                Icon(Icons.Outlined.ReceiptLong, contentDescription = null)
+                Spacer(Modifier.width(7.dp))
+                Text("อ่านข้อมูลจากบิล", fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -1942,6 +1992,8 @@ private fun PosCard(
     ocrBusy: Boolean,
     noteOptions: List<String>,
     noReceiptReasons: List<String>,
+    expectedStoreId: String,
+    user: UserProfile,
     onOcr: () -> Unit,
     onChange: (PosRecord) -> Unit
 ) {
@@ -1959,7 +2011,15 @@ private fun PosCard(
     val dateMissing = !record.noReceipt && record.billDate.isBlank()
     val timeMissing = !record.noReceipt && record.billTime.isBlank()
     val dateWarning = !record.noReceipt && !dateWarningText.isNullOrBlank()
-    val visibleOcrWarning = UserFacingOcrMessages.warning(record.ocrWarnings)
+    val storeReviewValid = StoreReceiptReview.isValid(record, expectedStoreId)
+    val storeMismatch = StoreReceiptReview.isMismatch(record, expectedStoreId)
+    val warningForUser = if (storeReviewValid) {
+        record.ocrWarnings.split(" • ").filterNot { part ->
+            part.contains("บิลผิดร้าน") || part.contains("บิลสลับร้าน") ||
+                (part.contains("รหัสร้าน") && part.contains("ไม่ตรง"))
+        }.joinToString(" • ")
+    } else record.ocrWarnings
+    val visibleOcrWarning = UserFacingOcrMessages.warning(warningForUser)
     val dateInfoText = UserFacingOcrMessages.dateInfo(record.ocrRawBillDate, record.billDate)
     val hasValidationWarning = customerMissing || dateMissing || timeMissing || dateWarning || visibleOcrWarning.isNotBlank()
 
@@ -2123,6 +2183,64 @@ private fun PosCard(
                             } else null,
                             singleLine = true
                         )
+                    }
+
+                    if (storeMismatch) {
+                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (storeReviewValid) Color(0xFFEAF8F0) else Color(0xFFFFF1F1),
+                            border = BorderStroke(1.dp, if (storeReviewValid) SuccessGreen else MaterialTheme.colorScheme.error)
+                        ) {
+                            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                Text(
+                                    if (storeReviewValid) "ยืนยันรหัสร้านแล้ว" else "ตรวจรหัสร้าน",
+                                    color = if (storeReviewValid) SuccessGreen else MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text("รหัสร้านในงาน: ${expectedStoreId.ifBlank { "ไม่พบ" }}", color = TextMain, fontSize = 12.sp)
+                                Text("รหัสที่อ่านจากบิล: ${record.ocrStoreId.ifBlank { "อ่านไม่พบ" }}", color = TextMain, fontSize = 12.sp)
+                                if (!storeReviewValid) {
+                                    Text(
+                                        "ตรวจตัวเลขจากภาพบิลก่อนยืนยัน ระบบจะไม่แก้รหัสร้านให้อัตโนมัติ",
+                                        color = TextSub, fontSize = 11.sp, lineHeight = 16.sp
+                                    )
+                                    Button(
+                                        onClick = {
+                                            val now = LocalDateTime.now(ZoneId.of("Asia/Bangkok"))
+                                                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
+                                            onChange(
+                                                record.copy(
+                                                    storeReviewConfirmed = true,
+                                                    storeReviewReadId = record.ocrStoreId,
+                                                    storeReviewExpectedId = expectedStoreId,
+                                                    storeReviewConfirmedId = expectedStoreId,
+                                                    storeReviewConfirmedAt = now,
+                                                    storeReviewConfirmedBy = listOf(user.employeeCode, user.fullName)
+                                                        .filter { it.isNotBlank() }.joinToString(" ")
+                                                )
+                                            )
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        enabled = expectedStoreId.isNotBlank() && record.ocrStoreId.isNotBlank(),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                                    ) {
+                                        Text("ตรวจจากภาพแล้ว รหัสบนบิลคือ $expectedStoreId", textAlign = TextAlign.Center)
+                                    }
+                                    OutlinedButton(
+                                        onClick = { /* คงข้อมูลที่อ่านถูกไว้ และปล่อยสถานะบล็อกจนเปลี่ยนบิล */ },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text("บิลนี้เป็นร้านอื่น") }
+                                    Text("หากเป็นบิลร้านอื่น ให้เปลี่ยนภาพบิลก่อนส่งงาน", color = MaterialTheme.colorScheme.error, fontSize = 10.5.sp)
+                                } else {
+                                    Text(
+                                        "ยืนยันโดย ${record.storeReviewConfirmedBy.ifBlank { "ผู้ใช้งาน" }} • ${record.storeReviewConfirmedAt}",
+                                        color = SuccessGreen, fontSize = 10.5.sp
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     if (dateInfoText.isNotBlank()) {

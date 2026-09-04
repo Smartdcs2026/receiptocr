@@ -19,7 +19,13 @@ object SubmissionRepository {
                     .put("billDate", r.billDate).put("billTime", r.billTime).put("note", r.note)
                     .put("noReceipt", r.noReceipt).put("noReceiptReason", r.noReceiptReason).put("source", r.source)
                     .put("ocrConfidence", r.ocrConfidence).put("ocrTemplateName", r.ocrTemplateName)
-                    .put("ocrCounterCycle", r.ocrCounterCycle))
+                    .put("ocrCounterCycle", r.ocrCounterCycle)
+                    .put("storeReviewConfirmed", r.storeReviewConfirmed)
+                    .put("storeReviewReadId", r.storeReviewReadId)
+                    .put("storeReviewExpectedId", r.storeReviewExpectedId)
+                    .put("storeReviewConfirmedId", r.storeReviewConfirmedId)
+                    .put("storeReviewConfirmedAt", r.storeReviewConfirmedAt)
+                    .put("storeReviewConfirmedBy", r.storeReviewConfirmedBy))
             }
         })
         val c = URL("$SUBMISSION_API_BASE_URL/api/app/submissions").openConnection() as HttpURLConnection

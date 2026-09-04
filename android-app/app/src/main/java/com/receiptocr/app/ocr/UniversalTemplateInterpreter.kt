@@ -156,13 +156,10 @@ object UniversalTemplateInterpreter {
                 .flatMap { it.fields.asSequence() }
                 .firstOrNull { it.type == "BILL_DATE" }
             val dateResult = dateRaw?.let {
-                ReceiptDateOcrNormalizer.normalize(
+                ReceiptDateOcrNormalizer.normalizeForField(
                     raw = it,
-                    configuredFormat = dateField?.format,
-                    referenceDate = workDate,
-                    dateOrder = dateField?.dateOrder,
-                    dateCalendar = dateField?.dateCalendar,
-                    dateYearDigits = dateField?.dateYearDigits ?: 0
+                    field = dateField,
+                    referenceDate = workDate
                 )
             }
             val normalizedDate = dateResult?.value

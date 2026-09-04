@@ -2,6 +2,7 @@ package com.receiptocr.app.ocr
 
 import com.receiptocr.app.config.OcrTemplateField
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
@@ -34,7 +35,8 @@ object ReceiptDateOcrNormalizer {
         field: OcrTemplateField?,
         referenceDate: LocalDate,
         maxAutoCorrectionDistanceDays: Long = 45,
-        allowCanonicalInput: Boolean = false
+        allowCanonicalInput: Boolean = false,
+        actualDate: LocalDate = LocalDate.now(ZoneId.of("Asia/Bangkok"))
     ): Result = normalize(
         raw = raw,
         configuredFormat = field?.format,
@@ -44,7 +46,8 @@ object ReceiptDateOcrNormalizer {
         dateCalendar = field?.dateCalendar,
         dateYearDigits = field?.dateYearDigits ?: 0,
         dateExample = field?.example,
-        allowCanonicalInput = allowCanonicalInput
+        allowCanonicalInput = allowCanonicalInput,
+        actualDate = actualDate
     )
 
     fun normalize(
@@ -56,7 +59,8 @@ object ReceiptDateOcrNormalizer {
         dateCalendar: String? = null,
         dateYearDigits: Int = 0,
         dateExample: String? = null,
-        allowCanonicalInput: Boolean = false
+        allowCanonicalInput: Boolean = false,
+        actualDate: LocalDate = LocalDate.now(ZoneId.of("Asia/Bangkok"))
     ): Result {
         val cleaned = OcrTextNormalizer.normalizeDigits(raw.trim())
             .replace('.', '/')
@@ -81,6 +85,21 @@ object ReceiptDateOcrNormalizer {
 
         val order = resolveOrder(dateOrder, configuredFormat)
         val calendar = resolveCalendar(dateCalendar)
+
+        // Round95: ถ้า Template คาด 2 หลัก แต่เห็นวัน/เดือนเพียง 1 หลัก
+        // ห้ามปล่อย parseStructured ตีเป็นเลขหลักเดียวทันที เพราะ 2 อาจเป็น 02/12/22
+        // วันที่จริงใช้ตัดเฉพาะค่าที่ยังไม่เกิดขึ้น; วันงาน/ช่วง Admin ห้ามใช้เลือกเลขที่หาย
+        proveShortStructuredDate(
+            cleaned = cleaned,
+            order = order,
+            calendar = calendar,
+            configuredYearDigits = dateYearDigits,
+            dateExample = dateExample,
+            referenceDate = referenceDate,
+            actualDate = actualDate,
+            maxDistanceDays = maxAutoCorrectionDistanceDays
+        )?.let { return it }
+
         val exact = parseStructured(
             cleaned = cleaned,
             order = order,
@@ -141,6 +160,94 @@ object ReceiptDateOcrNormalizer {
         val month: String,
         val year: String
     )
+
+    private data class ExpectedTokenLengths(
+        val day: Int,
+        val month: Int,
+        val year: Int
+    )
+
+    private fun proveShortStructuredDate(
+        cleaned: String,
+        order: DateOrder,
+        calendar: DateCalendar,
+        configuredYearDigits: Int,
+        dateExample: String?,
+        referenceDate: LocalDate,
+        actualDate: LocalDate,
+        maxDistanceDays: Long
+    ): Result? {
+        val parts = cleaned.split('/').map { it.trim() }
+        if (parts.size != 3 || parts.any { it.isBlank() || !it.all(Char::isDigit) }) return null
+        val tokens = tokensByOrder(parts, order)
+        val expected = expectedTokenLengths(order, configuredYearDigits, dateExample)
+
+        // ถ้า Template ตั้งใจยอมรับ 1 หลักอยู่แล้ว ไม่ใช่กรณีเลขหาย
+        val shortDay = expected.day == 2 && tokens.day.length == 1
+        val shortMonth = expected.month == 2 && tokens.month.length == 1
+        if (!shortDay && !shortMonth) return null
+
+        // รูปร่างส่วนอื่นต้องยังตรง Template จึงค่อยพิสูจน์เลขนำหน้าที่หาย
+        if ((!shortDay && tokens.day.length != expected.day) ||
+            (!shortMonth && tokens.month.length != expected.month) ||
+            tokens.year.length != expected.year) {
+            return Result(null, original = cleaned, warning = "วันที่บนบิลอ่านไม่ครบ กรุณาตรวจภาพบิล")
+        }
+
+        val year = normalizeYear(tokens.year, calendar, referenceDate)
+            ?: return Result(null, original = cleaned, warning = calendarWarning(calendar))
+
+        fun dayCandidates(): List<Int> = if (shortDay) {
+            (0..3).mapNotNull { tens -> ("$tens${tokens.day}").toIntOrNull() }.distinct()
+        } else listOfNotNull(tokens.day.toIntOrNull())
+
+        fun monthCandidates(): List<Int> = if (shortMonth) {
+            (0..1).mapNotNull { tens -> ("$tens${tokens.month}").toIntOrNull() }.distinct()
+        } else listOfNotNull(tokens.month.toIntOrNull())
+
+        val candidates = buildList {
+            dayCandidates().forEach { day ->
+                monthCandidates().forEach { month ->
+                    val date = buildDate(year, month, day) ?: return@forEach
+                    // ข้อเท็จจริงเพียงอย่างเดียวที่ใช้ตัด candidate คือวันที่นั้นเกิดขึ้นแล้วหรือยัง
+                    if (!date.isAfter(actualDate)) add(date)
+                }
+            }
+        }.distinct()
+
+        if (candidates.size != 1) {
+            return Result(null, original = cleaned, warning = "วันที่บนบิลอ่านไม่ครบ กรุณาตรวจภาพบิล")
+        }
+
+        val verified = verifyDistance(
+            date = candidates.single(),
+            original = cleaned,
+            referenceDate = referenceDate,
+            maxDistanceDays = maxDistanceDays
+        )
+        return if (verified.value != null) verified.copy(corrected = true) else verified
+    }
+
+    private fun expectedTokenLengths(
+        order: DateOrder,
+        configuredYearDigits: Int,
+        dateExample: String?
+    ): ExpectedTokenLengths {
+        val groups = Regex("\\d+").findAll(dateExample.orEmpty()).map { it.value }.toList()
+        if (groups.size == 3) {
+            val tokens = tokensByOrder(groups, order)
+            return ExpectedTokenLengths(
+                day = tokens.day.length,
+                month = tokens.month.length,
+                year = if (configuredYearDigits in setOf(2, 4)) configuredYearDigits else tokens.year.length
+            )
+        }
+        return ExpectedTokenLengths(
+            day = 2,
+            month = 2,
+            year = if (configuredYearDigits in setOf(2, 4)) configuredYearDigits else 4
+        )
+    }
 
     private fun hasExplicitStructuredYearDigitMismatch(
         cleaned: String,

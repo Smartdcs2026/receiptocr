@@ -100,7 +100,14 @@ object DemoRepository {
                 ocrWarnings = prefs.getString("$k.ocrWarnings", "") ?: "",
                 ocrStoreId = prefs.getString("$k.ocrStoreId", "") ?: "",
                 ocrStoreIdExpected = prefs.getBoolean("$k.ocrStoreIdExpected", false),
-                ocrCounterCycle = prefs.getString("$k.ocrCounterCycle", "CONTINUOUS") ?: "CONTINUOUS"
+                ocrCounterCycle = prefs.getString("$k.ocrCounterCycle", "CONTINUOUS") ?: "CONTINUOUS",
+                ocrRawPosIdentity = prefs.getString("$k.ocrRawPosIdentity", "") ?: "",
+                storeReviewConfirmed = prefs.getBoolean("$k.storeReviewConfirmed", false),
+                storeReviewReadId = prefs.getString("$k.storeReviewReadId", "") ?: "",
+                storeReviewExpectedId = prefs.getString("$k.storeReviewExpectedId", "") ?: "",
+                storeReviewConfirmedId = prefs.getString("$k.storeReviewConfirmedId", "") ?: "",
+                storeReviewConfirmedAt = prefs.getString("$k.storeReviewConfirmedAt", "") ?: "",
+                storeReviewConfirmedBy = prefs.getString("$k.storeReviewConfirmedBy", "") ?: ""
             )
         }
     }
@@ -127,6 +134,13 @@ object DemoRepository {
                 .putString("$k.ocrStoreId", r.ocrStoreId)
                 .putBoolean("$k.ocrStoreIdExpected", r.ocrStoreIdExpected)
                 .putString("$k.ocrCounterCycle", r.ocrCounterCycle)
+                .putString("$k.ocrRawPosIdentity", r.ocrRawPosIdentity)
+                .putBoolean("$k.storeReviewConfirmed", r.storeReviewConfirmed)
+                .putString("$k.storeReviewReadId", r.storeReviewReadId)
+                .putString("$k.storeReviewExpectedId", r.storeReviewExpectedId)
+                .putString("$k.storeReviewConfirmedId", r.storeReviewConfirmedId)
+                .putString("$k.storeReviewConfirmedAt", r.storeReviewConfirmedAt)
+                .putString("$k.storeReviewConfirmedBy", r.storeReviewConfirmedBy)
         }
         editor.apply()
     }
