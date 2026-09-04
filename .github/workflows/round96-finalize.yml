@@ -1,0 +1,96 @@
+name: Round96 finalize production
+
+on:
+  push:
+    branches:
+      - round96-critical-receipt-alerts-field-ux
+    paths:
+      - 'tools/round96_apply_final.py'
+      - '.github/workflows/round96-finalize.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout Round96
+        uses: actions/checkout@v4
+        with:
+          ref: round96-critical-receipt-alerts-field-ux
+          fetch-depth: 0
+
+      - name: Verify Round95 production baseline
+        run: |
+          git merge-base --is-ancestor 85c5c2b8fab7bbcb9ca1cea6b3594497a9083dc7 HEAD
+          echo "Round95 production baseline is preserved"
+
+      - name: Apply Round96 production source
+        run: python tools/round96_apply_final.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Preserve Admin and prior regressions
+        run: |
+          node tests/workplan-store-normalizer.test.js
+          node tests/ocr-pattern-engine.test.js
+          node tests/round94-admin-pos-mapping.test.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify Round96 field UX and critical alerts
+        run: |
+          grep -q 'versionCode = 98' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.96.0"' android-app/app/build.gradle.kts
+          grep -Fq 'พบบิลซ้ำในร้านเดียวกัน' android-app/app/src/main/java/com/receiptocr/app/ocr/DuplicatePosEvidenceDetector.kt
+          grep -Fq 'บิลผิดร้าน • รหัสร้านบนบิลไม่ตรงกับงาน' android-app/app/src/main/java/com/receiptocr/app/ui/UserFacingOcrMessages.kt
+          grep -Fq 'CriticalRed = Color(0xFFB42318)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -Fq 'WarningSoft = Color(0xFFFFF7E6)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -Fq 'แก้บิลซ้ำก่อน' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -Fq 'ตรวจรหัสร้านก่อน' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -Fq 'บิลนี้เป็นร้านอื่น' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -Fq 'homeListState.animateScrollToItem(0)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -Fq 'อ่านข้อมูลจากบิล' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+
+      - name: Verify patch whitespace
+        run: git diff --check
+
+      - name: Commit verified production source
+        run: |
+          git config user.name "SKDC_SMART"
+          git config user.email "somchaibutphon@gmail.com"
+          git add android-app
+          if git diff --cached --quiet; then
+            echo "No production changes to commit"
+          else
+            git commit -m "Round96 critical receipt alerts and field UX"
+            git push origin HEAD:round96-critical-receipt-alerts-field-ux
+          fi
