@@ -1,0 +1,98 @@
+name: Round97 finalize production
+
+on:
+  push:
+    branches:
+      - round97-import-diagnostics-temp-store-gps
+    paths:
+      - 'tools/round97_apply.py'
+      - '.github/workflows/round97-finalize.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Round97
+        uses: actions/checkout@v4
+        with:
+          ref: round97-import-diagnostics-temp-store-gps
+          fetch-depth: 0
+
+      - name: Verify Round96 production baseline
+        run: |
+          git merge-base --is-ancestor 309c9f0ff8e6cea418de7553037c2e9399344ae0 HEAD
+          echo "Round96 production baseline is preserved"
+
+      - name: Apply Round97 production source
+        run: python tools/round97_apply.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify Admin import behavior
+        run: |
+          node --check web-admin/workplans-smart.js
+          node --check web-admin/workplan-store-normalizer.js
+          node tests/workplan-store-normalizer.test.js
+          node tests/ocr-pattern-engine.test.js
+          node tests/round94-admin-pos-mapping.test.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Verify Round97 requirements
+        run: |
+          grep -q 'versionCode = 99' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.97.0"' android-app/app/build.gradle.kts
+          grep -Fq 'ACCESS_FINE_LOCATION' android-app/app/src/main/AndroidManifest.xml
+          grep -Fq 'บันทึกพิกัด' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -Fq 'เปลี่ยนพิกัดร้าน?' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -Fq 'receiptStoreIdPending:true' web-admin/workplan-store-normalizer.js
+          grep -Fq 'ยังนำเข้าไม่ได้' web-admin/workplans-smart.js
+          grep -Fq 'ดูรายการ' web-admin/workplans-smart.js
+          grep -Fq 'รหัสร้านบนบิล' web-admin/workplans-smart.js
+          grep -Fq 'get() = receiptStoreId.trim()' android-app/app/src/main/java/com/receiptocr/app/model/Models.kt
+          grep -Fq 'StoreLocationRepository.applySaved' android-app/app/src/main/java/com/receiptocr/app/data/remote/WorkPlanRepository.kt
+
+      - name: Verify patch whitespace
+        run: git diff --check
+
+      - name: Commit verified production source
+        run: |
+          git config user.name "SKDC_SMART"
+          git config user.email "somchaibutphon@gmail.com"
+          git add android-app web-admin tests
+          if git diff --cached --quiet; then
+            echo "No production changes to commit"
+          else
+            git commit -m "Round97 import diagnostics temporary store and GPS"
+            git push origin HEAD:round97-import-diagnostics-temp-store-gps
+          fi
