@@ -34,9 +34,9 @@ data class MultiPassOcrResult(
  * อ่านทั้งภาพและอ่านซ้ำเป็นช่วงแนวนอนที่เหลื่อมกัน
  * ช่วยภาพที่วางบิลหลายใบซ้อนกัน โดยไม่ผูกกับชื่อแบรนด์หรือรูปแบบบิลใด
  *
- * Round98: การกดอ่านซ้ำภาพเดิมจะไม่ทำงานแบบเดิมซ้ำเฉย ๆ อีกต่อไป
- * ระดับแรกยังคงวิธีอ่าน Round97 ทุกจุดเหมือนเดิม จากนั้นการกดซ้ำจะเพิ่ม
- * วิธีช่วยตัวอักษรจาง/ขาดและช่วงครอปเสริม โดยไม่ลบผลดีเดิมออก
+ * Round98: การกดอ่านซ้ำภาพเดิมเพิ่มวิธีอ่านทีละระดับ โดยไม่ตัดวิธีเดิมออก
+ * Round100: เพิ่มการขยายข้อความเล็ก และรอบช่วยภาพเอียง/พื้นที่ย่อยสำหรับภาพยาก
+ * ทุกวิธีเพิ่มเฉพาะหลักฐานจากภาพ ไม่แก้หรือเดาตัวเลขแทนกฎของ Admin
  */
 object MultiPassOcrReader {
     fun process(
@@ -51,40 +51,32 @@ object MultiPassOcrReader {
         val bitmaps = mutableListOf<Bitmap>()
         val tasks = mutableListOf<Task<Text>>()
         val passOrigins = mutableListOf<Pair<Int, Int>>()
+
+        fun queue(bitmap: Bitmap, originX: Int = 0, originY: Int = 0) {
+            bitmaps += bitmap
+            tasks += recognizer.process(InputImage.fromBitmap(bitmap, 0))
+            passOrigins += originX to originY
+        }
+
         tasks += recognizer.process(InputImage.fromBitmap(source, 0))
         passOrigins += 0 to 0
 
         val qualityWarnings = inspectImageQuality(source)
 
-        // อ่านภาพเต็มหลายระดับ ภาพสีรักษารายละเอียดเดิม ภาพขาวดำช่วยบิลซีด
-        // และภาพขาวดำเข้มช่วยกรณีตัวอักษรความร้อนมีสีใกล้กับพื้นกระดาษ
-        // ชุดนี้คือ baseline เดิมและต้องทำทุกครั้ง รวมถึงครั้งแรก
+        // Baseline เดิม: อ่านภาพเต็มหลายระดับทุกครั้ง ห้ามตัดออกเมื่อเพิ่มรอบใหม่
         val softContrast = enhanceForText(source, contrast = 1.15f, brightness = -4f)
         val enhanced = enhanceForText(source, contrast = 1.35f, brightness = 0f)
         val highContrast = enhanceForText(source, contrast = 1.75f, brightness = 8f)
         val sharpened = sharpenForText(enhanced)
         val adaptive = blockAdaptiveThreshold(enhanced)
-        bitmaps += softContrast
-        bitmaps += enhanced
-        bitmaps += highContrast
-        bitmaps += sharpened
-        bitmaps += adaptive
-        tasks += recognizer.process(InputImage.fromBitmap(softContrast, 0))
-        passOrigins += 0 to 0
-        tasks += recognizer.process(InputImage.fromBitmap(enhanced, 0))
-        passOrigins += 0 to 0
-        tasks += recognizer.process(InputImage.fromBitmap(highContrast, 0))
-        passOrigins += 0 to 0
-        tasks += recognizer.process(InputImage.fromBitmap(sharpened, 0))
-        passOrigins += 0 to 0
-        tasks += recognizer.process(InputImage.fromBitmap(adaptive, 0))
-        passOrigins += 0 to 0
+        queue(softContrast)
+        queue(enhanced)
+        queue(highContrast)
+        queue(sharpened)
+        queue(adaptive)
 
-        // แถบที่แคบและเหลื่อมกันช่วยแยกบิลซ้อนหลายใบออกจากกัน
-        // จำนวนช่วงอิงจำนวน POS ในแผนงาน แต่ไม่ผูกกับชื่อแบรนด์
+        // แถบกว้างที่เหลื่อมกัน ช่วยแยกบิลหลายใบที่วางต่อกันในภาพเดียว
         val passCount = (expectedRecords * 2 + 1).coerceIn(7, 11)
-        // ช่วงเดิมสูงเกินไปและมักครอบบิลซ้อนพร้อมกัน 2 ใบ ทำให้ ML Kit
-        // รวมบรรทัดคนละ POS เข้าด้วยกัน จึงใช้ช่วงแคบลงแต่คงการเหลื่อมไว้
         val cropRatio = (0.86f / expectedRecords.coerceAtLeast(1)).coerceIn(0.18f, 0.30f)
         val cropHeight = (source.height * cropRatio).toInt().coerceIn(1, source.height)
         val travel = (source.height - cropHeight).coerceAtLeast(0)
@@ -98,15 +90,10 @@ object MultiPassOcrReader {
                 1 -> sharpened
                 else -> adaptive
             }
-            val crop = Bitmap.createBitmap(cropSource, 0, top, cropSource.width, cropHeight)
-            bitmaps += crop
-            tasks += recognizer.process(InputImage.fromBitmap(crop, 0))
-            passOrigins += 0 to top
+            queue(Bitmap.createBitmap(cropSource, 0, top, cropSource.width, cropHeight), originY = top)
         }
 
-        // Round90: เพิ่มแถบแนวนอนที่บางกว่าเพื่ออ่านข้อความรหัสบิลที่ตัวเลขชิดกัน
-        // เช่น R201... / R202... บนบิลซ้อน โดยไม่ผูกกับแบรนด์หรือ prefix ใด
-        // การ crop ที่บางช่วยให้ ML Kit ไม่ต้องลดรายละเอียดของทั้งภาพก่อนอ่านข้อความเล็ก
+        // แถบบางสำหรับตัวเลขชิดกัน เช่นเลขชุดรหัส POS/ยอดลูกค้าในบิลซ้อน
         val linePassCount = (expectedRecords * 2 + 5).coerceIn(9, 13)
         val lineRatio = (0.42f / expectedRecords.coerceAtLeast(1)).coerceIn(0.09f, 0.15f)
         val lineHeight = (source.height * lineRatio).toInt().coerceIn(1, source.height)
@@ -116,14 +103,10 @@ object MultiPassOcrReader {
         }.distinct()
         lineTops.forEachIndexed { index, top ->
             val cropSource = if (index % 2 == 0) sharpened else highContrast
-            val crop = Bitmap.createBitmap(cropSource, 0, top, cropSource.width, lineHeight)
-            bitmaps += crop
-            tasks += recognizer.process(InputImage.fromBitmap(crop, 0))
-            passOrigins += 0 to top
+            queue(Bitmap.createBitmap(cropSource, 0, top, cropSource.width, lineHeight), originY = top)
         }
 
-        // Round98 ระดับ 2: กดอ่านซ้ำภาพเดิมแล้วเพิ่มการมองตัวอักษรจาง/เส้นขาด
-        // และอ่านช่วงกึ่งกลางระหว่างแถบเดิม เพื่อไม่ให้ข้อความสำคัญตกตรงรอยต่อ crop
+        // Round98/100 ระดับ 1-2: ช่วยตัวอักษรจางและอ่านข้อความที่ตกตรงรอยต่อของแถบเดิม
         if (retryPlan.addFineAdaptive || retryPlan.addFaintTextPass) {
             val fineAdaptive = blockAdaptiveThreshold(
                 source = enhanced,
@@ -131,33 +114,26 @@ object MultiPassOcrReader {
                 thresholdOffset = -4
             )
             val faintText = enhanceForText(source, contrast = 1.48f, brightness = -12f)
-            bitmaps += fineAdaptive
-            bitmaps += faintText
-
-            if (retryPlan.addFineAdaptive) {
-                tasks += recognizer.process(InputImage.fromBitmap(fineAdaptive, 0))
-                passOrigins += 0 to 0
-            }
-            if (retryPlan.addFaintTextPass) {
-                tasks += recognizer.process(InputImage.fromBitmap(faintText, 0))
-                passOrigins += 0 to 0
-            }
+            if (retryPlan.addFineAdaptive) queue(fineAdaptive) else bitmaps += fineAdaptive
+            if (retryPlan.addFaintTextPass) queue(faintText) else bitmaps += faintText
 
             if (retryPlan.addShiftedLineCrops && lineTops.size >= 2) {
                 val shiftedTops = lineTops.zipWithNext { a, b -> (a + b) / 2 }.distinct()
                 shiftedTops.forEachIndexed { index, top ->
                     val cropSource = if (index % 2 == 0) fineAdaptive else faintText
                     val crop = Bitmap.createBitmap(cropSource, 0, top, cropSource.width, lineHeight)
-                    bitmaps += crop
-                    tasks += recognizer.process(InputImage.fromBitmap(crop, 0))
-                    passOrigins += 0 to top
+                    queue(crop, originY = top)
+
+                    // Round100: ขยายเฉพาะบางแถบ ไม่ขยายทั้งภาพ เพื่อลดหน่วยความจำ
+                    // และช่วยกรณีเลขเล็ก/ตัวพิมพ์ความร้อนบางที่ ML Kit มองข้ามในขนาดเดิม
+                    if (retryPlan.addUpscaledLineCrops && index % 3 == 1) {
+                        queue(scaleForText(crop, requestedScale = 1.35f), originY = top)
+                    }
                 }
             }
         }
 
-        // Round98 ระดับ 3: สำหรับภาพเดิมที่ผู้ใช้ยังต้องกดอ่านอีกครั้ง
-        // เพิ่มวิธีที่ต่างจากระดับ 2 ชัดเจน เพื่อให้การกดครั้งต่อไปมีโอกาสได้หลักฐานใหม่
-        // แต่ยังคง baseline + ระดับ 2 ทั้งหมดไว้ ไม่ย้อนความสามารถเดิม
+        // ระดับ 2-3: threshold คนละขนาด + ขอบตัวอักษรเข้ม + micro line crops
         if (retryPlan.addCoarseAdaptive || retryPlan.addStrongEdgePass) {
             val coarseAdaptive = blockAdaptiveThreshold(
                 source = softContrast,
@@ -165,17 +141,8 @@ object MultiPassOcrReader {
                 thresholdOffset = -14
             )
             val strongEdge = sharpenForText(highContrast)
-            bitmaps += coarseAdaptive
-            bitmaps += strongEdge
-
-            if (retryPlan.addCoarseAdaptive) {
-                tasks += recognizer.process(InputImage.fromBitmap(coarseAdaptive, 0))
-                passOrigins += 0 to 0
-            }
-            if (retryPlan.addStrongEdgePass) {
-                tasks += recognizer.process(InputImage.fromBitmap(strongEdge, 0))
-                passOrigins += 0 to 0
-            }
+            if (retryPlan.addCoarseAdaptive) queue(coarseAdaptive) else bitmaps += coarseAdaptive
+            if (retryPlan.addStrongEdgePass) queue(strongEdge) else bitmaps += strongEdge
 
             if (retryPlan.addMicroLineCrops) {
                 val microPassCount = (expectedRecords * 3 + 5).coerceIn(11, 17)
@@ -189,9 +156,34 @@ object MultiPassOcrReader {
                 microTops.forEachIndexed { index, top ->
                     val cropSource = if (index % 2 == 0) strongEdge else coarseAdaptive
                     val crop = Bitmap.createBitmap(cropSource, 0, top, cropSource.width, microHeight)
-                    bitmaps += crop
-                    tasks += recognizer.process(InputImage.fromBitmap(crop, 0))
-                    passOrigins += 0 to top
+                    queue(crop, originY = top)
+                    if (retryPlan.addUpscaledLineCrops && index % 4 == 2) {
+                        queue(scaleForText(crop, requestedScale = 1.45f), originY = top)
+                    }
+                }
+            }
+        }
+
+        // Round100 ระดับ 4: ใช้เฉพาะเมื่อผู้ใช้กดอ่านภาพเดิมหลายครั้งแล้ว
+        // 1) มองภาพที่เอียงเล็กน้อยจากอีกสองมุม
+        // 2) แบ่งภาพเป็นพื้นที่ย่อยแล้วขยาย เพื่อให้ข้อความเล็กมีขนาดใหญ่ขึ้นก่อนส่งเข้า ML Kit
+        if (retryPlan.addSkewRescuePasses) {
+            queue(rotateForText(enhanced, -1.35f))
+            queue(rotateForText(enhanced, 1.35f))
+        }
+
+        if (retryPlan.addUpscaledGridCrops) {
+            val tileWidth = (source.width * 0.64f).toInt().coerceIn(1, source.width)
+            val tileHeight = (source.height * 0.52f).toInt().coerceIn(1, source.height)
+            val xPositions = listOf(0, (source.width - tileWidth).coerceAtLeast(0)).distinct()
+            val yPositions = listOf(0, (source.height - tileHeight).coerceAtLeast(0)).distinct()
+            var tileIndex = 0
+            yPositions.forEach { top ->
+                xPositions.forEach { left ->
+                    val tileSource = if (tileIndex++ % 2 == 0) sharpened else highContrast
+                    val tile = Bitmap.createBitmap(tileSource, left, top, tileWidth, tileHeight)
+                    bitmaps += tile
+                    queue(scaleForText(tile, requestedScale = 1.25f), originX = left, originY = top)
                 }
             }
         }
@@ -216,7 +208,7 @@ object MultiPassOcrReader {
                     qualityWarnings = qualityWarnings
                 )
             } finally {
-                bitmaps.forEach { if (!it.isRecycled) it.recycle() }
+                bitmaps.distinctBy { System.identityHashCode(it) }.forEach { if (!it.isRecycled) it.recycle() }
                 if (!source.isRecycled) source.recycle()
             }
         }
@@ -228,10 +220,7 @@ object MultiPassOcrReader {
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
         var sample = 1
-        // ภาพจากกล้อง 12MP เคยถูกลดจากราว 4,000px เหลือประมาณ 1,000px
-        // ทำให้ตัวเลขบนบิลหลายใบเล็กเกินกว่าที่ ML Kit จะรักษาไว้ได้
-        // 2,800px ทำให้ภาพ 4,032px ใช้ inSampleSize=2 (ประมาณ 2,016px)
-        // โดยยังควบคุมหน่วยความจำด้วยการอ่านแบบ power-of-two sampling
+        // รักษารายละเอียดภาพกล้องไว้มากกว่ารุ่นเก่า แต่ยังคุมหน่วยความจำด้วย power-of-two sampling
         while (maxOf(bounds.outWidth / sample, bounds.outHeight / sample) > 2800) sample *= 2
         return BitmapFactory.decodeFile(path, BitmapFactory.Options().apply {
             inSampleSize = sample
@@ -256,6 +245,30 @@ object MultiPassOcrReader {
             Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
                 colorFilter = ColorMatrixColorFilter(grayscale)
             }
+        )
+        return output
+    }
+
+    /** ขยายเฉพาะ crop เล็ก เพื่อช่วยข้อความเล็ก โดยจำกัดด้านยาวไม่เกิน 3200px */
+    private fun scaleForText(source: Bitmap, requestedScale: Float): Bitmap {
+        val longest = maxOf(source.width, source.height).coerceAtLeast(1)
+        val safeScale = minOf(requestedScale, 3200f / longest.toFloat()).coerceAtLeast(1f)
+        val width = (source.width * safeScale).toInt().coerceAtLeast(1)
+        val height = (source.height * safeScale).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(source, width, height, true)
+    }
+
+    /** หมุนเพียงเล็กน้อยบนพื้นขาว ช่วยเส้นบิลที่เอียงโดยไม่เปลี่ยนข้อมูลในภาพ */
+    private fun rotateForText(source: Bitmap, degrees: Float): Bitmap {
+        val output = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+        canvas.drawColor(Color.WHITE)
+        canvas.rotate(degrees, source.width / 2f, source.height / 2f)
+        canvas.drawBitmap(
+            source,
+            0f,
+            0f,
+            Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         )
         return output
     }
@@ -337,9 +350,9 @@ object MultiPassOcrReader {
             while (x < source.width) {
                 val color = source.getPixel(x, y)
                 val luminance = (
-                    android.graphics.Color.red(color) * 0.299 +
-                        android.graphics.Color.green(color) * 0.587 +
-                        android.graphics.Color.blue(color) * 0.114
+                    Color.red(color) * 0.299 +
+                        Color.green(color) * 0.587 +
+                        Color.blue(color) * 0.114
                     )
                 sum += luminance
                 sumSquares += luminance * luminance
