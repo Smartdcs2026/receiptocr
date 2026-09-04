@@ -33,6 +33,10 @@ data class MultiPassOcrResult(
 /**
  * อ่านทั้งภาพและอ่านซ้ำเป็นช่วงแนวนอนที่เหลื่อมกัน
  * ช่วยภาพที่วางบิลหลายใบซ้อนกัน โดยไม่ผูกกับชื่อแบรนด์หรือรูปแบบบิลใด
+ *
+ * Round98: การกดอ่านซ้ำภาพเดิมจะไม่ทำงานแบบเดิมซ้ำเฉย ๆ อีกต่อไป
+ * ระดับแรกยังคงวิธีอ่าน Round97 ทุกจุดเหมือนเดิม จากนั้นการกดซ้ำจะเพิ่ม
+ * วิธีช่วยตัวอักษรจาง/ขาดและช่วงครอปเสริม โดยไม่ลบผลดีเดิมออก
  */
 object MultiPassOcrReader {
     fun process(
@@ -40,6 +44,7 @@ object MultiPassOcrReader {
         file: File,
         expectedRecords: Int
     ): Task<MultiPassOcrResult> {
+        val retryPlan = AdaptiveOcrRetryPlanner.next(file)
         val source = decodeBounded(file.absolutePath)
             ?: return Tasks.forException(IllegalArgumentException("ไม่สามารถเปิดภาพบิลได้"))
 
@@ -53,6 +58,7 @@ object MultiPassOcrReader {
 
         // อ่านภาพเต็มหลายระดับ ภาพสีรักษารายละเอียดเดิม ภาพขาวดำช่วยบิลซีด
         // และภาพขาวดำเข้มช่วยกรณีตัวอักษรความร้อนมีสีใกล้กับพื้นกระดาษ
+        // ชุดนี้คือ baseline เดิมและต้องทำทุกครั้ง รวมถึงครั้งแรก
         val softContrast = enhanceForText(source, contrast = 1.15f, brightness = -4f)
         val enhanced = enhanceForText(source, contrast = 1.35f, brightness = 0f)
         val highContrast = enhanceForText(source, contrast = 1.75f, brightness = 8f)
@@ -114,6 +120,80 @@ object MultiPassOcrReader {
             bitmaps += crop
             tasks += recognizer.process(InputImage.fromBitmap(crop, 0))
             passOrigins += 0 to top
+        }
+
+        // Round98 ระดับ 2: กดอ่านซ้ำภาพเดิมแล้วเพิ่มการมองตัวอักษรจาง/เส้นขาด
+        // และอ่านช่วงกึ่งกลางระหว่างแถบเดิม เพื่อไม่ให้ข้อความสำคัญตกตรงรอยต่อ crop
+        if (retryPlan.addFineAdaptive || retryPlan.addFaintTextPass) {
+            val fineAdaptive = blockAdaptiveThreshold(
+                source = enhanced,
+                block = 32,
+                thresholdOffset = -4
+            )
+            val faintText = enhanceForText(source, contrast = 1.48f, brightness = -12f)
+            bitmaps += fineAdaptive
+            bitmaps += faintText
+
+            if (retryPlan.addFineAdaptive) {
+                tasks += recognizer.process(InputImage.fromBitmap(fineAdaptive, 0))
+                passOrigins += 0 to 0
+            }
+            if (retryPlan.addFaintTextPass) {
+                tasks += recognizer.process(InputImage.fromBitmap(faintText, 0))
+                passOrigins += 0 to 0
+            }
+
+            if (retryPlan.addShiftedLineCrops && lineTops.size >= 2) {
+                val shiftedTops = lineTops.zipWithNext { a, b -> (a + b) / 2 }.distinct()
+                shiftedTops.forEachIndexed { index, top ->
+                    val cropSource = if (index % 2 == 0) fineAdaptive else faintText
+                    val crop = Bitmap.createBitmap(cropSource, 0, top, cropSource.width, lineHeight)
+                    bitmaps += crop
+                    tasks += recognizer.process(InputImage.fromBitmap(crop, 0))
+                    passOrigins += 0 to top
+                }
+            }
+        }
+
+        // Round98 ระดับ 3: สำหรับภาพเดิมที่ผู้ใช้ยังต้องกดอ่านอีกครั้ง
+        // เพิ่มวิธีที่ต่างจากระดับ 2 ชัดเจน เพื่อให้การกดครั้งต่อไปมีโอกาสได้หลักฐานใหม่
+        // แต่ยังคง baseline + ระดับ 2 ทั้งหมดไว้ ไม่ย้อนความสามารถเดิม
+        if (retryPlan.addCoarseAdaptive || retryPlan.addStrongEdgePass) {
+            val coarseAdaptive = blockAdaptiveThreshold(
+                source = softContrast,
+                block = 72,
+                thresholdOffset = -14
+            )
+            val strongEdge = sharpenForText(highContrast)
+            bitmaps += coarseAdaptive
+            bitmaps += strongEdge
+
+            if (retryPlan.addCoarseAdaptive) {
+                tasks += recognizer.process(InputImage.fromBitmap(coarseAdaptive, 0))
+                passOrigins += 0 to 0
+            }
+            if (retryPlan.addStrongEdgePass) {
+                tasks += recognizer.process(InputImage.fromBitmap(strongEdge, 0))
+                passOrigins += 0 to 0
+            }
+
+            if (retryPlan.addMicroLineCrops) {
+                val microPassCount = (expectedRecords * 3 + 5).coerceIn(11, 17)
+                val microRatio = (0.30f / expectedRecords.coerceAtLeast(1)).coerceIn(0.07f, 0.11f)
+                val microHeight = (source.height * microRatio).toInt().coerceIn(1, source.height)
+                val microTravel = (source.height - microHeight).coerceAtLeast(0)
+                val microTops = (0 until microPassCount).map { index ->
+                    if (microPassCount == 1) 0 else (microTravel.toLong() * index / (microPassCount - 1)).toInt()
+                }.distinct()
+
+                microTops.forEachIndexed { index, top ->
+                    val cropSource = if (index % 2 == 0) strongEdge else coarseAdaptive
+                    val crop = Bitmap.createBitmap(cropSource, 0, top, cropSource.width, microHeight)
+                    bitmaps += crop
+                    tasks += recognizer.process(InputImage.fromBitmap(crop, 0))
+                    passOrigins += 0 to top
+                }
+            }
         }
 
         return Tasks.whenAllSuccess<Text>(tasks).continueWith { completed ->
@@ -202,19 +282,23 @@ object MultiPassOcrReader {
     }
 
     /** แยกตัวอักษรจากพื้นกระดาษทีละพื้นที่ ช่วยบิลที่ซีดไม่เท่ากันหรือมีเงาบางส่วน */
-    private fun blockAdaptiveThreshold(source: Bitmap): Bitmap {
+    private fun blockAdaptiveThreshold(
+        source: Bitmap,
+        block: Int = 48,
+        thresholdOffset: Int = -10
+    ): Bitmap {
         val width = source.width
         val height = source.height
         val input = IntArray(width * height)
         val output = IntArray(width * height)
         source.getPixels(input, 0, width, 0, 0, width, height)
-        val block = 48
+        val safeBlock = block.coerceIn(16, 128)
         var top = 0
         while (top < height) {
             var left = 0
-            val bottom = (top + block).coerceAtMost(height)
+            val bottom = (top + safeBlock).coerceAtMost(height)
             while (left < width) {
-                val right = (left + block).coerceAtMost(width)
+                val right = (left + safeBlock).coerceAtMost(width)
                 var sum = 0L
                 var count = 0
                 for (y in top until bottom) {
@@ -224,7 +308,8 @@ object MultiPassOcrReader {
                         count++
                     }
                 }
-                val threshold = ((if (count == 0) 128 else sum / count).toInt() - 10).coerceIn(55, 225)
+                val average = if (count == 0) 128 else (sum / count).toInt()
+                val threshold = (average + thresholdOffset).coerceIn(55, 225)
                 for (y in top until bottom) {
                     val row = y * width
                     for (x in left until right) {
@@ -232,9 +317,9 @@ object MultiPassOcrReader {
                         output[row + x] = Color.rgb(value, value, value)
                     }
                 }
-                left += block
+                left += safeBlock
             }
-            top += block
+            top += safeBlock
         }
         return Bitmap.createBitmap(output, width, height, Bitmap.Config.ARGB_8888)
     }
