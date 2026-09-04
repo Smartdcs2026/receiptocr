@@ -103,7 +103,14 @@ object MultiPassOcrReader {
         }.distinct()
         lineTops.forEachIndexed { index, top ->
             val cropSource = if (index % 2 == 0) sharpened else highContrast
-            queue(Bitmap.createBitmap(cropSource, 0, top, cropSource.width, lineHeight), originY = top)
+            val crop = Bitmap.createBitmap(cropSource, 0, top, cropSource.width, lineHeight)
+            queue(crop, originY = top)
+
+            // Round100: รอบแรกก็ขยายเพียงบางแถบ เพื่อเพิ่มโอกาสอ่านข้อความเล็ก
+            // โดยไม่เปลี่ยนหรือตัดผลจากภาพเดิม
+            if (retryPlan.addUpscaledLineCrops && index % 4 == 1) {
+                queue(scaleForText(crop, requestedScale = 1.20f), originY = top)
+            }
         }
 
         // Round98/100 ระดับ 1-2: ช่วยตัวอักษรจางและอ่านข้อความที่ตกตรงรอยต่อของแถบเดิม
@@ -124,8 +131,7 @@ object MultiPassOcrReader {
                     val crop = Bitmap.createBitmap(cropSource, 0, top, cropSource.width, lineHeight)
                     queue(crop, originY = top)
 
-                    // Round100: ขยายเฉพาะบางแถบ ไม่ขยายทั้งภาพ เพื่อลดหน่วยความจำ
-                    // และช่วยกรณีเลขเล็ก/ตัวพิมพ์ความร้อนบางที่ ML Kit มองข้ามในขนาดเดิม
+                    // รอบอ่านซ้ำขยายแถบเหลื่อมอีกชุด เพื่อหาอักขระที่รอบแรกตกหล่น
                     if (retryPlan.addUpscaledLineCrops && index % 3 == 1) {
                         queue(scaleForText(crop, requestedScale = 1.35f), originY = top)
                     }
