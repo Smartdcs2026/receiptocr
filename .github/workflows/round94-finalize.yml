@@ -102,7 +102,10 @@ jobs:
         run: |
           git config user.name "SKDC_SMART"
           git config user.email "somchaibutphon@gmail.com"
-          git add android-app web-admin tests .github/workflows/pages.yml
+          # GitHub App token used by Actions cannot update workflow files.
+          # Round94 production does not require Pages workflow changes, so keep
+          # that generated workflow diff out of the production commit.
+          git add android-app web-admin tests
           if git diff --cached --quiet; then
             echo "No production changes to commit"
           else
