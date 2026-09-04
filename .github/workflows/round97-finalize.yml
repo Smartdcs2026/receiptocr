@@ -28,6 +28,20 @@ jobs:
           git merge-base --is-ancestor 309c9f0ff8e6cea418de7553037c2e9399344ae0 HEAD
           echo "Round96 production baseline is preserved"
 
+      - name: Prepare duplicate cache path
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('android-app/app/src/main/java/com/receiptocr/app/data/remote/WorkPlanRepository.kt')
+          text=p.read_text(encoding='utf-8')
+          old='                LoadedWorkPlan(parseItems(cached), WorkPlanSource.CACHE)'
+          new='                LoadedWorkPlan(applySavedLocations(context, parseItems(cached)), WorkPlanSource.CACHE)'
+          if text.count(old)!=2:
+              raise SystemExit(f'expected 2 cache paths, got {text.count(old)}')
+          text=text.replace(old,new,1)
+          p.write_text(text,encoding='utf-8')
+          PY
+
       - name: Apply Round97 production source
         run: python tools/round97_apply.py
 
