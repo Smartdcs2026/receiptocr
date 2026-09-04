@@ -1,0 +1,82 @@
+name: Round100 adaptive OCR rescue regression
+
+on:
+  push:
+    branches: ["round100-adaptive-ocr-rescue-accuracy"]
+    paths:
+      - "android-app/**"
+      - "web-admin/**"
+      - "tests/**"
+      - ".github/workflows/round100-finalize.yml"
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Round100
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Round99 production baseline
+        run: git merge-base --is-ancestor a479866e9c04e6626a76030851ac147d1be6bb4d HEAD
+
+      - name: Verify Round100 version
+        run: |
+          grep -q 'versionCode = 102' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.100.0"' android-app/app/build.gradle.kts
+
+      - name: Verify adaptive OCR rescue is additive
+        run: |
+          grep -q 'MAX_LEVEL = 4' android-app/app/src/main/java/com/receiptocr/app/ocr/AdaptiveOcrRetryPlanner.kt
+          grep -q 'addUpscaledLineCrops' android-app/app/src/main/java/com/receiptocr/app/ocr/AdaptiveOcrRetryPlanner.kt
+          grep -q 'addSkewRescuePasses' android-app/app/src/main/java/com/receiptocr/app/ocr/AdaptiveOcrRetryPlanner.kt
+          grep -q 'addUpscaledGridCrops' android-app/app/src/main/java/com/receiptocr/app/ocr/AdaptiveOcrRetryPlanner.kt
+          grep -q 'scaleForText' android-app/app/src/main/java/com/receiptocr/app/ocr/MultiPassOcrReader.kt
+          grep -q 'rotateForText' android-app/app/src/main/java/com/receiptocr/app/ocr/MultiPassOcrReader.kt
+          grep -q 'AdaptiveOcrRetryPlannerRound100Test' android-app/app/src/test/java/com/receiptocr/app/ocr/AdaptiveOcrRetryPlannerRound100Test.kt
+
+      - name: Verify Round99 Admin workspace was not changed
+        run: git diff --exit-code a479866e9c04e6626a76030851ac147d1be6bb4d -- web-admin tests/review-logic.test.js
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Admin regression tests
+        run: |
+          node tests/review-logic.test.js
+          node tests/workplan-store-normalizer.test.js
+          node tests/ocr-pattern-engine.test.js
+          node --check web-admin/review-logic.js
+          node --check web-admin/review.js
+          node --check web-admin/ocr-admin-ux.js
+          node --check web-admin/ocr-pattern-engine.js
+          node --check web-admin/ocr-simple.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
