@@ -1,0 +1,86 @@
+name: Round102 camera session photo archive regression
+
+on:
+  push:
+    branches: ["round102-camera-session-photo-archive-ui"]
+    paths:
+      - "android-app/**"
+      - "tools/round102_apply.py"
+      - ".github/workflows/round102-finalize.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test-build-finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout Round102
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Round101 baseline
+        run: git merge-base --is-ancestor cd8f8360565436b13e7acfb31ec692e581de9bfb HEAD
+
+      - name: Apply Round102 UI patch
+        run: |
+          if ! grep -q 'AppUiSession.restoreUser(context)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt; then
+            python tools/round102_apply.py
+          else
+            echo 'Round102 UI patch already applied'
+          fi
+
+      - name: Verify version and safeguards
+        run: |
+          grep -q 'versionCode = 104' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.102.0"' android-app/app/build.gradle.kts
+          grep -q 'AppUiSession.restoreUser(context)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'PhotoCaptureRecovery.begin' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'PhotoDeviceArchive.archive' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'บันทึกภาพบิลลงเครื่องแล้ว' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'Pictures/ReceiptOCR' android-app/app/src/main/java/com/receiptocr/app/util/PhotoStorage.kt || true
+
+      - name: Protect Round101 OCR
+        run: git diff --exit-code cd8f8360565436b13e7acfb31ec692e581de9bfb -- android-app/app/src/main/java/com/receiptocr/app/ocr
+
+      - name: Protect Admin review workspace
+        run: git diff --exit-code cd8f8360565436b13e7acfb31ec692e581de9bfb -- web-admin
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Commit verified Round102 source
+        run: |
+          if ! git diff --quiet; then
+            git config user.name 'SKDC_SMART'
+            git config user.email 'somchaibutphon@gmail.com'
+            git add android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+            git commit -m 'Round102 apply camera recovery photo archive and tab boundary'
+            git push
+          else
+            echo 'No generated source changes to commit'
+          fi
