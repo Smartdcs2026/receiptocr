@@ -46,5 +46,21 @@ const ReviewLogic=require('../web-admin/review-logic.js');
   assert.equal(s.noReceiptCount,1);
 }
 
+{
+  const rows=[
+    {id:9,status:'SUBMITTED',employee_code:'E02',full_name:'เบต้า',store_code:'B2',store_name:'ร้านสอง',submitted_at:'2026-09-05 10:20:00'},
+    {id:7,status:'SUBMITTED',employee_code:'E01',full_name:'อัลฟ่า',store_code:'A1',store_name:'ร้านหนึ่ง',submitted_at:'2026-09-05 10:00:00'},
+    {id:10,status:'SUBMITTED',employee_code:'E01',full_name:'อัลฟ่า',store_code:'A2',store_name:'ร้านสาม',submitted_at:'2026-09-05 10:30:00'}
+  ];
+  assert.deepEqual(ReviewLogic.filterSubmissions(rows,{employeeCode:'E01',sort:'oldest'}).map(x=>x.id),[7,10]);
+  assert.deepEqual(ReviewLogic.filterSubmissions(rows,{sort:'newest'}).map(x=>x.id),[10,9,7]);
+  assert.equal(ReviewLogic.employeeOptions(rows).find(x=>x.employeeCode==='E01').count,2);
+  const stats=ReviewLogic.queueStats(rows,Date.parse('2026-09-05T11:00:00Z'));
+  assert.equal(stats.pendingCount,3);
+  assert.equal(stats.employeeCount,2);
+  assert.equal(stats.oldestMinutes,60);
+  assert.deepEqual(ReviewLogic.newSubmissionIds([7,9],rows),[10]);
+}
+
 assert.equal(ReviewLogic.friendlyMessage('OCR template confidence'),'การอ่าน รูปแบบบิล ความชัดเจน');
 console.log('review-logic tests passed');
