@@ -2,7 +2,7 @@ name: Deploy Web Admin to GitHub Pages
 
 on:
   push:
-    branches: ["main", "round93-admin-date-variants-ui-duplicate-fix"]
+    branches: ["main", "round93-admin-date-variants-ui-duplicate-fix", "round103-photo-evidence-integrity-offline"]
     paths:
       - "web-admin/**"
       - ".github/workflows/pages.yml"
