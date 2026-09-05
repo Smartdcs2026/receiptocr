@@ -1,0 +1,90 @@
+name: Round103 photo evidence integrity offline regression
+
+on:
+  push:
+    branches: ["round103-photo-evidence-integrity-offline"]
+    paths:
+      - "android-app/**"
+      - "tools/round103_apply.py"
+      - ".github/workflows/round103-finalize.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test-build-finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout Round103
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Round102 baseline
+        run: git merge-base --is-ancestor 0570fca91a3ebef388e564f491138d6f83a7cbcd HEAD
+
+      - name: Apply Round103 evidence patch
+        run: python tools/round103_apply.py
+
+      - name: Verify Round103 version and evidence safeguards
+        run: |
+          grep -q 'versionCode = 105' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.103.0"' android-app/app/build.gradle.kts
+          grep -q 'source = "CAMERA"' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'source = "GALLERY"' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'PhotoEvidenceManifest.missingSelected' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'มีภาพที่เปิดไม่ได้ กรุณาเลือกภาพใหม่' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'ยังเก็บลงโฟลเดอร์เครื่องไม่ได้' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'PhotoEvidenceManifest.reconcile' android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
+          grep -q 'archiveUri' android-app/app/src/main/java/com/receiptocr/app/util/PhotoEvidenceManifest.kt
+
+      - name: Protect Round102 camera recovery and OCR baseline
+        run: |
+          grep -q 'PhotoCaptureRecovery.load' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'AppUiSession.restoreScreen' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          git diff --exit-code 0570fca91a3ebef388e564f491138d6f83a7cbcd -- android-app/app/src/main/java/com/receiptocr/app/ocr
+
+      - name: Do not guess server photo API in this round
+        run: git diff --exit-code 0570fca91a3ebef388e564f491138d6f83a7cbcd -- android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+
+      - name: Protect Admin review workspace
+        run: git diff --exit-code 0570fca91a3ebef388e564f491138d6f83a7cbcd -- web-admin
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Commit verified Round103 source
+        run: |
+          if ! git diff --quiet; then
+            git config user.name 'SKDC_SMART'
+            git config user.email 'somchaibutphon@gmail.com'
+            git add android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+            git add android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
+            git commit -m 'Round103 apply photo evidence integrity safeguards'
+            git push
+          else
+            echo 'No generated source changes to commit'
+          fi
