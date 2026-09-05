@@ -115,5 +115,85 @@
     };
   }
 
-  return {parseDate,dayDiff,relativeDate,normalizeRecord,inspectRecord,summarize,friendlyMessage};
+  function employeeCodeOf(item){
+    return first(item?.employee_code,item?.employeeCode);
+  }
+
+  function employeeNameOf(item){
+    return first(item?.full_name,item?.employee_name,item?.employeeName,employeeCodeOf(item))||'-';
+  }
+
+  function parseServerTime(value){
+    const s=text(value);
+    if(!s)return null;
+    const normalized=/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)?s.replace(' ','T')+'Z':s;
+    const ms=Date.parse(normalized);
+    return Number.isFinite(ms)?ms:null;
+  }
+
+  function waitMinutes(value,nowMs=Date.now()){
+    const at=parseServerTime(value);
+    if(at==null)return null;
+    return Math.max(0,Math.floor((Number(nowMs)-at)/60000));
+  }
+
+  function filterSubmissions(items,options={}){
+    const employeeCode=text(options.employeeCode);
+    const term=text(options.term).toLowerCase();
+    const sort=text(options.sort).toLowerCase()==='newest'?'newest':'oldest';
+    const filtered=(Array.isArray(items)?items:[]).filter(item=>{
+      if(employeeCode&&employeeCodeOf(item)!==employeeCode)return false;
+      if(term){
+        const hay=[
+          item?.store_code,item?.store_name,item?.brand,item?.brand_abbr,
+          employeeNameOf(item),employeeCodeOf(item)
+        ].map(v=>text(v).toLowerCase());
+        if(!hay.some(v=>v.includes(term)))return false;
+      }
+      return true;
+    });
+    return filtered.sort((a,b)=>{
+      const am=parseServerTime(a?.submitted_at)??0,bm=parseServerTime(b?.submitted_at)??0;
+      if(am!==bm)return sort==='newest'?bm-am:am-bm;
+      return sort==='newest'?Number(b?.id||0)-Number(a?.id||0):Number(a?.id||0)-Number(b?.id||0);
+    });
+  }
+
+  function employeeOptions(items){
+    const map=new Map();
+    (Array.isArray(items)?items:[]).forEach(item=>{
+      const code=employeeCodeOf(item);
+      if(!code)return;
+      const current=map.get(code)||{employeeCode:code,name:employeeNameOf(item),count:0};
+      current.count++;
+      if(current.name==='-'&&employeeNameOf(item)!=='-')current.name=employeeNameOf(item);
+      map.set(code,current);
+    });
+    return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'th'));
+  }
+
+  function queueStats(items,nowMs=Date.now()){
+    const pending=(Array.isArray(items)?items:[]).filter(x=>text(x?.status).toUpperCase()==='SUBMITTED');
+    const people=new Set(pending.map(employeeCodeOf).filter(Boolean));
+    const waits=pending.map(x=>waitMinutes(x?.submitted_at,nowMs)).filter(Number.isFinite);
+    return {
+      pendingCount:pending.length,
+      employeeCount:people.size,
+      oldestMinutes:waits.length?Math.max(...waits):0
+    };
+  }
+
+  function newSubmissionIds(previousIds,items){
+    const previous=new Set((previousIds||[]).map(Number));
+    return (Array.isArray(items)?items:[])
+      .filter(x=>text(x?.status).toUpperCase()==='SUBMITTED'&&!previous.has(Number(x?.id)))
+      .map(x=>Number(x.id))
+      .filter(Number.isFinite);
+  }
+
+  return {
+    parseDate,dayDiff,relativeDate,normalizeRecord,inspectRecord,summarize,friendlyMessage,
+    employeeCodeOf,employeeNameOf,parseServerTime,waitMinutes,filterSubmissions,employeeOptions,
+    queueStats,newSubmissionIds
+  };
 });
