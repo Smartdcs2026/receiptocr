@@ -172,14 +172,51 @@
     return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'th'));
   }
 
+  function evidenceState(item){
+    const hasCounts=[
+      item?.receipt_evidence_count,item?.receiptEvidenceCount,
+      item?.store_evidence_count,item?.storeEvidenceCount,
+      item?.bill_required_count,item?.billRequiredCount
+    ].some(v=>v!==undefined&&v!==null&&text(v)!=='');
+    if(!hasCounts)return {known:false,ready:false,receiptCount:0,storeCount:0,billRequired:true,missing:[],label:'กำลังตรวจภาพ'};
+
+    const receiptCount=Math.max(0,Number(first(item?.receipt_evidence_count,item?.receiptEvidenceCount,'0'))||0);
+    const storeCount=Math.max(0,Number(first(item?.store_evidence_count,item?.storeEvidenceCount,'0'))||0);
+    const billRequiredCount=Math.max(0,Number(first(item?.bill_required_count,item?.billRequiredCount,'0'))||0);
+    const billRequired=billRequiredCount>0;
+    const missing=[];
+    if(billRequired&&receiptCount<1)missing.push('ภาพบิล');
+    if(storeCount<1)missing.push('ภาพร้าน');
+    const ready=missing.length===0;
+    return {
+      known:true,ready,receiptCount,storeCount,billRequired,missing,
+      label:ready?'พร้อมตรวจ':`รอ${missing.join(' / ')}`
+    };
+  }
+
+  function readySubmissionIds(items){
+    return (Array.isArray(items)?items:[])
+      .filter(x=>text(x?.status).toUpperCase()==='SUBMITTED'&&evidenceState(x).ready)
+      .map(x=>Number(x.id)).filter(Number.isFinite);
+  }
+
+  function transitionedReadyIds(previousReadyIds,items){
+    const previous=new Set((previousReadyIds||[]).map(Number));
+    return readySubmissionIds(items).filter(id=>!previous.has(id));
+  }
+
   function queueStats(items,nowMs=Date.now()){
     const pending=(Array.isArray(items)?items:[]).filter(x=>text(x?.status).toUpperCase()==='SUBMITTED');
     const people=new Set(pending.map(employeeCodeOf).filter(Boolean));
     const waits=pending.map(x=>waitMinutes(x?.submitted_at,nowMs)).filter(Number.isFinite);
+    const evidence=pending.map(evidenceState);
     return {
       pendingCount:pending.length,
       employeeCount:people.size,
-      oldestMinutes:waits.length?Math.max(...waits):0
+      oldestMinutes:waits.length?Math.max(...waits):0,
+      readyCount:evidence.filter(x=>x.known&&x.ready).length,
+      waitingEvidenceCount:evidence.filter(x=>x.known&&!x.ready).length,
+      unknownEvidenceCount:evidence.filter(x=>!x.known).length
     };
   }
 
@@ -194,6 +231,6 @@
   return {
     parseDate,dayDiff,relativeDate,normalizeRecord,inspectRecord,summarize,friendlyMessage,
     employeeCodeOf,employeeNameOf,parseServerTime,waitMinutes,filterSubmissions,employeeOptions,
-    queueStats,newSubmissionIds
+    evidenceState,readySubmissionIds,transitionedReadyIds,queueStats,newSubmissionIds
   };
 });
