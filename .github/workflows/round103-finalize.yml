@@ -1,10 +1,15 @@
-name: Round103 photo evidence integrity offline regression
+name: Round103 photo evidence and admin review regression
 
 on:
   push:
     branches: ["round103-photo-evidence-integrity-offline"]
     paths:
       - "android-app/**"
+      - "web-admin/review.html"
+      - "web-admin/review.js"
+      - "web-admin/review-logic.js"
+      - "web-admin/review-round103.css"
+      - "tests/review-logic.test.js"
       - "tools/round103_apply.py"
       - ".github/workflows/round103-finalize.yml"
   workflow_dispatch:
@@ -46,11 +51,23 @@ jobs:
           grep -q 'AppUiSession.restoreScreen' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           git diff --exit-code 0570fca91a3ebef388e564f491138d6f83a7cbcd -- android-app/app/src/main/java/com/receiptocr/app/ocr
 
+      - name: Verify Round103 admin review workspace
+        run: |
+          node tests/review-logic.test.js
+          node --check web-admin/review-logic.js
+          node --check web-admin/review.js
+          grep -q 'id="reviewEmployee"' web-admin/review.html
+          grep -q 'id="reviewNotify"' web-admin/review.html
+          grep -q 'id="reviewPendingCount"' web-admin/review.html
+          grep -q 'id="reviewNewCount"' web-admin/review.html
+          grep -q 'review-round103.css' web-admin/review.html
+          grep -q 'const POLL_MS=15000' web-admin/review.js
+          grep -q 'newSubmissionIds' web-admin/review.js
+          grep -q 'prefetchNext' web-admin/review.js
+          grep -q 'employeeOptions' web-admin/review-logic.js
+
       - name: Do not guess server photo API in this round
         run: git diff --exit-code 0570fca91a3ebef388e564f491138d6f83a7cbcd -- android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
-
-      - name: Protect Admin review workspace
-        run: git diff --exit-code 0570fca91a3ebef388e564f491138d6f83a7cbcd -- web-admin
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -83,7 +100,7 @@ jobs:
             git config user.email 'somchaibutphon@gmail.com'
             git add android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
             git add android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
-            git commit -m 'Round103 apply photo evidence integrity safeguards'
+            git commit -m 'Round103 apply verified safeguards'
             git push
           else
             echo 'No generated source changes to commit'
