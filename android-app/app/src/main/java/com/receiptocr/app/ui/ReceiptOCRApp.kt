@@ -165,17 +165,29 @@ private fun DatePositionLegend(label: String, color: Color) {
 
 @Composable
 fun ReceiptOCRApp() {
-    var screen by remember { mutableStateOf(AppScreen.LOGIN) }
-    var user by remember { mutableStateOf<UserProfile?>(null) }
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-    var selectedWork by remember { mutableStateOf<WorkItem?>(null) }
+    val context = LocalContext.current
+    var user by remember { mutableStateOf<UserProfile?>(AppAuthRepository.restoreUser(context)) }
+    var selectedDate by remember { mutableStateOf(AppUiSession.restoreDate(context)) }
+    var selectedWork by remember { mutableStateOf(AppUiSession.restoreWork(context)) }
+    var screen by remember { mutableStateOf(AppUiSession.restoreScreen(context, user != null)) }
     var refreshCounter by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(screen, selectedWork, user) {
+        if (user == null && screen != AppScreen.LOGIN) {
+            screen = AppScreen.LOGIN
+        } else if (user != null && (screen == AppScreen.STORE_INFO || screen == AppScreen.STORE_WORK) && selectedWork == null) {
+            screen = AppScreen.HOME
+            AppUiSession.save(context, AppScreen.HOME, selectedDate, null)
+        }
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = AppBg) {
         when (screen) {
             AppScreen.LOGIN -> LoginScreen {
                 user = it
+                selectedWork = null
                 screen = AppScreen.HOME
+                AppUiSession.save(context, AppScreen.HOME, selectedDate, null)
             }
 
             AppScreen.HOME -> {
@@ -183,17 +195,26 @@ fun ReceiptOCRApp() {
                 HomeScreen(
                     user = user ?: UserProfile("0000", "ผู้ใช้งาน"),
                     selectedDate = selectedDate,
-                    onDateSelected = { selectedDate = it },
+                    onDateSelected = {
+                        selectedDate = it
+                        selectedWork = null
+                        AppUiSession.save(context, AppScreen.HOME, it, null)
+                    },
                     onBrandClick = {
                         selectedWork = it
                         screen = AppScreen.STORE_WORK
+                        AppUiSession.save(context, AppScreen.STORE_WORK, selectedDate, it)
                     },
                     onInfoClick = {
                         selectedWork = it
                         screen = AppScreen.STORE_INFO
+                        AppUiSession.save(context, AppScreen.STORE_INFO, selectedDate, it)
                     },
                     onLogout = {
+                        AppAuthRepository.logout(context)
+                        AppUiSession.clear(context)
                         user = null
+                        selectedWork = null
                         screen = AppScreen.LOGIN
                     }
                 )
@@ -205,12 +226,19 @@ fun ReceiptOCRApp() {
                     selectedDate = selectedDate,
                     onBack = {
                         refreshCounter++
+                        selectedWork = null
                         screen = AppScreen.HOME
+                        AppUiSession.save(context, AppScreen.HOME, selectedDate, null)
                     },
                     onLocationSaved = { latitude, longitude ->
-                        selectedWork = work.copy(latitude = latitude, longitude = longitude)
+                        val updated = work.copy(latitude = latitude, longitude = longitude)
+                        selectedWork = updated
+                        AppUiSession.save(context, AppScreen.STORE_INFO, selectedDate, updated)
                     },
-                    onStartWork = { screen = AppScreen.STORE_WORK }
+                    onStartWork = {
+                        screen = AppScreen.STORE_WORK
+                        AppUiSession.save(context, AppScreen.STORE_WORK, selectedDate, selectedWork ?: work)
+                    }
                 )
             }
 
@@ -221,7 +249,9 @@ fun ReceiptOCRApp() {
                     user = user ?: UserProfile("0000", "ผู้ใช้งาน"),
                     onBack = {
                         refreshCounter++
+                        selectedWork = null
                         screen = AppScreen.HOME
+                        AppUiSession.save(context, AppScreen.HOME, selectedDate, null)
                     }
                 )
             }
@@ -1049,51 +1079,107 @@ private fun StoreWorkScreen(
     }
 
     val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        val currentTarget = target
-        val currentFile = pendingFile
-        if (success && currentTarget != null && currentFile != null) {
-            if (currentTarget.first == "R") {
-                receipts[currentTarget.second] = currentFile.absolutePath
-            } else {
-                stores[currentTarget.second] = currentFile.absolutePath
-            }
-            saveDraft()
+        val recovery = PhotoCaptureRecovery.load(context)?.takeIf {
+            it.workId == work.id && it.workDate == selectedDate.toString()
         }
+        val currentTarget = target ?: recovery?.let { it.kind to it.index }
+        val currentFile = pendingFile ?: recovery?.filePath?.takeIf { it.isNotBlank() }?.let(::File)
+
+        if (success && currentTarget != null && currentFile != null && currentFile.exists() && currentFile.length() > 0L) {
+            if (currentTarget.first == "R") {
+                if (currentTarget.second in receipts.indices) receipts[currentTarget.second] = currentFile.absolutePath
+            } else {
+                if (currentTarget.second in stores.indices) stores[currentTarget.second] = currentFile.absolutePath
+            }
+            val archived = PhotoDeviceArchive.archive(
+                context = context,
+                sourceFile = currentFile,
+                work = work,
+                workDate = selectedDate,
+                kind = currentTarget.first,
+                slot = currentTarget.second
+            )
+            saveDraft()
+            message = when {
+                archived != null && currentTarget.first == "R" -> "บันทึกภาพบิลลงเครื่องแล้ว"
+                archived != null -> "บันทึกภาพร้านลงเครื่องแล้ว"
+                else -> "บันทึกภาพแล้ว"
+            }
+        } else if (!success) {
+            currentFile?.takeIf { it.exists() && it.length() == 0L }?.delete()
+        }
+        PhotoCaptureRecovery.clear(context)
         target = null
         pendingFile = null
     }
 
     val pickFromGallery = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        val currentTarget = target
+        val recovery = PhotoCaptureRecovery.load(context)?.takeIf {
+            it.workId == work.id && it.workDate == selectedDate.toString()
+        }
+        val currentTarget = target ?: recovery?.let { it.kind to it.index }
         if (uri != null && currentTarget != null) {
             copyUriToPrivateFile(context, uri)?.let { file ->
                 if (currentTarget.first == "R") {
-                    receipts[currentTarget.second] = file.absolutePath
+                    if (currentTarget.second in receipts.indices) receipts[currentTarget.second] = file.absolutePath
                 } else {
-                    stores[currentTarget.second] = file.absolutePath
+                    if (currentTarget.second in stores.indices) stores[currentTarget.second] = file.absolutePath
                 }
+                val archived = PhotoDeviceArchive.archive(
+                    context = context,
+                    sourceFile = file,
+                    work = work,
+                    workDate = selectedDate,
+                    kind = currentTarget.first,
+                    slot = currentTarget.second
+                )
                 saveDraft()
+                message = when {
+                    archived != null && currentTarget.first == "R" -> "บันทึกภาพบิลลงเครื่องแล้ว"
+                    archived != null -> "บันทึกภาพร้านลงเครื่องแล้ว"
+                    else -> "บันทึกภาพแล้ว"
+                }
             }
         }
+        PhotoCaptureRecovery.clear(context)
         target = null
+    }
+
+    fun prepareCameraCapture(): Pair<File, Uri>? {
+        val currentTarget = target ?: return null
+        return runCatching {
+            val pair = launchCameraFile(context)
+            pendingFile = pair.first
+            PhotoCaptureRecovery.begin(
+                context = context,
+                workId = work.id,
+                workDate = selectedDate,
+                kind = currentTarget.first,
+                index = currentTarget.second,
+                filePath = pair.first.absolutePath
+            )
+            pair
+        }.onFailure {
+            message = "เปิดกล้องไม่ได้ กรุณาลองอีกครั้ง"
+            PhotoCaptureRecovery.clear(context)
+        }.getOrNull()
     }
 
     val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
-            val pair = launchCameraFile(context)
-            pendingFile = pair.first
-            takePicture.launch(pair.second)
+            prepareCameraCapture()?.let { pair -> takePicture.launch(pair.second) }
         } else {
+            message = "อนุญาตกล้องก่อนถ่ายภาพ"
+            PhotoCaptureRecovery.clear(context)
             target = null
         }
     }
 
     fun openCamera() {
+        if (target == null) return
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (granted) {
-            val pair = launchCameraFile(context)
-            pendingFile = pair.first
-            takePicture.launch(pair.second)
+            prepareCameraCapture()?.let { pair -> takePicture.launch(pair.second) }
         } else {
             cameraPermission.launch(Manifest.permission.CAMERA)
         }
@@ -1844,6 +1930,15 @@ private fun StoreWorkScreen(
                     OutlinedButton(
                         onClick = {
                             sourceDialog = false
+                            target?.let { currentTarget ->
+                                PhotoCaptureRecovery.begin(
+                                    context = context,
+                                    workId = work.id,
+                                    workDate = selectedDate,
+                                    kind = currentTarget.first,
+                                    index = currentTarget.second
+                                )
+                            }
                             pickFromGallery.launch("image/*")
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -1926,36 +2021,45 @@ private fun WorkTabBar(activeTab: WorkTab, onTabSelected: (WorkTab) -> Unit) {
         colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
         border = BorderStroke(1.dp, Border)
     ) {
-        TabRow(
-            selectedTabIndex = activeTab.ordinal,
-            containerColor = SurfaceWhite,
-            contentColor = Primary,
-            divider = {},
-            indicator = {}
-        ) {
-            WorkTab.entries.forEach { tab ->
+        Row(modifier = Modifier.fillMaxWidth()) {
+            WorkTab.entries.forEachIndexed { index, tab ->
                 val selected = activeTab == tab
-                Tab(
-                    selected = selected,
-                    onClick = { onTabSelected(tab) },
-                    text = {
-                        Text(
-                            tab.title,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (selected) Primary else TextSub
-                        )
-                    },
-                    icon = {
+                val shape = when (index) {
+                    0 -> RoundedCornerShape(topStart = 15.dp, bottomStart = 15.dp)
+                    else -> RoundedCornerShape(topEnd = 15.dp, bottomEnd = 15.dp)
+                }
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(64.dp)
+                        .clickable { onTabSelected(tab) },
+                    shape = shape,
+                    color = if (selected) PrimarySoft else SurfaceWhite,
+                    border = BorderStroke(
+                        width = if (selected) 1.5.dp else 1.dp,
+                        color = if (selected) Primary else Border
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
                         Icon(
                             imageVector = if (tab == WorkTab.BILL_AND_DATA) Icons.Outlined.ReceiptLong else Icons.Outlined.Storefront,
                             contentDescription = tab.title,
                             tint = if (selected) Primary else TextSub,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
-                    },
-                    selectedContentColor = Primary,
-                    unselectedContentColor = TextSub
-                )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            tab.title,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                            color = if (selected) Primary else TextSub,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
             }
         }
     }
