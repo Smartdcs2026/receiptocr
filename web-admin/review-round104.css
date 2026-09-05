@@ -1,0 +1,37 @@
+/* Round104: fast review queue, per-employee focus and live notifications */
+.reviewV104 .reviewCommandBar{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.reviewV104 .reviewFilters{flex:1;display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap}
+.reviewV104 .reviewFilters label{display:flex;flex-direction:column;gap:4px;font-size:9px;color:var(--rv-sub);font-weight:700}
+.reviewV104 .reviewFilters select,.reviewV104 .reviewFilters input{height:34px;border:1px solid var(--rv-border);border-radius:9px;background:#fff;color:var(--rv-text);padding:0 9px;font:inherit;min-width:150px}
+.reviewV104 .reviewFilters .reviewSearchLabel{flex:1;min-width:220px}.reviewV104 .reviewFilters .reviewSearchLabel input{width:100%}
+.reviewV104 .reviewFilters button{height:34px;border-radius:9px;white-space:nowrap}
+.reviewV104 .reviewNotifyButton[aria-pressed="true"]{background:var(--rv-good-soft);border-color:#a9dec4;color:var(--rv-good);font-weight:800}
+.reviewV104 .reviewLiveMeta{display:flex;align-items:center;gap:6px;color:var(--rv-sub);font-size:9px;white-space:nowrap;padding-bottom:2px}
+.reviewV104 .reviewLiveDot{width:7px;height:7px;border-radius:50%;background:var(--rv-good);box-shadow:0 0 0 4px rgba(24,121,78,.1)}
+.reviewV104 .reviewMetrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px 12px 0;background:var(--rv-bg)}
+.reviewV104 .reviewMetric{background:#fff;border:1px solid var(--rv-border);border-radius:12px;padding:9px 12px;min-width:0}
+.reviewV104 .reviewMetric span{display:block;color:var(--rv-sub);font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.reviewV104 .reviewMetric strong{display:block;font-size:19px;margin-top:2px}
+.reviewV104 .reviewMetricNew strong{color:var(--rv-primary)}
+.reviewV104 .reviewPeople{display:flex;gap:6px;overflow:auto;padding:8px 12px 0;background:var(--rv-bg);scrollbar-width:thin}
+.reviewV104 .reviewPersonChip{border:1px solid var(--rv-border);background:#fff;color:var(--rv-text);border-radius:999px;padding:6px 9px;font-size:10px;cursor:pointer;white-space:nowrap;display:inline-flex;gap:6px;align-items:center}
+.reviewV104 .reviewPersonChip strong{font-size:10px}
+.reviewV104 .reviewPersonChip span{display:grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#eef2f7;color:#40506a;font-size:9px}
+.reviewV104 .reviewPersonChip.active{background:var(--rv-primary-soft);border-color:#a9c5f8;color:var(--rv-primary);font-weight:800}
+.reviewV104 .reviewPersonChip.active span{background:#dce9ff;color:var(--rv-primary)}
+.reviewV104 .reviewWorkspace{padding-top:8px}
+.reviewV104 .reviewQueuePanel>header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.reviewV104 .reviewQueuePanel>header .reviewCountBox{padding:4px 8px;min-width:56px;border-radius:9px;flex:0 0 auto}
+.reviewV104 .reviewQueuePanel>header .reviewCountBox strong{font-size:14px}.reviewV104 .reviewQueuePanel>header .reviewCountBox span{font-size:8px;margin:0}
+.reviewV104 .reviewQueueItem{position:relative;grid-template-columns:42px minmax(0,1fr) auto}
+.reviewV104 .reviewQueueItem.is-new{border-color:#8bb3f3;background:#f7fbff}
+.reviewV104 .reviewQueueItem.is-new::before{content:"ใหม่";position:absolute;top:-5px;left:6px;background:var(--rv-primary);color:#fff;border-radius:999px;padding:1px 5px;font-size:7px;font-weight:800;box-shadow:0 2px 6px rgba(37,99,217,.22)}
+.reviewV104 .queueSide{display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:56px}
+.reviewV104 .queueWait{font-size:8px;color:var(--rv-sub);white-space:nowrap}.reviewV104 .queueWait.waiting-long{color:var(--rv-warn);font-weight:800}
+.reviewV104 .detailSubmittedMeta{display:inline-flex;align-items:center;gap:5px;margin-left:6px;padding-left:6px;border-left:1px solid var(--rv-border);color:var(--rv-sub)}
+.reviewV104 .reviewWelcome.reviewQueueDone .reviewWelcomeIcon{background:var(--rv-good-soft);color:var(--rv-good)}
+.reviewV104 .reviewActions .primary{min-width:132px}
+.reviewV104 .reviewActions .dangerOutline{min-width:132px}
+.reviewV104 .queueHotkey{font-size:8px;color:var(--rv-sub);padding:0 12px 8px;text-align:center}
+@media(max-width:980px){.reviewV104 .reviewMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}.reviewV104 .reviewLiveMeta{width:100%;justify-content:flex-end}.reviewV104 .reviewFilters label{min-width:140px}.reviewV104 .reviewFilters .reviewSearchLabel{min-width:200px}}
+@media(max-width:620px){.reviewV104 .reviewMetrics{gap:6px;padding:8px 8px 0}.reviewV104 .reviewPeople{padding:6px 8px 0}.reviewV104 .reviewFilters{display:grid;grid-template-columns:1fr 1fr;width:100%}.reviewV104 .reviewFilters label,.reviewV104 .reviewFilters .reviewSearchLabel{min-width:0}.reviewV104 .reviewFilters select,.reviewV104 .reviewFilters input{min-width:0;width:100%;box-sizing:border-box}.reviewV104 .reviewFilters .reviewSearchLabel{grid-column:1/-1}.reviewV104 .reviewFilters button{width:100%}.reviewV104 .reviewLiveMeta{justify-content:flex-start;overflow:hidden}.reviewV104 .reviewMetric strong{font-size:17px}}
