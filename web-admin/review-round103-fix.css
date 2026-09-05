@@ -1,0 +1,33 @@
+/* Round103 final alignment correction after live desktop verification. */
+.reviewV103.officePage{height:100%!important;min-height:0!important;max-height:100%!important}
+.reviewV103 .reviewDetailPanel:has(.reviewSplit){display:flex!important;flex-direction:column!important;min-height:0!important;overflow:hidden!important}
+.reviewV103 .reviewDetailHead,.reviewV103 .reviewSummary,.reviewV103 .reviewAlert{flex:0 0 auto!important}
+.reviewV103 .reviewSplit{flex:1 1 auto!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:hidden!important;padding-top:6px!important}
+.reviewV103 .evidencePanel,.reviewV103 .submissionPanel{min-height:0!important;max-height:100%!important}
+.reviewV103 .submissionPanel{scrollbar-gutter:stable!important;overscroll-behavior:contain!important;overflow-y:auto!important;overflow-x:hidden!important}
+.reviewV103 .reviewDetailHead>div:first-child{min-width:0!important;overflow:hidden!important}
+.reviewV103 .reviewDetailHead h2,.reviewV103 .reviewDetailHead p{overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.reviewV103 .reviewSummary{padding-top:5px!important;padding-bottom:5px!important}
+.reviewV103 .reviewAlert{margin-top:5px!important}
+.reviewV103 .recordTableWrap{width:100%!important;min-width:0!important}
+.reviewV103 .reviewRecordTable{table-layout:fixed!important}
+.reviewV103 .reviewRecordTable th:nth-child(1){width:12%!important}
+.reviewV103 .reviewRecordTable th:nth-child(2){width:20%!important}
+.reviewV103 .reviewRecordTable th:nth-child(3){width:22%!important}
+.reviewV103 .reviewRecordTable th:nth-child(4){width:14%!important}
+.reviewV103 .reviewRecordTable th:nth-child(5){width:32%!important}
+.reviewV103 .reviewRecordTable td{overflow-wrap:anywhere!important}
+.reviewV103 .evidenceGuardText{margin-top:2px!important;font-weight:700!important;color:#7a4900!important}
+.reviewV103 .reviewActions{bottom:0!important;margin:9px 0 0!important;padding-left:0!important;padding-right:0!important}
+@media(max-width:1380px){
+  .reviewV103 .reviewWorkspace{grid-template-columns:305px minmax(0,1fr)!important}
+  .reviewV103 .reviewFilters{grid-template-columns:110px 150px 135px minmax(180px,1fr) auto auto!important}
+  .reviewV103 .reviewSplit{grid-template-columns:minmax(320px,42%) minmax(0,58%)!important}
+}
+@media(max-width:1120px){
+  .reviewV103.officePage{height:auto!important;max-height:none!important;overflow:auto!important}
+  .reviewV103 .reviewDetailPanel:has(.reviewSplit){display:block!important;overflow:visible!important}
+  .reviewV103 .reviewSplit{display:block!important;overflow:visible!important}
+  .reviewV103 .evidencePanel{min-height:360px!important;margin-bottom:8px!important}
+  .reviewV103 .submissionPanel{max-height:none!important;overflow:visible!important}
+}
