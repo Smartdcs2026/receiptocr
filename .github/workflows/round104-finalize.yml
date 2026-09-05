@@ -1,0 +1,57 @@
+name: Round104 admin review speed notifications regression
+
+on:
+  push:
+    branches: ["round104-admin-review-speed-notifications"]
+    paths:
+      - "web-admin/review.html"
+      - "web-admin/review.js"
+      - "web-admin/review-logic.js"
+      - "web-admin/review-round104.css"
+      - "tests/review-logic.test.js"
+      - ".github/workflows/round104-finalize.yml"
+  workflow_dispatch:
+
+jobs:
+  review-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout Round104
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Round103 baseline
+        run: git merge-base --is-ancestor 90703af158355ca85f31a3076202ff5702e5e656 HEAD
+
+      - name: Protect Android Round103
+        run: git diff --exit-code 90703af158355ca85f31a3076202ff5702e5e656 -- android-app
+
+      - name: Review logic tests
+        run: node tests/review-logic.test.js
+
+      - name: Review syntax checks
+        run: |
+          node --check web-admin/review-logic.js
+          node --check web-admin/review.js
+
+      - name: Verify fast review controls
+        run: |
+          grep -q 'id="reviewEmployee"' web-admin/review.html
+          grep -q 'id="reviewNotify"' web-admin/review.html
+          grep -q 'id="reviewPendingCount"' web-admin/review.html
+          grep -q 'id="reviewNewCount"' web-admin/review.html
+          grep -q 'review-round104.css' web-admin/review.html
+          grep -q 'const POLL_MS=15000' web-admin/review.js
+          grep -q 'newSubmissionIds' web-admin/review.js
+          grep -q 'prefetchNext' web-admin/review.js
+          grep -q 'employeeOptions' web-admin/review-logic.js
+
+      - name: Do not guess new server photo API
+        run: |
+          test ! -e tools/round104_apply.py
+          git diff --exit-code 90703af158355ca85f31a3076202ff5702e5e656 -- android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+
+      - name: Show Round104 scope
+        run: git diff --stat 90703af158355ca85f31a3076202ff5702e5e656..HEAD
