@@ -33,7 +33,11 @@ object AppAuthRepository {
             val token = o.getString("token")
             val user = UserProfile(o.getString("employeeCode"), o.getString("fullName"), o.optString("username"))
             context.getSharedPreferences(AUTH_PREFS, Context.MODE_PRIVATE).edit()
-                .putString("token", token).putString("employeeCode", user.employeeCode).apply()
+                .putString("token", token)
+                .putString("employeeCode", user.employeeCode)
+                .putString("fullName", user.fullName)
+                .putString("username", user.username)
+                .commit()
             AppLoginResult(user, token)
         } finally {
             c.disconnect()
@@ -43,7 +47,19 @@ object AppAuthRepository {
     fun token(context: Context): String =
         context.getSharedPreferences(AUTH_PREFS, Context.MODE_PRIVATE).getString("token", "").orEmpty()
 
+    fun restoreUser(context: Context): UserProfile? {
+        val prefs = context.getSharedPreferences(AUTH_PREFS, Context.MODE_PRIVATE)
+        val token = prefs.getString("token", "").orEmpty()
+        val employeeCode = prefs.getString("employeeCode", "").orEmpty()
+        if (token.isBlank() || employeeCode.isBlank()) return null
+        return UserProfile(
+            employeeCode = employeeCode,
+            fullName = prefs.getString("fullName", "").orEmpty().ifBlank { employeeCode },
+            username = prefs.getString("username", "").orEmpty()
+        )
+    }
+
     fun logout(context: Context) {
-        context.getSharedPreferences(AUTH_PREFS, Context.MODE_PRIVATE).edit().clear().apply()
+        context.getSharedPreferences(AUTH_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
     }
 }
