@@ -170,9 +170,57 @@ def patch_app() -> None:
 '''
         text = replace_once(text, old, new, "preview delete evidence cleanup")
 
+    cloud_call_marker = "receiptPaths = receipts.toList(),\n                    storePaths = stores.toList()"
+    if cloud_call_marker not in text:
+        old_submit = 'SubmissionRepository.submit(context, work.id, records.toList(), storeWorkNote, work.latitude, work.longitude)'
+        new_submit = '''SubmissionRepository.submit(
+                    context = context,
+                    workPlanItemId = work.id,
+                    records = records.toList(),
+                    storeNote = storeWorkNote,
+                    storeLatitude = work.latitude,
+                    storeLongitude = work.longitude,
+                    receiptPaths = receipts.toList(),
+                    storePaths = stores.toList()
+                )'''
+        text = replace_once(text, old_submit, new_submit, "submission cloud evidence arguments")
+
+    if "SubmissionRepository.syncEvidenceForLatestSubmission(" not in text:
+        old = '''        it.copy(status = cloud)
+    }
+
+    Scaffold(
+'''
+        new = '''        it.copy(status = cloud)
+    }
+
+    LaunchedEffect(user.employeeCode, selectedDate, loadedPlan.items) {
+        withContext(Dispatchers.IO) {
+            loadedPlan.items
+                .filter { it.reviewStatus.uppercase() == "SUBMITTED" }
+                .forEach { item ->
+                    val draft = DemoRepository.loadPhotoDraft(context, item.id, selectedDate)
+                    if (draft.receiptPaths.any { !it.isNullOrBlank() } || draft.storePaths.any { !it.isNullOrBlank() }) {
+                        runCatching {
+                            SubmissionRepository.syncEvidenceForLatestSubmission(
+                                context = context,
+                                workPlanItemId = item.id,
+                                receiptPaths = draft.receiptPaths,
+                                storePaths = draft.storePaths
+                            )
+                        }
+                    }
+                }
+        }
+    }
+
+    Scaffold(
+'''
+        text = replace_once(text, old, new, "legacy evidence backfill")
+
     APP.write_text(text, encoding="utf-8")
 
 
 patch_demo()
 patch_app()
-print("Round103 photo evidence integrity patch applied")
+print("Round103 photo evidence integrity + cloud sync patch applied")
