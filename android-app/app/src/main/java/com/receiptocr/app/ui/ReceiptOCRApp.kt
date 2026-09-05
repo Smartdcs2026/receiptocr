@@ -346,6 +346,26 @@ private fun HomeScreen(
         it.copy(status = cloud)
     }
 
+    LaunchedEffect(user.employeeCode, selectedDate, loadedPlan.items) {
+        withContext(Dispatchers.IO) {
+            loadedPlan.items
+                .filter { it.reviewStatus.uppercase() == "SUBMITTED" }
+                .forEach { item ->
+                    val draft = DemoRepository.loadPhotoDraft(context, item.id, selectedDate)
+                    if (draft.receiptPaths.any { !it.isNullOrBlank() } || draft.storePaths.any { !it.isNullOrBlank() }) {
+                        runCatching {
+                            SubmissionRepository.syncEvidenceForLatestSubmission(
+                                context = context,
+                                workPlanItemId = item.id,
+                                receiptPaths = draft.receiptPaths,
+                                storePaths = draft.storePaths
+                            )
+                        }
+                    }
+                }
+        }
+    }
+
     Scaffold(
         containerColor = AppBg,
         topBar = {
@@ -1074,7 +1094,16 @@ private fun StoreWorkScreen(
         }
         message = "กำลังส่งข้อมูล..."
         scope.launch {
-            val result = withContext(Dispatchers.IO) { runCatching { SubmissionRepository.submit(context, work.id, records.toList(), storeWorkNote, work.latitude, work.longitude) } }
+            val result = withContext(Dispatchers.IO) { runCatching { SubmissionRepository.submit(
+                    context = context,
+                    workPlanItemId = work.id,
+                    records = records.toList(),
+                    storeNote = storeWorkNote,
+                    storeLatitude = work.latitude,
+                    storeLongitude = work.longitude,
+                    receiptPaths = receipts.toList(),
+                    storePaths = stores.toList()
+                ) } }
             result.onSuccess {
                 ReceiptValidationEngine.markSubmissionAccepted(context = context, work = work, records = records, receiptPaths = receipts.toList())
                 DemoRepository.saveStatus(context, work.id, selectedDate, WorkStatus.SUBMITTED)
