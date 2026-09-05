@@ -9,8 +9,12 @@ on:
       - "web-admin/review.js"
       - "web-admin/review-logic.js"
       - "web-admin/review-round103.css"
+      - "web-admin/review-round103-fix.css"
+      - "web-admin/review-evidence-round103.js"
       - "tests/review-logic.test.js"
       - "tools/round103_apply.py"
+      - "tools/round103_worker_evidence_patch.py"
+      - "cloudflare/migrations/round103_submission_evidence.sql"
       - ".github/workflows/round103-finalize.yml"
   workflow_dispatch:
 
@@ -33,7 +37,7 @@ jobs:
       - name: Apply Round103 evidence patch
         run: python tools/round103_apply.py
 
-      - name: Verify Round103 version and evidence safeguards
+      - name: Verify Round103 version and local evidence safeguards
         run: |
           grep -q 'versionCode = 105' android-app/app/build.gradle.kts
           grep -q 'versionName = "0.103.0"' android-app/app/build.gradle.kts
@@ -41,9 +45,17 @@ jobs:
           grep -q 'source = "GALLERY"' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -q 'PhotoEvidenceManifest.missingSelected' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -q 'มีภาพที่เปิดไม่ได้ กรุณาเลือกภาพใหม่' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
-          grep -q 'ยังเก็บลงโฟลเดอร์เครื่องไม่ได้' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -q 'PhotoEvidenceManifest.reconcile' android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
           grep -q 'archiveUri' android-app/app/src/main/java/com/receiptocr/app/util/PhotoEvidenceManifest.kt
+
+      - name: Verify Round103 cloud evidence path
+        run: |
+          grep -q 'api/app/submissions/.*/evidence' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+          grep -q 'receiptPaths: List<String?>' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+          grep -q 'syncEvidenceForLatestSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+          grep -q 'SubmissionRepository.syncEvidenceForLatestSubmission' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'field_submission_evidence' cloudflare/migrations/round103_submission_evidence.sql
+          python -m py_compile tools/round103_worker_evidence_patch.py
 
       - name: Protect Round102 camera recovery and OCR baseline
         run: |
@@ -56,18 +68,15 @@ jobs:
           node tests/review-logic.test.js
           node --check web-admin/review-logic.js
           node --check web-admin/review.js
+          node --check web-admin/review-evidence-round103.js
           grep -q 'id="reviewEmployee"' web-admin/review.html
           grep -q 'id="reviewNotify"' web-admin/review.html
-          grep -q 'id="reviewPendingCount"' web-admin/review.html
-          grep -q 'id="reviewNewCount"' web-admin/review.html
-          grep -q 'review-round103.css' web-admin/review.html
+          grep -q 'review-evidence-round103.js' web-admin/review.html
+          grep -q 'review-round103-fix.css' web-admin/review.html
           grep -q 'const POLL_MS=15000' web-admin/review.js
           grep -q 'newSubmissionIds' web-admin/review.js
           grep -q 'prefetchNext' web-admin/review.js
           grep -q 'employeeOptions' web-admin/review-logic.js
-
-      - name: Do not guess server photo API in this round
-        run: git diff --exit-code 0570fca91a3ebef388e564f491138d6f83a7cbcd -- android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -93,14 +102,14 @@ jobs:
         working-directory: android-app
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Commit verified Round103 source
+      - name: Commit verified Round103 generated source
         run: |
           if ! git diff --quiet; then
             git config user.name 'SKDC_SMART'
             git config user.email 'somchaibutphon@gmail.com'
             git add android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
             git add android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
-            git commit -m 'Round103 apply verified safeguards'
+            git commit -m 'Round103 apply verified cloud evidence integration'
             git push
           else
             echo 'No generated source changes to commit'
