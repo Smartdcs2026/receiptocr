@@ -14,6 +14,7 @@ on:
       - "tests/review-logic.test.js"
       - "tools/round104_worker_runtime_patch.py"
       - "tools/round104_review_editor_patch.py"
+      - "tools/round104_review_editor_preserve_pos_patch.py"
       - "cloudflare/migrations/round103_submission_evidence.sql"
       - ".github/workflows/round104-finalize.yml"
   workflow_dispatch:
@@ -66,6 +67,7 @@ jobs:
         run: |
           python -m py_compile tools/round104_worker_runtime_patch.py
           python -m py_compile tools/round104_review_editor_patch.py
+          python -m py_compile tools/round104_review_editor_preserve_pos_patch.py
           grep -q 'receipt_evidence_count' tools/round104_worker_runtime_patch.py
           grep -q 'store_evidence_count' tools/round104_worker_runtime_patch.py
           grep -q 'bill_required_count' tools/round104_worker_runtime_patch.py
@@ -75,6 +77,8 @@ jobs:
           grep -q 'SUBMISSION_EVIDENCE_DELETE' tools/round104_review_editor_patch.py
           grep -q 'EVIDENCE_REQUIRED' tools/round104_review_editor_patch.py
           grep -q 'reviewEditor: true' tools/round104_review_editor_patch.py
+          grep -q 'UPDATE field_submission_pos SET customer_no' tools/round104_review_editor_preserve_pos_patch.py
+          grep -q 'beforeByPos' tools/round104_review_editor_preserve_pos_patch.py
           grep -q '0.104.0' tools/round104_worker_runtime_patch.py
           grep -q 'field_submission_evidence' cloudflare/migrations/round103_submission_evidence.sql
 
