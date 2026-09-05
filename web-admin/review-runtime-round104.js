@@ -7,6 +7,7 @@
   const byId=new Map();
   let seenSubmissionIds=null;
   let previousReadyIds=null;
+  let currentPendingIds=new Set();
   let refreshQueued=false;
 
   const statusClass=state=>!state.known?'unknown':state.ready?'ready':'waiting';
@@ -52,13 +53,15 @@
 
     const ids=new Set(submitted.map(x=>Number(x.id)).filter(Number.isFinite));
     const readyIds=new Set(ReviewLogic.readySubmissionIds(submitted));
+    currentPendingIds=ids;
 
     if(seenSubmissionIds!==null){
       const newIds=[...ids].filter(id=>!seenSubmissionIds.has(id));
       const newRows=newIds.map(id=>byId.get(id)).filter(Boolean);
       const waitingNew=newRows.filter(x=>!ReviewLogic.evidenceState(x).ready);
       if(waitingNew.length){
-        toast(`รับงานใหม่แล้ว ${waitingNew.length} รายการ`,`${peopleText(waitingNew)}${peopleText(waitingNew)?' • ':''}กำลังรอหลักฐานภาพ`,'info',false);
+        const people=peopleText(waitingNew);
+        toast(`รับงานใหม่แล้ว ${waitingNew.length} รายการ`,`${people}${people?' • ':''}กำลังรอหลักฐานภาพ`,'info',false);
       }
     }
 
@@ -111,7 +114,7 @@
   }
 
   function updateBreakdown(){
-    const submitted=[...byId.values()].filter(isSubmitted);
+    const submitted=[...currentPendingIds].map(id=>byId.get(id)).filter(Boolean);
     const stats=ReviewLogic.queueStats(submitted);
     const metric=document.getElementById('reviewPendingCount')?.closest('.reviewMetric');
     if(!metric)return;
