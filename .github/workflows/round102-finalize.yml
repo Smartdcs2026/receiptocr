@@ -27,7 +27,7 @@ jobs:
 
       - name: Apply Round102 UI patch
         run: |
-          if ! grep -q 'AppUiSession.restoreUser(context)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt; then
+          if ! grep -q 'AppAuthRepository.restoreUser(context)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt; then
             python tools/round102_apply.py
           else
             echo 'Round102 UI patch already applied'
@@ -37,11 +37,12 @@ jobs:
         run: |
           grep -q 'versionCode = 104' android-app/app/build.gradle.kts
           grep -q 'versionName = "0.102.0"' android-app/app/build.gradle.kts
-          grep -q 'AppUiSession.restoreUser(context)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'AppAuthRepository.restoreUser(context)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'AppUiSession.restoreScreen(context' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -q 'PhotoCaptureRecovery.begin' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -q 'PhotoDeviceArchive.archive' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -q 'บันทึกภาพบิลลงเครื่องแล้ว' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
-          grep -q 'Pictures/ReceiptOCR' android-app/app/src/main/java/com/receiptocr/app/util/PhotoStorage.kt || true
+          grep -q 'ReceiptOCR/$workDate' android-app/app/src/main/java/com/receiptocr/app/util/PhotoStorage.kt
 
       - name: Protect Round101 OCR
         run: git diff --exit-code cd8f8360565436b13e7acfb31ec692e581de9bfb -- android-app/app/src/main/java/com/receiptocr/app/ocr
