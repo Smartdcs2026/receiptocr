@@ -1,0 +1,96 @@
+name: Round104 production evidence runtime regression
+
+on:
+  push:
+    branches: ["round104-production-evidence-runtime"]
+    paths:
+      - "android-app/**"
+      - "web-admin/review.html"
+      - "web-admin/review-logic.js"
+      - "web-admin/review-runtime-round104.js"
+      - "web-admin/review-round104.css"
+      - "tests/review-logic.test.js"
+      - "tools/round104_worker_runtime_patch.py"
+      - "cloudflare/migrations/round103_submission_evidence.sql"
+      - ".github/workflows/round104-finalize.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout Round104
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Round103 baseline
+        run: git merge-base --is-ancestor ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 HEAD
+
+      - name: Verify Round104 Android version
+        run: |
+          grep -q 'versionCode = 106' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.0"' android-app/app/build.gradle.kts
+
+      - name: Protect Round103 OCR and evidence upload baseline
+        run: |
+          git diff --exit-code ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 -- android-app/app/src/main/java/com/receiptocr/app/ocr
+          grep -q 'syncEvidenceForLatestSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+          grep -q 'api/app/submissions/.*/evidence' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+
+      - name: Review queue readiness tests
+        run: |
+          node tests/review-logic.test.js
+          node --check web-admin/review-logic.js
+          node --check web-admin/review-runtime-round104.js
+          grep -q 'งานใหม่พร้อมตรวจ' web-admin/review.html
+          grep -q 'review-runtime-round104.js' web-admin/review.html
+          grep -q 'review-round104.css' web-admin/review.html
+          grep -q 'transitionedReadyIds' web-admin/review-logic.js
+          grep -q 'waitingEvidenceCount' web-admin/review-logic.js
+
+      - name: Verify Worker production evidence patch
+        run: |
+          python -m py_compile tools/round104_worker_runtime_patch.py
+          grep -q 'receipt_evidence_count' tools/round104_worker_runtime_patch.py
+          grep -q 'store_evidence_count' tools/round104_worker_runtime_patch.py
+          grep -q 'bill_required_count' tools/round104_worker_runtime_patch.py
+          grep -q 'SUBMISSION_EVIDENCE_LOCKED' tools/round104_worker_runtime_patch.py
+          grep -q 'release: \\"0.104.0\\"' tools/round104_worker_runtime_patch.py
+          grep -q 'field_submission_evidence' cloudflare/migrations/round103_submission_evidence.sql
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Round104 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReceiptOCR-Round104-debug
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
