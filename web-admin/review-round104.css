@@ -1,0 +1,8 @@
+/* Round104: compact production-evidence states without changing the Round103 layout grid. */
+.reviewV103 .queueEvidenceState{display:inline-flex;align-items:center;justify-content:center;max-width:92px;min-height:18px;padding:2px 6px;border-radius:999px;font-size:8px;font-weight:800;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid transparent}
+.reviewV103 .queueEvidenceState.ready{background:#eaf8f0;color:#18794e;border-color:#b7e2ca}
+.reviewV103 .queueEvidenceState.waiting{background:#fff7e6;color:#8a4b08;border-color:#efd39b}
+.reviewV103 .queueEvidenceState.unknown{background:#f1f4f8;color:#5e6b7f;border-color:#d8dee8}
+.reviewV103 .reviewEvidenceBreakdown{display:block;margin-top:2px;font-size:8px;font-weight:700;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.reviewV103 .queueSide{min-width:72px}
+@media(max-width:1180px){.reviewV103 .queueEvidenceState{max-width:78px;padding-left:5px;padding-right:5px}.reviewV103 .reviewEvidenceBreakdown{font-size:7.5px}}
