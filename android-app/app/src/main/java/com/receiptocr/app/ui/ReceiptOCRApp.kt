@@ -1064,6 +1064,14 @@ private fun StoreWorkScreen(
 
         DemoRepository.savePosRecords(context, work, selectedDate, records)
         DemoRepository.savePhotoDraft(context = context, workId = work.id, date = selectedDate, receipt = receipts.toList(), store = stores.toList())
+        val missingPhotos = PhotoEvidenceManifest.missingSelected(
+            receiptPaths = receipts.toList(),
+            storePaths = stores.toList()
+        )
+        if (missingPhotos.isNotEmpty()) {
+            message = "มีภาพที่เปิดไม่ได้ กรุณาเลือกภาพใหม่"
+            return
+        }
         message = "กำลังส่งข้อมูล..."
         scope.launch {
             val result = withContext(Dispatchers.IO) { runCatching { SubmissionRepository.submit(context, work.id, records.toList(), storeWorkNote, work.latitude, work.longitude) } }
@@ -1099,11 +1107,21 @@ private fun StoreWorkScreen(
                 kind = currentTarget.first,
                 slot = currentTarget.second
             )
+            PhotoEvidenceManifest.record(
+                context = context,
+                workId = work.id,
+                workDate = selectedDate,
+                kind = currentTarget.first,
+                slot = currentTarget.second,
+                privatePath = currentFile.absolutePath,
+                archiveUri = archived,
+                source = "CAMERA"
+            )
             saveDraft()
             message = when {
                 archived != null && currentTarget.first == "R" -> "บันทึกภาพบิลลงเครื่องแล้ว"
                 archived != null -> "บันทึกภาพร้านลงเครื่องแล้ว"
-                else -> "บันทึกภาพแล้ว"
+                else -> "บันทึกภาพในงานแล้ว • ยังเก็บลงโฟลเดอร์เครื่องไม่ได้"
             }
         } else if (!success) {
             currentFile?.takeIf { it.exists() && it.length() == 0L }?.delete()
@@ -1133,11 +1151,21 @@ private fun StoreWorkScreen(
                     kind = currentTarget.first,
                     slot = currentTarget.second
                 )
+                PhotoEvidenceManifest.record(
+                    context = context,
+                    workId = work.id,
+                    workDate = selectedDate,
+                    kind = currentTarget.first,
+                    slot = currentTarget.second,
+                    privatePath = file.absolutePath,
+                    archiveUri = archived,
+                    source = "GALLERY"
+                )
                 saveDraft()
                 message = when {
                     archived != null && currentTarget.first == "R" -> "บันทึกภาพบิลลงเครื่องแล้ว"
                     archived != null -> "บันทึกภาพร้านลงเครื่องแล้ว"
-                    else -> "บันทึกภาพแล้ว"
+                    else -> "บันทึกภาพในงานแล้ว • ยังเก็บลงโฟลเดอร์เครื่องไม่ได้"
                 }
             }
         }
@@ -1960,6 +1988,13 @@ private fun StoreWorkScreen(
             onDelete = {
                 val file = File(preview.path)
                 if (file.exists()) file.delete()
+                PhotoEvidenceManifest.remove(
+                    context = context,
+                    workId = work.id,
+                    workDate = selectedDate,
+                    kind = preview.kind,
+                    slot = preview.index
+                )
 
                 if (preview.kind == "R") {
                     if (preview.index in receipts.indices) receipts[preview.index] = null

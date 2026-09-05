@@ -2,6 +2,7 @@ package com.receiptocr.app.data
 
 import android.content.Context
 import com.receiptocr.app.model.*
+import com.receiptocr.app.util.PhotoEvidenceManifest
 import java.io.File
 import java.time.LocalDate
 import java.time.YearMonth
@@ -152,6 +153,13 @@ object DemoRepository {
         receipt: List<String?>,
         store: List<String?>
     ) {
+        PhotoEvidenceManifest.reconcile(
+            context = context,
+            workId = workId,
+            workDate = date,
+            receiptPaths = receipt,
+            storePaths = store
+        )
         val k = "${workId}_${date}"
         context.getSharedPreferences("photo_drafts", Context.MODE_PRIVATE).edit()
             .putString("$k.receipts", receipt.take(3).joinToString("|") { it.orEmpty() })
