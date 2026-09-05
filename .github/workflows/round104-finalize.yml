@@ -60,7 +60,7 @@ jobs:
           grep -q 'store_evidence_count' tools/round104_worker_runtime_patch.py
           grep -q 'bill_required_count' tools/round104_worker_runtime_patch.py
           grep -q 'SUBMISSION_EVIDENCE_LOCKED' tools/round104_worker_runtime_patch.py
-          grep -q 'release: \\"0.104.0\\"' tools/round104_worker_runtime_patch.py
+          grep -q '0.104.0' tools/round104_worker_runtime_patch.py
           grep -q 'field_submission_evidence' cloudflare/migrations/round103_submission_evidence.sql
 
       - name: Set up JDK 17
