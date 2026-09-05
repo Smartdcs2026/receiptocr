@@ -59,7 +59,35 @@ const ReviewLogic=require('../web-admin/review-logic.js');
   assert.equal(stats.pendingCount,3);
   assert.equal(stats.employeeCount,2);
   assert.equal(stats.oldestMinutes,60);
+  assert.equal(stats.unknownEvidenceCount,3);
   assert.deepEqual(ReviewLogic.newSubmissionIds([7,9],rows),[10]);
+}
+
+{
+  const ready=ReviewLogic.evidenceState({receipt_evidence_count:2,store_evidence_count:1,bill_required_count:4});
+  assert.equal(ready.known,true);
+  assert.equal(ready.ready,true);
+  assert.equal(ready.label,'พร้อมตรวจ');
+
+  const waiting=ReviewLogic.evidenceState({receipt_evidence_count:0,store_evidence_count:1,bill_required_count:2});
+  assert.equal(waiting.ready,false);
+  assert.deepEqual(waiting.missing,['ภาพบิล']);
+
+  const noBill=ReviewLogic.evidenceState({receipt_evidence_count:0,store_evidence_count:1,bill_required_count:0});
+  assert.equal(noBill.ready,true);
+}
+
+{
+  const rows=[
+    {id:1,status:'SUBMITTED',receipt_evidence_count:1,store_evidence_count:1,bill_required_count:2},
+    {id:2,status:'SUBMITTED',receipt_evidence_count:0,store_evidence_count:1,bill_required_count:1},
+    {id:3,status:'SUBMITTED',receipt_evidence_count:0,store_evidence_count:1,bill_required_count:0}
+  ];
+  assert.deepEqual(ReviewLogic.readySubmissionIds(rows),[1,3]);
+  assert.deepEqual(ReviewLogic.transitionedReadyIds([1],rows),[3]);
+  const stats=ReviewLogic.queueStats(rows,Date.now());
+  assert.equal(stats.readyCount,2);
+  assert.equal(stats.waitingEvidenceCount,1);
 }
 
 assert.equal(ReviewLogic.friendlyMessage('OCR template confidence'),'การอ่าน รูปแบบบิล ความชัดเจน');
