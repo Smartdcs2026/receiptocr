@@ -1,0 +1,15 @@
+# Android Studio / IntelliJ local workspace
+.idea/
+android-app/.idea/
+*.iml
+
+# Android / Gradle local build output
+.gradle/
+android-app/.gradle/
+**/build/
+local.properties
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
