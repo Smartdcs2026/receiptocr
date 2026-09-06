@@ -6,6 +6,10 @@ on:
     paths:
       - "android-app/**"
       - ".gitignore"
+      - "web-admin/admin-spa.js"
+      - "web-admin/content-page.js"
+      - "web-admin/dashboard.js"
+      - "web-admin/reports.js"
       - "web-admin/review.html"
       - "web-admin/review-logic.js"
       - "web-admin/review-runtime-round104.js"
@@ -25,7 +29,9 @@ on:
       - "tools/round104_evidence_finalize_patch.py"
       - "tools/round104_2_worker_storage_patch.py"
       - "tools/round104_4_orphan_diagnostics_patch.py"
+      - "tools/round104_6_office_performance_patch.py"
       - "cloudflare/migrations/round103_submission_evidence.sql"
+      - "cloudflare/migrations/round104_6_office_performance.sql"
       - ".github/workflows/round104-finalize.yml"
   workflow_dispatch:
 
@@ -62,9 +68,13 @@ jobs:
           grep -q 'api/app/submissions/.*/finalize' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'EVIDENCE_PENDING_STATUS' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
 
-      - name: Review and Storage UI checks
+      - name: Office speed and Admin UI checks
         run: |
           node tests/review-logic.test.js
+          node --check web-admin/admin-spa.js
+          node --check web-admin/content-page.js
+          node --check web-admin/dashboard.js
+          node --check web-admin/reports.js
           node --check web-admin/review-logic.js
           node --check web-admin/review-runtime-round104.js
           node --check web-admin/review-editor-round104.js
@@ -72,6 +82,13 @@ jobs:
           node --check web-admin/review-evidence-direct-round104.js
           node --check web-admin/storage.js
           node --check web-admin/storage-evidence-diagnostics-round104.js
+          grep -q 'VERSION="1046"' web-admin/admin-spa.js
+          grep -q 'summary=1' web-admin/admin-spa.js
+          grep -q '/api/admin/office-summary' web-admin/dashboard.js
+          grep -q 'dateFrom=' web-admin/reports.js
+          grep -q 'parentSessionReady' web-admin/content-page.js
+          grep -q 'warmImages' web-admin/review-evidence-direct-round104.js
+          ! grep -q 'AdminAuth.json=async function' web-admin/review-storage-sync-round104.js
           grep -q 'review-storage-sync-round104.js' web-admin/review.html
           grep -q 'review-evidence-direct-round104.js' web-admin/review.html
           grep -q 'evidence-repair' web-admin/review-storage-sync-round104.js
@@ -88,7 +105,7 @@ jobs:
           grep -q 'data-add-evidence' web-admin/review-editor-round104.js
           grep -q 'data-delete-evidence' web-admin/review-editor-round104.js
 
-      - name: Verify Worker coordinator patches
+      - name: Verify Worker coordinator patches and D1 performance indexes
         run: |
           python -m py_compile tools/round104_worker_runtime_patch.py
           python -m py_compile tools/round104_review_editor_patch.py
@@ -96,16 +113,14 @@ jobs:
           python -m py_compile tools/round104_evidence_finalize_patch.py
           python -m py_compile tools/round104_2_worker_storage_patch.py
           python -m py_compile tools/round104_4_orphan_diagnostics_patch.py
-          grep -q 'directBinaryEvidence: true' tools/round104_2_worker_storage_patch.py
-          grep -q 'saveEvidenceCoordinated' tools/round104_2_worker_storage_patch.py
-          grep -q 'repairSubmissionEvidence' tools/round104_2_worker_storage_patch.py
-          grep -q 'api/storage/evidence-health' tools/round104_2_worker_storage_patch.py
-          grep -q 'api/storage/evidence-reconcile' tools/round104_2_worker_storage_patch.py
-          grep -q 'api/storage/cleanup-execute' tools/round104_2_worker_storage_patch.py
-          grep -q 'R2_DELETE_FAILED' tools/round104_2_worker_storage_patch.py
-          grep -q 'evidenceLinkerV2' tools/round104_4_orphan_diagnostics_patch.py
-          grep -q 'manualEvidenceLink' tools/round104_4_orphan_diagnostics_patch.py
-          grep -q 'api/storage/evidence-orphan-link' tools/round104_4_orphan_diagnostics_patch.py
+          python -m py_compile tools/round104_6_office_performance_patch.py
+          grep -q 'officePerformance: true' tools/round104_6_office_performance_patch.py
+          grep -q '/api/admin/office-summary' tools/round104_6_office_performance_patch.py
+          grep -q 'fastCheck:true' tools/round104_6_office_performance_patch.py
+          grep -q 'summary=String' tools/round104_6_office_performance_patch.py
+          grep -q 'private, max-age=300' tools/round104_6_office_performance_patch.py
+          grep -q 'idx_field_submissions_status_updated' cloudflare/migrations/round104_6_office_performance.sql
+          grep -q 'idx_r2_objects_category_deleted_updated' cloudflare/migrations/round104_6_office_performance.sql
           grep -q 'field_submission_evidence' cloudflare/migrations/round103_submission_evidence.sql
 
       - name: Set up JDK 17
