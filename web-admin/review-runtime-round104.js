@@ -108,9 +108,12 @@
       badge.className='queueEvidenceState';
       side.insertBefore(badge,side.querySelector('.queueWait')||null);
     }
-    badge.className=`queueEvidenceState ${statusClass(state)}`;
-    badge.textContent=state.label;
-    badge.title=state.known?`ภาพบิล ${state.receiptCount} • ภาพร้าน ${state.storeCount}`:'Worker ยังไม่ส่งสถานะหลักฐาน';
+    const nextClass=`queueEvidenceState ${statusClass(state)}`;
+    const nextText=state.label;
+    const nextTitle=state.known?`ภาพบิล ${state.receiptCount} • ภาพร้าน ${state.storeCount}`:'กำลังตรวจสถานะภาพ';
+    if(badge.className!==nextClass)badge.className=nextClass;
+    if(badge.textContent!==nextText)badge.textContent=nextText;
+    if(badge.title!==nextTitle)badge.title=nextTitle;
   }
 
   function updateBreakdown(){
@@ -124,9 +127,10 @@
       small.className='reviewEvidenceBreakdown';
       metric.appendChild(small);
     }
-    small.textContent=stats.unknownEvidenceCount
+    const nextText=stats.unknownEvidenceCount
       ?`กำลังตรวจสถานะภาพ ${stats.unknownEvidenceCount}`
       :`พร้อมตรวจ ${stats.readyCount} • รอภาพ ${stats.waitingEvidenceCount}`;
+    if(small.textContent!==nextText)small.textContent=nextText;
   }
 
   function refreshDom(){
@@ -144,6 +148,13 @@
     requestAnimationFrame(refreshDom);
   }
 
-  new MutationObserver(queueDomRefresh).observe(document.documentElement,{subtree:true,childList:true});
-  window.addEventListener('load',queueDomRefresh);
+  function observeQueue(){
+    const queue=document.getElementById('reviewQueue');
+    if(!queue)return setTimeout(observeQueue,50);
+    new MutationObserver(queueDomRefresh).observe(queue,{childList:true});
+    queueDomRefresh();
+  }
+
+  observeQueue();
+  window.addEventListener('load',queueDomRefresh,{once:true});
 })();
