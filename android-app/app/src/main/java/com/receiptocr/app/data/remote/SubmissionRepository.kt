@@ -13,6 +13,7 @@ import java.util.UUID
 
 private const val SUBMISSION_API_BASE_URL = "https://receiptocr-api.somchai147258.workers.dev"
 private const val EVIDENCE_UPLOAD_PREFS = "submission_evidence_upload"
+private const val EVIDENCE_PENDING_STATUS = "EVIDENCE_PENDING"
 
 object SubmissionRepository {
     fun submit(
@@ -31,6 +32,7 @@ object SubmissionRepository {
         val pendingId = pendingSubmissionId(context, workPlanItemId)
         if (pendingId > 0L) {
             uploadAllEvidence(token, pendingId, receiptPaths, storePaths)
+            finalizeSubmission(token, pendingId)
             clearPendingSubmission(context, workPlanItemId)
             return pendingId
         }
@@ -73,6 +75,7 @@ object SubmissionRepository {
 
         savePendingSubmission(context, workPlanItemId, submissionId)
         uploadAllEvidence(token, submissionId, receiptPaths, storePaths)
+        finalizeSubmission(token, submissionId)
         clearPendingSubmission(context, workPlanItemId)
         return submissionId
     }
@@ -86,7 +89,7 @@ object SubmissionRepository {
         val token = AppAuthRepository.token(context)
         if (token.isBlank()) return false
         val latest = latestSubmission(token, workPlanItemId) ?: return false
-        if (latest.status.uppercase() !in setOf("SUBMITTED", "RETURNED")) return false
+        if (latest.status.uppercase() !in setOf(EVIDENCE_PENDING_STATUS, "SUBMITTED", "RETURNED")) return false
 
         val existing = latest.evidenceSlots
         receiptPaths.take(3).forEachIndexed { slot, path ->
@@ -98,6 +101,11 @@ object SubmissionRepository {
             if (!path.isNullOrBlank() && ("S" to slot) !in existing) {
                 uploadEvidence(token, latest.submissionId, "S", slot, path)
             }
+        }
+
+        if (latest.status.equals(EVIDENCE_PENDING_STATUS, ignoreCase = true)) {
+            finalizeSubmission(token, latest.submissionId)
+            clearPendingSubmission(context, workPlanItemId)
         }
         return true
     }
@@ -116,6 +124,25 @@ object SubmissionRepository {
             val body = responseBody(c, code)
             if (code !in 200..299) throw IllegalStateException(submissionError(body))
             JSONObject(body).optLong("submissionId", 0L)
+        } finally {
+            c.disconnect()
+        }
+    }
+
+    private fun finalizeSubmission(token: String, submissionId: Long) {
+        val c = URL("$SUBMISSION_API_BASE_URL/api/app/submissions/$submissionId/finalize")
+            .openConnection() as HttpURLConnection
+        c.requestMethod = "POST"
+        c.connectTimeout = 7000
+        c.readTimeout = 12000
+        c.doOutput = true
+        c.setRequestProperty("Authorization", "Bearer $token")
+        c.setRequestProperty("Content-Type", "application/json")
+        c.outputStream.use { it.write("{}".toByteArray()) }
+        try {
+            val code = c.responseCode
+            val body = responseBody(c, code)
+            if (code !in 200..299) throw IllegalStateException(submissionError(body))
         } finally {
             c.disconnect()
         }
@@ -238,13 +265,23 @@ object SubmissionRepository {
     private fun submissionError(body: String): String {
         val detail = runCatching {
             val root = JSONObject(body)
+            val error = root.optString("error")
+            if (error == "EVIDENCE_REQUIRED") {
+                val receiptCount = root.optInt("receiptCount", 0)
+                val storeCount = root.optInt("storeCount", 0)
+                return@runCatching when {
+                    storeCount < 1 && receiptCount < 1 -> "ภาพบิลและภาพร้านยังส่งไม่ครบ กรุณาลองส่งอีกครั้ง"
+                    storeCount < 1 -> "ภาพร้านยังส่งไม่ครบ กรุณาลองส่งอีกครั้ง"
+                    else -> "ภาพบิลยังส่งไม่ครบ กรุณาลองส่งอีกครั้ง"
+                }
+            }
             val details = root.optJSONArray("details")
             if (details != null && details.length() > 0) {
                 val first = details.optJSONObject(0)
                 val pos = first?.optInt("posNumber", 0) ?: 0
                 val message = first?.optString("message").orEmpty()
                 if (pos > 0 && message.isNotBlank()) "POS $pos: $message" else message
-            } else root.optString("error")
+            } else error
         }.getOrDefault("")
         return detail.ifBlank { "ส่งข้อมูลไม่สำเร็จ กรุณาตรวจข้อมูลอีกครั้ง" }
     }
