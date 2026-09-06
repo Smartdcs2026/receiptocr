@@ -28,9 +28,9 @@ replace_once(
 )
 
 replace_once(
-    'if(!["SUBMITTED","RETURNED"].includes(String(sub.status||"").toUpperCase()))return json({error:"SUBMISSION_EVIDENCE_LOCKED"},409,headers);',
-    'if(!["EVIDENCE_PENDING","SUBMITTED","RETURNED"].includes(String(sub.status||"").toUpperCase()))return json({error:"SUBMISSION_EVIDENCE_LOCKED"},409,headers);',
-    'allow pending evidence upload',
+    '''        if(!sub||sub.employee_code!==appUser.employee_code)return json({error:"SUBMISSION_NOT_FOUND"},404,headers);\n        if(!["SUBMITTED","RETURNED"].includes(String(sub.status||"").toUpperCase()))return json({error:"SUBMISSION_EVIDENCE_LOCKED"},409,headers);\n        const form=await request.formData()''',
+    '''        if(!sub||sub.employee_code!==appUser.employee_code)return json({error:"SUBMISSION_NOT_FOUND"},404,headers);\n        if(!["EVIDENCE_PENDING","SUBMITTED","RETURNED"].includes(String(sub.status||"").toUpperCase()))return json({error:"SUBMISSION_EVIDENCE_LOCKED"},409,headers);\n        const form=await request.formData()''',
+    'allow pending app evidence upload',
 )
 
 admin_anchor = '      if(url.pathname==="/api/admin/submissions" && request.method==="GET"){\n'
