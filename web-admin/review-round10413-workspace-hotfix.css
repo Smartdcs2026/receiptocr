@@ -1,0 +1,30 @@
+/* Round104.13.1 — restore full-height review workspace after integrating queue controls.
+   Round104.11/12 kept two grid rows (command bar + workspace). Round104.13 hides the command bar,
+   therefore the page must be exactly one full-height row. */
+.reviewV103.reviewOffice1048.reviewFocus10411.reviewFocus10412.reviewFocus10413{
+  display:grid!important;
+  grid-template-rows:minmax(0,1fr)!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  height:100dvh!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.reviewV103.reviewOffice1048.reviewFocus10411.reviewFocus10412.reviewFocus10413 .reviewWorkspace{
+  grid-row:1!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  align-self:stretch!important;
+  overflow:hidden!important;
+}
+.reviewV103.reviewOffice1048.reviewFocus10411.reviewFocus10412.reviewFocus10413 .reviewQueuePanel,
+.reviewV103.reviewOffice1048.reviewFocus10411.reviewFocus10412.reviewFocus10413 .reviewDetailPanel{
+  min-height:0!important;
+  height:100%!important;
+  align-self:stretch!important;
+}
+.reviewV103.reviewOffice1048.reviewFocus10411.reviewFocus10412.reviewFocus10413 .reviewDetailPanel:has(.reviewSplit),
+.reviewV103.reviewOffice1048.reviewFocus10411.reviewFocus10412.reviewFocus10413 .reviewSplit{
+  min-height:0!important;
+  height:100%!important;
+}
