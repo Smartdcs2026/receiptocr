@@ -35,6 +35,29 @@
   <section class="panel" style="margin-top:14px">
     <div class="sectionHead">
       <div>
+        <h2>วินิจฉัยภาพที่ยังไม่เชื่อมโยง</h2>
+        <div class="small">Round104.4 แสดงงานที่หลักฐานยังไม่ครบและไฟล์ R2 ที่ระบบไม่สามารถผูกกับ Submission อัตโนมัติได้ เพื่อให้ Admin ตรวจภาพและผูกเองอย่างมี Audit</div>
+      </div>
+      <div class="toolbar" style="margin:0"><button id="diagRefreshBtn" class="secondary">อัปเดตรายการวินิจฉัย</button></div>
+    </div>
+    <div class="metricGrid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:10px">
+      <div class="metric"><div id="diagIncompleteCount" class="value">-</div><div class="label">งานที่หลักฐานยังไม่ครบ</div></div>
+      <div class="metric"><div id="diagOrphanCount" class="value">-</div><div class="label">ไฟล์ R2 ที่ยังไม่ผูกงาน</div></div>
+    </div>
+    <div class="small" style="margin-bottom:6px"><strong>งานที่หลักฐานยังไม่ครบ</strong> — ใช้เทียบกับหน้า “ศูนย์ตรวจสอบงาน” ว่างานใดไม่มีภาพบิลหรือภาพร้านจริง</div>
+    <div style="max-height:260px;overflow:auto;margin-bottom:14px">
+      <table class="storageTable"><thead><tr><th>Submission</th><th>ร้าน</th><th>วันที่ / พนักงาน</th><th>บิล / ร้าน</th><th>เงื่อนไข</th><th>สถานะ</th></tr></thead><tbody id="diagIncompleteRows"><tr><td colspan="6">กำลังโหลด...</td></tr></tbody></table>
+    </div>
+    <div class="small" style="margin-bottom:6px"><strong>ไฟล์ R2 ที่ยังไม่ผูกงาน</strong> — กด “ดูภาพ” ก่อน แล้วเลือก Submission ที่ถูกต้อง ระบบจะไม่เดาให้ถ้ามีหลายงานที่เป็นไปได้</div>
+    <div style="max-height:420px;overflow:auto">
+      <table class="storageTable"><thead><tr><th>ภาพ</th><th>Object key</th><th>ข้อมูลจาก R2</th><th>งานที่เป็นไปได้</th><th>ประเภท / ลำดับ</th><th></th></tr></thead><tbody id="diagOrphanRows"><tr><td colspan="6">กำลังโหลด...</td></tr></tbody></table>
+    </div>
+    <div class="notice warn" style="margin-top:10px">การผูกแบบ Manual จะบันทึก Audit ทุกครั้ง และจะไม่ทับ slot ที่มีภาพอยู่แล้ว หากเลือกงานหรือประเภทภาพผิดให้ยกเลิกก่อนกดยืนยัน</div>
+  </section>
+
+  <section class="panel" style="margin-top:14px">
+    <div class="sectionHead">
+      <div>
         <h2>การใช้พื้นที่ R2</h2>
         <div class="small">หน้านี้นับไฟล์ที่ ReceiptOCR ติดตามใน D1 หากมีไฟล์เดิมใน R2 ให้กด “ตรวจนับไฟล์ R2”</div>
       </div>
@@ -110,6 +133,7 @@
 <script src="config.js"></script>
 <script src="admin-auth.js?v=65"></script>
 <script src="content-page.js"></script>
-<script src="storage.js?v=1042"></script>
+<script src="storage.js?v=1044"></script>
+<script src="storage-evidence-diagnostics-round104.js?v=1044"></script>
 </body>
 </html>
