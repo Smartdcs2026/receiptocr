@@ -66,34 +66,54 @@
     const count=Number(d?.evidenceSummary?.total??d?.evidence?.length??0);
     const tiles=[...document.querySelectorAll('.reviewSummary .summaryTile')];
     const tile=tiles.find(x=>String(x.querySelector('span')?.textContent||'').includes('ภาพประกอบ'));
-    if(tile){const strong=tile.querySelector('strong');if(strong)strong.textContent=String(count);tile.classList.toggle('good',count>0);tile.classList.toggle('warn',count<=0);}
+    if(tile){
+      const strong=tile.querySelector('strong');
+      if(strong&&strong.textContent!==String(count))strong.textContent=String(count);
+      tile.classList.toggle('good',count>0);tile.classList.toggle('warn',count<=0);
+    }
   }
 
-  function ensureDiagnostic(id,d){
-    const panel=document.querySelector('.evidencePanel');if(!panel)return;
-    panel.querySelector('.evidenceDirectStatus')?.remove();
+  function diagnosticHtml(id,d){
     const total=Number(d?.evidenceSummary?.total??d?.evidence?.length??0),receipt=Number(d?.evidenceSummary?.receipt??0),store=Number(d?.evidenceSummary?.store??0);
-    const box=document.createElement('div');box.className='evidenceDirectStatus';
-    box.innerHTML=total>0
-      ?`<span><strong>พบภาพ ${total} ภาพ</strong><small>ภาพบิล ${receipt} · ภาพร้าน ${store}</small></span><button type="button" data-force-evidence-repair>ตรวจ/ซ่อมภาพ</button>`
-      :`<span><strong>งานนี้ยังไม่มีภาพที่เชื่อมกับงาน</strong><small>ตรวจข้อมูลได้ก่อน หรือกดตรวจภาพเมื่อจำเป็น</small></span><button type="button" data-force-evidence-repair>ตรวจ/ซ่อมภาพ</button>`;
-    panel.appendChild(box);
+    return total>0
+      ?`<span><strong>พบภาพ ${total} ภาพ</strong><small>ภาพบิล ${receipt} · ภาพร้าน ${store}</small></span><button type="button" data-force-evidence-repair="${id}">ตรวจ/ซ่อมภาพ</button>`
+      :`<span><strong>งานนี้ยังไม่มีภาพที่เชื่อมกับงาน</strong><small>ตรวจข้อมูลได้ก่อน หรือกดตรวจภาพเมื่อจำเป็น</small></span><button type="button" data-force-evidence-repair="${id}">ตรวจ/ซ่อมภาพ</button>`;
+  }
+
+  function bindRepair(box,id){
     const btn=box.querySelector('[data-force-evidence-repair]');
-    if(btn)btn.onclick=async()=>{
+    if(!btn||btn.dataset.bound==='1')return;
+    btn.dataset.bound='1';
+    btn.onclick=async()=>{
       btn.disabled=true;btn.textContent='กำลังตรวจ...';
       try{
         const r=await AdminAuth.json(`/api/admin/submissions/${id}/evidence-repair`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
         const found=Number(r?.repaired||0);
         SwalSmall.ok('ตรวจภาพแล้ว',found?`เชื่อมภาพกลับ ${found} รายการ`:'ไม่พบภาพใหม่ที่เชื่อมได้');
         setTimeout(()=>location.reload(),180);
-      }catch(e){SwalSmall.error('ตรวจภาพไม่สำเร็จ',e.message||String(e));btn.disabled=false;btn.textContent='ตรวจ/ซ่อมภาพ';}
+      }catch(e){
+        SwalSmall.error('ตรวจภาพไม่สำเร็จ',e.message||String(e));btn.disabled=false;btn.textContent='ตรวจ/ซ่อมภาพ';
+      }
     };
+  }
+
+  function ensureDiagnostic(id,d){
+    const panel=document.querySelector('.evidencePanel');if(!panel)return;
+    let box=panel.querySelector('.evidenceDirectStatus');
+    if(!box){box=document.createElement('div');box.className='evidenceDirectStatus';panel.appendChild(box);}
+    const html=diagnosticHtml(id,d);
+    if(box.dataset.state!==html){box.innerHTML=html;box.dataset.state=html;}
+    bindRepair(box,id);
   }
 
   let queued=false;
   function refreshDom(){queued=false;const id=activeId(),d=detailById.get(id);if(!id||!d)return;updateSummary(d);ensureDiagnostic(id,d);}
   function queue(){if(queued)return;queued=true;requestAnimationFrame(refreshDom);}
-  const target=document.getElementById('reviewDetail')||document.body;
-  new MutationObserver(queue).observe(target,{subtree:true,childList:true});
-  window.addEventListener('load',queue);
+
+  const target=document.getElementById('reviewDetail');
+  if(target){
+    new MutationObserver(queue).observe(target,{childList:true});
+    queue();
+  }
+  window.addEventListener('load',queue,{once:true});
 })();
