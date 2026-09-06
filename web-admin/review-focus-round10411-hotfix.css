@@ -9,6 +9,10 @@
   min-height:0!important;
   overflow:hidden!important;
 }
+/* Round104.12 keeps quick search visible, so its single command row is 38px. */
+.reviewV103.reviewOffice1048.reviewFocus10411.reviewFocus10412{
+  grid-template-rows:38px minmax(0,1fr)!important;
+}
 .reviewFocus10411 .reviewCommandBar{
   grid-row:1!important;
   min-width:0!important;
