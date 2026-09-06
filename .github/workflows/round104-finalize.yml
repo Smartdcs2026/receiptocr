@@ -87,7 +87,7 @@ jobs:
           node --check web-admin/review-evidence-direct-round104.js
           node --check web-admin/storage.js
           node --check web-admin/storage-evidence-diagnostics-round104.js
-          grep -q 'VERSION="1046"' web-admin/admin-spa.js
+          grep -q 'VERSION="104120"' web-admin/admin-spa.js
           grep -q 'summary=1' web-admin/admin-spa.js
           grep -q '/api/admin/office-summary' web-admin/dashboard.js
           grep -q 'dateFrom=' web-admin/reports.js
