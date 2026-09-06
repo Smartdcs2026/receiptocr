@@ -14,6 +14,7 @@ on:
       - "web-admin/reports.html"
       - "web-admin/reports.js"
       - "web-admin/review.html"
+      - "web-admin/review.js"
       - "web-admin/review-logic.js"
       - "web-admin/review-runtime-round104.js"
       - "web-admin/review-editor-round104.js"
@@ -78,6 +79,7 @@ jobs:
           node --check web-admin/content-page.js
           node --check web-admin/dashboard.js
           node --check web-admin/reports.js
+          node --check web-admin/review.js
           node --check web-admin/review-logic.js
           node --check web-admin/review-runtime-round104.js
           node --check web-admin/review-editor-round104.js
@@ -90,6 +92,8 @@ jobs:
           grep -q '/api/admin/office-summary' web-admin/dashboard.js
           grep -q 'dateFrom=' web-admin/reports.js
           grep -q 'parentSessionReady' web-admin/content-page.js
+          grep -q 'Promise.all(unique.map' web-admin/review.js
+          grep -q 'ข้อมูลร้านและ POS ใช้งานได้แล้ว' web-admin/review.js
           grep -q 'warmImages' web-admin/review-evidence-direct-round104.js
           ! grep -q 'AdminAuth.json=async function' web-admin/review-storage-sync-round104.js
           grep -q 'review-storage-sync-round104.js' web-admin/review.html
@@ -122,6 +126,7 @@ jobs:
           grep -q 'fastCheck:true' tools/round104_6_office_performance_patch.py
           grep -q 'summary=String' tools/round104_6_office_performance_patch.py
           grep -q 'private, max-age=300' tools/round104_6_office_performance_patch.py
+          grep -q 'idx_admin_sessions_token_hash_expires' cloudflare/migrations/round104_6_office_performance.sql
           grep -q 'idx_field_submissions_status_updated' cloudflare/migrations/round104_6_office_performance.sql
           grep -q 'idx_r2_objects_category_deleted_updated' cloudflare/migrations/round104_6_office_performance.sql
           grep -q 'field_submission_evidence' cloudflare/migrations/round103_submission_evidence.sql
