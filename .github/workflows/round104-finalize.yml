@@ -11,16 +11,21 @@ on:
       - "web-admin/review-runtime-round104.js"
       - "web-admin/review-editor-round104.js"
       - "web-admin/review-storage-sync-round104.js"
+      - "web-admin/review-evidence-direct-round104.js"
       - "web-admin/review-round104.css"
       - "web-admin/review-editor-round104.css"
+      - "web-admin/review-evidence-direct-round104.css"
       - "web-admin/storage.html"
       - "web-admin/storage.js"
+      - "web-admin/storage-evidence-diagnostics-round104.js"
       - "tests/review-logic.test.js"
       - "tools/round104_worker_runtime_patch.py"
       - "tools/round104_review_editor_patch.py"
       - "tools/round104_review_editor_preserve_pos_patch.py"
       - "tools/round104_evidence_finalize_patch.py"
       - "tools/round104_2_worker_storage_patch.py"
+      - "tools/round104_3_evidence_linker_patch.py"
+      - "tools/round104_4_orphan_diagnostics_patch.py"
       - "cloudflare/migrations/round103_submission_evidence.sql"
       - ".github/workflows/round104-finalize.yml"
   workflow_dispatch:
@@ -65,25 +70,34 @@ jobs:
           node --check web-admin/review-runtime-round104.js
           node --check web-admin/review-editor-round104.js
           node --check web-admin/review-storage-sync-round104.js
+          node --check web-admin/review-evidence-direct-round104.js
           node --check web-admin/storage.js
+          node --check web-admin/storage-evidence-diagnostics-round104.js
           grep -q 'review-storage-sync-round104.js' web-admin/review.html
+          grep -q 'review-evidence-direct-round104.js' web-admin/review.html
           grep -q 'evidence-repair' web-admin/review-storage-sync-round104.js
           grep -q 'สถานะ D1 ↔ R2' web-admin/storage.html
-          grep -q 'cleanupPreviewBtn' web-admin/storage.html
+          grep -q 'วินิจฉัยภาพที่ยังไม่เชื่อมโยง' web-admin/storage.html
+          grep -q 'storage-evidence-diagnostics-round104.js' web-admin/storage.html
+          grep -q 'diagOrphanRows' web-admin/storage.html
           grep -q '/api/storage/evidence-health' web-admin/storage.js
           grep -q '/api/storage/evidence-reconcile' web-admin/storage.js
           grep -q '/api/storage/cleanup-execute' web-admin/storage.js
+          grep -q '/api/storage/evidence-diagnostics' web-admin/storage-evidence-diagnostics-round104.js
+          grep -q '/api/storage/evidence-orphan-link' web-admin/storage-evidence-diagnostics-round104.js
           grep -q 'แก้ไขข้อมูลร้าน / POS' web-admin/review-editor-round104.js
           grep -q 'data-add-evidence' web-admin/review-editor-round104.js
           grep -q 'data-delete-evidence' web-admin/review-editor-round104.js
 
-      - name: Verify Worker coordinator patch
+      - name: Verify Worker coordinator patches
         run: |
           python -m py_compile tools/round104_worker_runtime_patch.py
           python -m py_compile tools/round104_review_editor_patch.py
           python -m py_compile tools/round104_review_editor_preserve_pos_patch.py
           python -m py_compile tools/round104_evidence_finalize_patch.py
           python -m py_compile tools/round104_2_worker_storage_patch.py
+          python -m py_compile tools/round104_3_evidence_linker_patch.py
+          python -m py_compile tools/round104_4_orphan_diagnostics_patch.py
           grep -q 'directBinaryEvidence: true' tools/round104_2_worker_storage_patch.py
           grep -q 'saveEvidenceCoordinated' tools/round104_2_worker_storage_patch.py
           grep -q 'repairSubmissionEvidence' tools/round104_2_worker_storage_patch.py
@@ -91,6 +105,9 @@ jobs:
           grep -q 'api/storage/evidence-reconcile' tools/round104_2_worker_storage_patch.py
           grep -q 'api/storage/cleanup-execute' tools/round104_2_worker_storage_patch.py
           grep -q 'R2_DELETE_FAILED' tools/round104_2_worker_storage_patch.py
+          grep -q 'evidenceLinkerV2' tools/round104_3_evidence_linker_patch.py
+          grep -q 'manualEvidenceLink' tools/round104_4_orphan_diagnostics_patch.py
+          grep -q 'api/storage/evidence-orphan-link' tools/round104_4_orphan_diagnostics_patch.py
           grep -q 'field_submission_evidence' cloudflare/migrations/round103_submission_evidence.sql
 
       - name: Set up JDK 17
