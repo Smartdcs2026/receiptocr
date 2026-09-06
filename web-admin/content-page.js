@@ -21,6 +21,16 @@ const ContentPage = (() => {
     settings:["ADMIN"], audit:["ADMIN"]
   };
 
+  function parentSessionReady() {
+    try {
+      if (window.top === window) return false;
+      const p = window.parent?.AdminAuth;
+      return !!(p?.token?.() && p?.user?.());
+    } catch (_) {
+      return false;
+    }
+  }
+
   async function init() {
     const file = location.pathname.split("/").pop() || "dashboard.html";
     const embed = new URLSearchParams(location.search).get("embed") === "1";
@@ -32,10 +42,13 @@ const ContentPage = (() => {
     }
 
     document.body.classList.add("embedPage");
-    if (!await AdminAuth.guard()) return false;
+
+    // หน้า Admin หลักตรวจสิทธิ์ไว้แล้ว จึงไม่ยิงตรวจซ้ำทุกครั้งที่เปลี่ยนเมนู
+    // หากเปิดหน้าเนื้อหาโดยตรงหรือ session หลักไม่พร้อม จะตรวจตามปกติ
+    if (!parentSessionReady() && !await AdminAuth.guard()) return false;
 
     const route = routeMap[file] || "home";
-    const role = String(AdminAuth.user()?.role || "").toUpperCase();
+    const role = String(AdminAuth.user()?.role || window.parent?.AdminAuth?.user?.()?.role || "").toUpperCase();
     if (!(routeRoles[route] || ["ADMIN"]).includes(role)) {
       window.top.location.replace("admin.html#home");
       return false;
