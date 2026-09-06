@@ -1,0 +1,165 @@
+/* Round104.9 — Eye Comfort Review UI
+   Compact office review workspace with easier Thai typography and softer contrast for long review sessions. */
+:root{
+  --review-bg:#eef3f7;
+  --review-panel:#f9fbfc;
+  --review-panel-soft:#f4f7fa;
+  --review-line:#d6e0e8;
+  --review-line-soft:#e6edf2;
+  --review-text:#243447;
+  --review-text-strong:#142437;
+  --review-muted:#66788a;
+  --review-blue:#356aa8;
+  --review-blue-soft:#eaf2fb;
+  --review-green:#2e765d;
+  --review-green-soft:#eaf6f0;
+  --review-amber:#946517;
+  --review-amber-soft:#fbf4e4;
+  --review-red:#a24b48;
+  --review-red-soft:#fbeeee;
+}
+html,body{
+  font-family:"Leelawadee UI","Noto Sans Thai","Tahoma","Segoe UI",sans-serif;
+  color:var(--review-text);
+  background:var(--review-bg);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+.reviewOffice1048,.reviewOffice1048 button,.reviewOffice1048 input,.reviewOffice1048 select,.reviewOffice1048 textarea{
+  font-family:inherit;
+  color:var(--review-text);
+}
+.reviewOffice1048{background:var(--review-bg);letter-spacing:0;}
+
+/* Compact header, but do not force users to read tiny text. */
+.reviewOffice1048 .reviewCommandBar{background:#f8fafc;border-bottom:1px solid var(--review-line);padding:5px 9px;}
+.reviewOffice1048 .reviewFilters{align-items:flex-end;gap:5px;}
+.reviewOffice1048 .reviewFilters label{font-size:10px;line-height:1.2;color:var(--review-muted);font-weight:600;}
+.reviewOffice1048 .reviewFilters select,.reviewOffice1048 .reviewFilters input{
+  min-height:29px;padding:4px 8px;font-size:11px;line-height:1.25;color:var(--review-text-strong);background:#fff;border:1px solid #cbd8e3;border-radius:7px;
+}
+.reviewOffice1048 .reviewFilters select:focus,.reviewOffice1048 .reviewFilters input:focus,.reviewOffice1048 .reviewNote textarea:focus{
+  outline:2px solid rgba(53,106,168,.18);border-color:#7aa4cf;
+}
+.reviewOffice1048 .reviewLiveMeta{font-size:9.5px;color:#708294;}
+.reviewOffice1048 .reviewLiveDot{background:#3e8b6e;box-shadow:0 0 0 3px rgba(62,139,110,.10);}
+
+/* Summary stays slim and visually quiet. */
+.reviewOffice1048 .reviewMetrics{padding:4px 9px;gap:5px;background:var(--review-bg);}
+.reviewOffice1048 .reviewMetric{min-height:38px;padding:4px 8px;background:#f8fafc;border:1px solid var(--review-line-soft);box-shadow:none;}
+.reviewOffice1048 .reviewMetric span{font-size:9.5px;line-height:1.15;color:var(--review-muted);font-weight:500;}
+.reviewOffice1048 .reviewMetric strong{font-family:"Segoe UI","Leelawadee UI",sans-serif;font-variant-numeric:tabular-nums;font-size:16px;line-height:1;color:var(--review-text-strong);font-weight:700;}
+.reviewOffice1048 .reviewMetricNew{background:#f3f8fd;border-color:#d7e5f3;}
+.reviewOffice1048 .reviewPeople{padding:3px 9px;max-height:32px;background:var(--review-bg);}
+.reviewOffice1048 .reviewPersonChip{min-height:25px;font-size:10px;color:#40566d;background:#f8fafc;border-color:var(--review-line);}
+.reviewOffice1048 .reviewPersonChip.active{background:var(--review-blue-soft);border-color:#9bbada;color:#24568e;}
+
+/* Queue: softer background, readable store names, less visual noise. */
+.reviewOffice1048 .reviewWorkspace{background:var(--review-bg);gap:7px;padding:5px 7px 7px;}
+.reviewOffice1048 .reviewQueuePanel,.reviewOffice1048 .reviewDetailPanel,.reviewOffice1048 .evidencePanel,.reviewOffice1048 .submissionPanel{
+  background:var(--review-panel);border-color:var(--review-line);box-shadow:0 1px 2px rgba(34,52,71,.04);
+}
+.reviewOffice1048 .reviewQueuePanel>header{background:#f3f6f9;border-bottom:1px solid var(--review-line);}
+.reviewOffice1048 .reviewQueuePanel>header strong{font-size:12px;line-height:1.25;color:var(--review-text-strong);font-weight:700;}
+.reviewOffice1048 .reviewQueuePanel>header span{font-size:9.5px;line-height:1.3;color:var(--review-muted);}
+.reviewOffice1048 .reviewCountBox{background:#edf3f8;border:1px solid #d8e3ec;color:#39536c;}
+.reviewOffice1048 .reviewQueue{background:#f7f9fb;}
+.reviewOffice1048 .reviewQueueItem{background:#fbfcfd;border:1px solid transparent;}
+.reviewOffice1048 .reviewQueueItem:hover{background:#f1f6fa;border-color:#d9e4ed;}
+.reviewOffice1048 .reviewQueueItem.active{background:#eaf2fb;border-color:#8fb4d8;box-shadow:inset 3px 0 0 #3e78b5;}
+.reviewOffice1048 .queueBrand{background:#edf2f6;color:#315b86;font-weight:700;}
+.reviewOffice1048 .queueMain strong{font-size:11px;line-height:1.3;color:#213448;font-weight:650;}
+.reviewOffice1048 .queueMain small{font-size:9.3px;line-height:1.28;color:#6d7f90;}
+.reviewOffice1048 .queueWait{font-size:9px;color:#7a622d;font-variant-numeric:tabular-nums;}
+
+/* Detail header and summary: clear hierarchy without bold overload. */
+.reviewOffice1048 .reviewDetailHead{background:#fbfcfd;border-bottom:1px solid var(--review-line-soft);}
+.reviewOffice1048 .reviewDetailHead h2{font-size:16.5px;line-height:1.22;color:#182b40;font-weight:700;}
+.reviewOffice1048 .reviewDetailHead p,.reviewOffice1048 .detailBreadcrumb{font-size:9.5px;line-height:1.3;color:#718294;}
+.reviewOffice1048 .detailNav button{background:#fff;border-color:#d4dee7;color:#496078;}
+.reviewOffice1048 .reviewSummary{background:#f6f8fa;border-bottom:1px solid var(--review-line-soft);}
+.reviewOffice1048 .summaryTile{background:#fbfcfd;border:1px solid #dce5ec;box-shadow:none;}
+.reviewOffice1048 .summaryTile span{font-size:9px;color:#718294;font-weight:500;}
+.reviewOffice1048 .summaryTile strong{font-size:15.5px;color:#1d344b;font-weight:700;font-variant-numeric:tabular-nums;}
+.reviewOffice1048 .reviewAlert{border:1px solid #c8e3d7;background:var(--review-green-soft);color:#255f4d;box-shadow:none;}
+.reviewOffice1048 .reviewAlert strong{font-size:10.5px;color:#255f4d;}
+.reviewOffice1048 .reviewAlert span{font-size:9.5px;line-height:1.3;color:#497565;}
+.reviewOffice1048 .reviewAlert.warn{background:var(--review-amber-soft);border-color:#ead8ad;color:#7a5619;}
+.reviewOffice1048 .reviewAlert.warn strong,.reviewOffice1048 .reviewAlert.warn span{color:#7a5619;}
+.reviewOffice1048 .reviewAlert.danger{background:var(--review-red-soft);border-color:#e8c3c1;color:#8c4543;}
+
+/* Evidence viewer: charcoal instead of near-black; controls easier to scan. */
+.reviewOffice1048 .evidenceToolbar{background:#f5f7f9;border-bottom:1px solid var(--review-line);}
+.reviewOffice1048 .evidenceToolbar button{background:#fff;border:1px solid #d1dce5;color:#425b73;font-size:10px;font-weight:600;}
+.reviewOffice1048 .evidenceToolbar button:hover{background:#eef4f8;border-color:#aebfce;}
+.reviewOffice1048 .evidenceToolbar span{font-size:9.5px;color:#687b8d;font-variant-numeric:tabular-nums;}
+.reviewOffice1048 .evidenceStage{background:#263440;}
+.reviewOffice1048 #evidenceTabsHost{background:#f4f7f9;border-color:var(--review-line);}
+.reviewOffice1048 .evidenceTabs button{background:#fbfcfd;border:1px solid #d7e1e9;color:#4c6174;font-size:9.5px;font-weight:600;}
+.reviewOffice1048 .evidenceTabs button:hover{background:#edf4f9;}
+.reviewOffice1048 .evidenceTabs button.active{background:#e8f1fb;border-color:#76a4d0;color:#245b92;box-shadow:inset 0 0 0 1px #76a4d0;}
+.reviewOffice1048 .evidenceTabs button.isReceipt::before{content:"บิล · ";font-weight:700;color:#355f89;}
+.reviewOffice1048 .evidenceTabs button.isStore::before{content:"ร้าน · ";font-weight:700;color:#4c6d59;}
+.reviewOffice1048 .evidenceMissing{background:#f7f9fb;color:var(--review-muted);}
+.reviewOffice1048 .evidenceMissing strong{font-size:10.5px;color:#4d6174;}
+.reviewOffice1048 .evidenceMissing span{font-size:9.3px;color:#758595;}
+
+/* Editor and evidence management are secondary tools. */
+.reviewOffice1048 .reviewEditorBar{background:#eef4f9;border-color:#d7e2eb;}
+.reviewOffice1048 .reviewEditorBar strong{font-size:10.5px;color:#31506e;font-weight:650;}
+.reviewOffice1048 .reviewEditorBar span{font-size:9px;line-height:1.25;color:#6d8092;}
+.reviewOffice1048 .reviewEditorBar button,.reviewOffice1048 .reviewEvidenceManager button,.reviewOffice1048 .reviewEvidenceToggle{background:#fbfcfd;border-color:#cdd9e3;color:#3c5d7c;font-weight:650;}
+.reviewOffice1048 .reviewEvidenceManager{background:#f5f8fa;border-color:var(--review-line);}
+.reviewOffice1048 .reviewEvidenceManagerHead strong{font-size:10px;color:#40566c;}
+.reviewOffice1048 .reviewEvidenceManagerHead small{font-size:8.8px;color:#748596;}
+
+/* Facts: data values slightly larger than labels. */
+.reviewOffice1048 .submissionFacts{background:#f7f9fb;border-bottom:1px solid var(--review-line-soft);}
+.reviewOffice1048 .submissionFacts>div{background:#f9fbfc;border-color:#e1e8ee;}
+.reviewOffice1048 .submissionFacts span{font-size:9px;line-height:1.2;color:#728394;font-weight:500;}
+.reviewOffice1048 .submissionFacts strong{font-size:11px;line-height:1.3;color:#20374e;font-weight:650;}
+.reviewOffice1048 .sectionTitle{background:#f9fbfc;}
+.reviewOffice1048 .sectionTitle strong{font-size:10.5px;color:#324a61;font-weight:650;}
+.reviewOffice1048 .sectionTitle span{font-size:9px;color:#738495;}
+
+/* POS table: central reading surface — larger text, alternating rows, tabular numbers. */
+.reviewOffice1048 .recordTableWrap{background:#f8fafb;scrollbar-color:#aebdca #edf2f5;}
+.reviewOffice1048 .reviewRecordTable{font-variant-numeric:tabular-nums;border-spacing:0 2px;}
+.reviewOffice1048 .reviewRecordTable thead th{
+  background:#edf2f5;color:#5b6f82;padding:5px 6px;font-size:9.5px;line-height:1.2;font-weight:650;border-bottom:1px solid #d3dde5;
+}
+.reviewOffice1048 .reviewRecordTable td{
+  background:#fbfcfd;color:#263b50;padding:6px;font-size:10.5px;line-height:1.35;border-top:1px solid #e5ebf0;border-bottom:1px solid #e5ebf0;
+}
+.reviewOffice1048 .reviewRecordTable tbody tr:nth-child(even) td{background:#f4f7f9;}
+.reviewOffice1048 .reviewRecordTable tbody tr:hover td{background:#edf4f8;}
+.reviewOffice1048 .reviewRecordTable tbody tr.officePosFocus td{background:#e4f0fb;box-shadow:inset 0 1px 0 #8fb5d8,inset 0 -1px 0 #8fb5d8;}
+.reviewOffice1048 .reviewRecordTable tbody tr.officePosFocus td:first-child{box-shadow:inset 3px 0 0 #3e78b5,inset 0 1px 0 #8fb5d8,inset 0 -1px 0 #8fb5d8;}
+.reviewOffice1048 .recordSub,.reviewOffice1048 .rowMessage,.reviewOffice1048 .rowNotice{font-size:9px;line-height:1.3;color:#748596;}
+.reviewOffice1048 .pill{font-size:9px;line-height:1.2;font-weight:650;border-radius:999px;}
+.reviewOffice1048 .pill.ok,.reviewOffice1048 .pill.success{background:#e8f4ee;color:#2c6d56;}
+.reviewOffice1048 .pill.warn,.reviewOffice1048 .pill.warning{background:#faf1df;color:#8a5d13;}
+.reviewOffice1048 .pill.danger,.reviewOffice1048 .pill.error{background:#faeaea;color:#964542;}
+
+/* Notes and actions: calm colors, obvious final actions. */
+.reviewOffice1048 .reviewNote{background:#f7f9fb;color:#5e7183;font-size:9.5px;font-weight:600;border-top:1px solid var(--review-line-soft);}
+.reviewOffice1048 .reviewNote textarea{background:#fff;border:1px solid #d1dce5;color:#263b50;font-size:10.5px;line-height:1.35;}
+.reviewOffice1048 .reviewQuickNotes button{background:#eef3f6;border-color:#d7e1e8;color:#50677c;font-size:9px;}
+.reviewOffice1048 .reviewQuickNotes button:hover{background:#e5edf3;border-color:#b9c9d6;}
+.reviewOffice1048 .reviewActions{background:#f7f9fb;border-top:1px solid #dbe4eb;box-shadow:0 -4px 10px rgba(34,52,71,.04);}
+.reviewOffice1048 .reviewActions button{font-size:10.5px;font-weight:700;letter-spacing:0;}
+.reviewOffice1048 .reviewActions .secondary,.reviewOffice1048 .reviewActions button:first-of-type{background:#fff6f4;border-color:#e5b9b4;color:#9a4742;}
+.reviewOffice1048 .reviewActions .primary,.reviewOffice1048 .reviewActions button:last-of-type{background:#356aa8;border-color:#356aa8;color:#fff;}
+.reviewOffice1048 .reviewActions .primary:hover,.reviewOffice1048 .reviewActions button:last-of-type:hover{background:#2f5f97;}
+.reviewOffice1048 .actionHint{font-size:9px;line-height:1.3;color:#718294;}
+
+/* Scrollbars should be visible but quiet for long office sessions. */
+.reviewOffice1048 *{scrollbar-width:thin;scrollbar-color:#aebdca #edf2f5;}
+.reviewOffice1048 *::-webkit-scrollbar{width:8px;height:8px;}
+.reviewOffice1048 *::-webkit-scrollbar-track{background:#edf2f5;}
+.reviewOffice1048 *::-webkit-scrollbar-thumb{background:#aebdca;border-radius:8px;border:2px solid #edf2f5;}
+
+@media(max-width:1180px){
+  .reviewOffice1048 .reviewRecordTable td{font-size:10px;}
+  .reviewOffice1048 .queueMain strong{font-size:10.5px;}
+}
