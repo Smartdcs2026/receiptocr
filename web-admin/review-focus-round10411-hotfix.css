@@ -1,0 +1,42 @@
+/* Round104.11 hotfix — restore full-height inspection workspace.
+   Round103 used four explicit grid rows (command / metrics / people / workspace).
+   Round104.11 hides metrics + people, so the page must become exactly two rows. */
+.reviewV103.reviewOffice1048.reviewFocus10411{
+  display:grid!important;
+  grid-template-rows:31px minmax(0,1fr)!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  height:100dvh!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.reviewFocus10411 .reviewCommandBar{
+  grid-row:1!important;
+  min-width:0!important;
+}
+.reviewFocus10411 .reviewMetrics,
+.reviewFocus10411 .reviewPeople{
+  display:none!important;
+}
+.reviewFocus10411 .reviewWorkspace{
+  grid-row:2!important;
+  min-width:0!important;
+  min-height:0!important;
+  width:100%!important;
+  height:100%!important;
+  align-self:stretch!important;
+  overflow:hidden!important;
+}
+.reviewFocus10411 .reviewQueuePanel,
+.reviewFocus10411 .reviewDetailPanel{
+  min-height:0!important;
+  height:100%!important;
+  align-self:stretch!important;
+}
+.reviewFocus10411 .reviewDetailPanel:has(.reviewSplit){
+  min-height:0!important;
+  height:100%!important;
+}
+.reviewFocus10411 .reviewSplit{
+  min-height:0!important;
+  height:100%!important;
+}
