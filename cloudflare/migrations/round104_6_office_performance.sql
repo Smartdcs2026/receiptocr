@@ -1,4 +1,10 @@
--- Round104.6: speed up office lists, review queue, reports and evidence lookups.
+-- Round104.6: speed up office lists, review queue, reports, image lookups and signed-in requests.
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_token_hash_expires
+ON admin_sessions(token_hash, expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_admin_user
+ON admin_sessions(admin_user_id);
+
 CREATE INDEX IF NOT EXISTS idx_field_submissions_status_updated
 ON field_submissions(status, updated_at DESC);
 
