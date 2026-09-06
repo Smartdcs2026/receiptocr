@@ -15,6 +15,7 @@ on:
       - "tools/round104_worker_runtime_patch.py"
       - "tools/round104_review_editor_patch.py"
       - "tools/round104_review_editor_preserve_pos_patch.py"
+      - "tools/round104_evidence_finalize_patch.py"
       - "cloudflare/migrations/round103_submission_evidence.sql"
       - ".github/workflows/round104-finalize.yml"
   workflow_dispatch:
@@ -35,16 +36,19 @@ jobs:
       - name: Verify Round103 baseline
         run: git merge-base --is-ancestor ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 HEAD
 
-      - name: Verify Round104 Android version
+      - name: Verify Round104 Android hotfix version
         run: |
-          grep -q 'versionCode = 106' android-app/app/build.gradle.kts
-          grep -q 'versionName = "0.104.0"' android-app/app/build.gradle.kts
+          grep -q 'versionCode = 107' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.1"' android-app/app/build.gradle.kts
 
-      - name: Protect Round103 OCR and evidence upload baseline
+      - name: Protect Round103 OCR baseline and verify evidence finalize flow
         run: |
           git diff --exit-code ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 -- android-app/app/src/main/java/com/receiptocr/app/ocr
           grep -q 'syncEvidenceForLatestSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'api/app/submissions/.*/evidence' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+          grep -q 'finalizeSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+          grep -q 'api/app/submissions/.*/finalize' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+          grep -q 'EVIDENCE_PENDING_STATUS' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
 
       - name: Review queue readiness tests
         run: |
@@ -63,11 +67,12 @@ jobs:
           grep -q 'transitionedReadyIds' web-admin/review-logic.js
           grep -q 'waitingEvidenceCount' web-admin/review-logic.js
 
-      - name: Verify Worker production evidence and reviewer edit patches
+      - name: Verify Worker production evidence reviewer editor and finalization patches
         run: |
           python -m py_compile tools/round104_worker_runtime_patch.py
           python -m py_compile tools/round104_review_editor_patch.py
           python -m py_compile tools/round104_review_editor_preserve_pos_patch.py
+          python -m py_compile tools/round104_evidence_finalize_patch.py
           grep -q 'receipt_evidence_count' tools/round104_worker_runtime_patch.py
           grep -q 'store_evidence_count' tools/round104_worker_runtime_patch.py
           grep -q 'bill_required_count' tools/round104_worker_runtime_patch.py
@@ -79,7 +84,9 @@ jobs:
           grep -q 'reviewEditor: true' tools/round104_review_editor_patch.py
           grep -q 'UPDATE field_submission_pos SET customer_no' tools/round104_review_editor_preserve_pos_patch.py
           grep -q 'beforeByPos' tools/round104_review_editor_preserve_pos_patch.py
-          grep -q '0.104.0' tools/round104_worker_runtime_patch.py
+          grep -q 'EVIDENCE_PENDING' tools/round104_evidence_finalize_patch.py
+          grep -q 'appFinalizeMatch' tools/round104_evidence_finalize_patch.py
+          grep -q 'evidenceFinalize: true' tools/round104_evidence_finalize_patch.py
           grep -q 'field_submission_evidence' cloudflare/migrations/round103_submission_evidence.sql
 
       - name: Set up JDK 17
@@ -106,10 +113,10 @@ jobs:
         working-directory: android-app
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload Round104 debug APK
+      - name: Upload Round104 hotfix debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: ReceiptOCR-Round104-debug
+          name: ReceiptOCR-Round104-hotfix-debug
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
           if-no-files-found: error
