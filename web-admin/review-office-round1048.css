@@ -1,0 +1,80 @@
+/* Round104.8 — single-screen office review workspace inspired by the old fast-review screen. */
+html,body{height:100%;overflow:hidden}
+body{margin:0}
+.reviewV103.reviewOffice1048{height:100vh;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:#f4f6f9}
+.reviewOffice1048 .reviewCommandBar{position:relative;top:auto;flex:0 0 auto;padding:6px 10px;box-shadow:none}
+.reviewOffice1048 .reviewFilters{gap:6px}
+.reviewOffice1048 .reviewFilters label{font-size:9px}
+.reviewOffice1048 .reviewFilters select,.reviewOffice1048 .reviewFilters input{min-height:30px;padding:5px 8px;font-size:10px}
+.reviewOffice1048 .reviewSearchLabel{min-width:230px}
+.reviewOffice1048 .reviewLiveMeta{font-size:9px}
+.reviewOffice1048 .reviewMetrics{flex:0 0 auto;margin:0;padding:5px 10px;gap:6px}
+.reviewOffice1048 .reviewMetric{min-height:42px;padding:5px 9px}
+.reviewOffice1048 .reviewMetric span{font-size:9px}.reviewOffice1048 .reviewMetric strong{font-size:16px}
+.reviewOffice1048 .reviewPeople{flex:0 0 auto;display:flex;gap:5px;overflow-x:auto;overflow-y:hidden;max-height:34px;padding:4px 10px;scrollbar-width:thin}
+.reviewOffice1048 .reviewPersonChip{flex:0 0 auto;min-height:26px;padding:3px 9px}
+
+.reviewOffice1048 .reviewWorkspace{flex:1 1 auto;min-height:0;height:auto;display:grid;grid-template-columns:minmax(250px,19%) minmax(0,1fr);gap:8px;padding:6px 8px 8px;overflow:hidden}
+.reviewOffice1048 .reviewQueuePanel{position:relative;top:auto;align-self:stretch;height:100%;max-height:none;min-height:0;border-radius:12px}
+.reviewOffice1048 .reviewQueuePanel>header{flex:0 0 auto;padding:8px 9px 6px}
+.reviewOffice1048 .reviewQueuePanel>header strong{font-size:12px}.reviewOffice1048 .reviewQueuePanel>header span{font-size:9px}
+.reviewOffice1048 .reviewCountBox{padding:4px 8px;min-width:52px;border-radius:9px}.reviewOffice1048 .reviewCountBox strong{font-size:15px}
+.reviewOffice1048 .reviewQueue{flex:1 1 auto;min-height:0;overflow:auto;padding:5px;gap:4px;overscroll-behavior:contain}
+.reviewOffice1048 .reviewQueueItem{grid-template-columns:34px 1fr auto;gap:6px;padding:6px;border-radius:9px;min-height:54px}
+.reviewOffice1048 .queueBrand{width:34px;height:34px;border-radius:8px;font-size:9px}
+.reviewOffice1048 .queueMain strong{font-size:10px}.reviewOffice1048 .queueMain small{font-size:8.5px;margin-top:1px}
+.reviewOffice1048 .queueSide{min-width:62px}.reviewOffice1048 .statusBadge{font-size:8px}.reviewOffice1048 .queueWait{font-size:8px}
+
+.reviewOffice1048 .reviewDetailPanel{height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden;border-radius:12px}
+.reviewOffice1048 .reviewDetailHead{flex:0 0 auto;padding:7px 10px 5px;gap:8px}
+.reviewOffice1048 .reviewDetailHead h2{font-size:16px;line-height:1.15;margin:1px 0}.reviewOffice1048 .reviewDetailHead p,.reviewOffice1048 .detailBreadcrumb{font-size:9px}
+.reviewOffice1048 .detailNav button{padding:4px 7px;border-radius:7px;font-size:9px}
+.reviewOffice1048 .reviewSummary{flex:0 0 auto;padding:5px 8px;gap:5px}
+.reviewOffice1048 .summaryTile{padding:5px 7px;border-radius:8px}.reviewOffice1048 .summaryTile span{font-size:8px}.reviewOffice1048 .summaryTile strong{font-size:15px;margin-top:0}
+.reviewOffice1048 .reviewAlert{flex:0 0 auto;margin:5px 8px 0;padding:5px 8px;border-radius:8px}.reviewOffice1048 .reviewAlert strong{font-size:10px}.reviewOffice1048 .reviewAlert span{font-size:9px;margin-top:1px}
+
+.reviewOffice1048 .reviewSplit{flex:1 1 auto;min-height:0;height:auto;display:grid;grid-template-columns:minmax(360px,43%) minmax(470px,57%);gap:8px;padding:6px 8px 8px;overflow:hidden;align-items:stretch}
+.reviewOffice1048 .evidencePanel,.reviewOffice1048 .submissionPanel{height:100%;min-height:0;border-radius:10px}
+.reviewOffice1048 .evidencePanel{position:relative;top:auto;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;overflow:hidden}
+.reviewOffice1048 .evidenceToolbar{padding:4px 6px;gap:4px}.reviewOffice1048 .evidenceToolbar button{height:25px;min-width:28px;padding:0 6px;font-size:9px}.reviewOffice1048 .evidenceToolbar span{font-size:9px;min-width:36px}
+.reviewOffice1048 .evidenceStage{height:auto!important;min-height:0;max-height:none;background:#1d2735;overflow:hidden;cursor:grab}
+.reviewOffice1048 .evidenceStage:active{cursor:grabbing}
+.reviewOffice1048 .evidenceStage img{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain}
+.reviewOffice1048 #evidenceTabsHost{min-height:38px;max-height:66px;overflow:hidden;border-top:1px solid #dfe5ec;background:#f8fafc}
+.reviewOffice1048 .evidenceTabs{display:flex!important;grid-template-columns:none!important;gap:4px;padding:4px 5px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scroll-snap-type:x proximity}
+.reviewOffice1048 .evidenceTabs button{flex:0 0 96px;min-width:96px;max-width:96px;min-height:31px;padding:4px 6px;border-radius:7px;font-size:9px;scroll-snap-align:start}
+.reviewOffice1048 .evidenceTabs button.active{box-shadow:inset 0 0 0 1px #2563d9}
+.reviewOffice1048 .evidenceMissing{padding:6px}.reviewOffice1048 .evidenceMissing strong{font-size:10px}.reviewOffice1048 .evidenceMissing span{font-size:8px}
+
+/* Keep evidence maintenance available but out of the normal review path. */
+.reviewOffice1048 .reviewEvidenceManager{padding:4px 6px;border-top:1px solid #dfe5ec;max-height:54px;overflow:hidden;background:#f8fafc}
+.reviewOffice1048 .reviewEvidenceManager.is-open{max-height:180px;overflow:auto}
+.reviewOffice1048 .reviewEvidenceManagerHead{margin:0;min-height:38px}.reviewOffice1048 .reviewEvidenceManagerHead strong{font-size:9px}.reviewOffice1048 .reviewEvidenceManagerHead small{font-size:8px}
+.reviewOffice1048 .reviewEvidenceManageRow{display:none}.reviewOffice1048 .reviewEvidenceManager.is-open .reviewEvidenceManageRow{display:flex}
+.reviewOffice1048 .reviewEvidenceManager button{padding:4px 7px;font-size:9px}
+.reviewOffice1048 .reviewEvidenceToggle{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:7px;padding:4px 7px;font-size:9px;font-weight:700;cursor:pointer}
+
+.reviewOffice1048 .submissionPanel{display:flex;flex-direction:column;overflow:hidden}
+.reviewOffice1048 .reviewEditorBar{flex:0 0 auto;margin:0;padding:5px 7px;border-radius:0;border-width:0 0 1px;min-height:34px}.reviewOffice1048 .reviewEditorBar strong{font-size:10px}.reviewOffice1048 .reviewEditorBar span{font-size:8px}.reviewOffice1048 .reviewEditorBar button{padding:5px 7px;font-size:9px}
+.reviewOffice1048 .submissionFacts{flex:0 0 auto;grid-template-columns:repeat(4,minmax(0,1fr))}.reviewOffice1048 .submissionFacts>div{padding:5px 7px;border-bottom:0}.reviewOffice1048 .submissionFacts>div:nth-child(2n){border-right:1px solid #dfe5ec}.reviewOffice1048 .submissionFacts>div:last-child{border-right:0}.reviewOffice1048 .submissionFacts span{font-size:8px}.reviewOffice1048 .submissionFacts strong{font-size:10px;margin-top:0}
+.reviewOffice1048 .sectionTitle{flex:0 0 auto;padding:6px 8px 3px}.reviewOffice1048 .sectionTitle strong{font-size:10px}.reviewOffice1048 .sectionTitle span{font-size:8px}
+.reviewOffice1048 .recordTableWrap{flex:1 1 auto;min-height:120px;max-height:none;overflow:auto;padding:0 6px 4px;overscroll-behavior:contain}
+.reviewOffice1048 .reviewRecordTable{border-spacing:0 3px}.reviewOffice1048 .reviewRecordTable thead th{position:sticky;top:0;z-index:3;background:#fff;padding:4px 5px;font-size:8px;border-bottom:1px solid #e5e7eb}.reviewOffice1048 .reviewRecordTable td{padding:5px;font-size:9px}.reviewOffice1048 .recordSub,.reviewOffice1048 .rowMessage,.reviewOffice1048 .rowNotice{font-size:8px}
+.reviewOffice1048 .reviewRecordTable tbody tr{cursor:pointer}.reviewOffice1048 .reviewRecordTable tbody tr.officePosFocus td{box-shadow:inset 0 0 0 1px #60a5fa;background:#eff6ff}
+.reviewOffice1048 .pill{padding:2px 5px;font-size:8px}
+
+/* History is secondary; keep it collapsed so it never steals the working viewport. */
+.reviewOffice1048 .reviewHistory{display:none!important}
+.reviewOffice1048 .sectionTitle:has(+ .reviewHistory){display:none!important}
+.reviewOffice1048.showReviewHistory .reviewHistory{display:block!important;max-height:130px;overflow:auto;flex:0 0 auto}
+.reviewOffice1048.showReviewHistory .sectionTitle:has(+ .reviewHistory){display:flex!important}
+.reviewOffice1048 .reviewHistoryToggle{flex:0 0 auto;align-self:flex-end;margin:2px 8px 0;border:0;background:transparent;color:#2563d9;font-size:8px;font-weight:700;cursor:pointer}
+
+.reviewOffice1048 .reviewNote{flex:0 0 auto;padding:5px 8px;font-size:9px}.reviewOffice1048 .reviewNote textarea{height:42px;min-height:42px;max-height:42px;margin-top:3px;padding:6px 7px;resize:none;font-size:9px}
+.reviewOffice1048 .reviewQuickNotes{display:flex;gap:4px;overflow-x:auto;margin:3px 0 0;scrollbar-width:none}.reviewOffice1048 .reviewQuickNotes button{flex:0 0 auto;border:1px solid #dbe3ee;background:#f8fafc;border-radius:999px;padding:3px 7px;font-size:8px;cursor:pointer;color:#475569}
+.reviewOffice1048 .reviewActions{position:relative;bottom:auto;flex:0 0 auto;padding:6px 8px;gap:6px;min-height:42px;z-index:4;box-shadow:0 -5px 14px rgba(15,23,42,.05)}
+.reviewOffice1048 .reviewActions button{min-height:30px;padding:0 12px;border-radius:8px;font-size:9px}.reviewOffice1048 .actionHint{font-size:8px;max-width:42%;line-height:1.25}
+
+@media(min-width:1500px){.reviewOffice1048 .reviewWorkspace{grid-template-columns:minmax(280px,20%) minmax(0,1fr)}.reviewOffice1048 .reviewSplit{grid-template-columns:minmax(430px,45%) minmax(540px,55%)}.reviewOffice1048 .evidenceTabs button{flex-basis:108px;min-width:108px;max-width:108px}}
+@media(max-width:1180px){html,body{overflow:auto}.reviewV103.reviewOffice1048{height:auto;min-height:100vh;overflow:visible}.reviewOffice1048 .reviewWorkspace{height:auto;min-height:700px;grid-template-columns:250px minmax(0,1fr);overflow:visible}.reviewOffice1048 .reviewDetailPanel{height:auto;min-height:700px;overflow:visible}.reviewOffice1048 .reviewSplit{grid-template-columns:1fr;overflow:visible}.reviewOffice1048 .evidencePanel{height:480px}.reviewOffice1048 .submissionPanel{height:560px}.reviewOffice1048 .reviewQueuePanel{height:700px}}
+@media(max-width:820px){.reviewOffice1048 .reviewWorkspace{display:block;min-height:0}.reviewOffice1048 .reviewQueuePanel{height:260px;margin-bottom:6px}.reviewOffice1048 .reviewDetailPanel{min-height:760px}.reviewOffice1048 .reviewSplit{display:block}.reviewOffice1048 .evidencePanel{height:430px;margin-bottom:6px}.reviewOffice1048 .submissionPanel{height:540px}.reviewOffice1048 .submissionFacts{grid-template-columns:repeat(2,1fr)}}
