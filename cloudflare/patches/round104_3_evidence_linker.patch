@@ -1,0 +1,239 @@
+--- worker_round104_2.js
++++ worker_round104_3.js
+@@ -160,14 +160,103 @@
+   return await env.DB.prepare(`SELECT id,kind,slot,object_key,content_type,size_bytes,source,captured_at,created_at,updated_at FROM field_submission_evidence WHERE submission_id=? AND kind=? AND slot=? LIMIT 1`).bind(sub.id,kind,slot).first();
+ }
+ 
++async function resolveProductionEvidenceTarget(env, object) {
++  const meta=object?.customMetadata||{};
++  const parsed=parseProductionEvidenceKey(object?.key);
++  let submissionId=Number(meta.submissionId||0)||Number(parsed?.submissionId||0);
++  let sub=null;
++  if(submissionId>0){
++    sub=await env.DB.prepare(`SELECT id,work_plan_item_id,employee_code,work_date,brand,store_code,status FROM field_submissions WHERE id=? LIMIT 1`).bind(submissionId).first();
++  }
++
++  let matchMode=sub?"submission-id":"";
++  if(!sub){
++    const employeeCode=String(meta.employeeCode||"").trim();
++    const storeCode=String(meta.storeCode||"").trim();
++    const workDate=String(meta.workDate||"").trim();
++    if(employeeCode&&storeCode&&workDate){
++      const {results:candidates}=await env.DB.prepare(`
++        SELECT id,work_plan_item_id,employee_code,work_date,brand,store_code,status
++        FROM field_submissions
++        WHERE employee_code=? AND store_code=? AND work_date=?
++          AND status IN ('EVIDENCE_PENDING','SUBMITTED','RETURNED')
++        ORDER BY id DESC LIMIT 3
++      `).bind(employeeCode,storeCode,workDate).all();
++      if((candidates||[]).length===1){
++        sub=candidates[0];
++        submissionId=Number(sub.id);
++        matchMode="unique-metadata";
++      }else if((candidates||[]).length>1){
++        return {ok:false,reason:"AMBIGUOUS_SUBMISSION",candidateCount:candidates.length};
++      }
++    }
++  }
++  if(!sub)return {ok:false,reason:"SUBMISSION_NOT_FOUND"};
++
++  const keyMatch=String(object?.key||"").match(/\/(bill|store)\/(\d+)-/i);
++  const kind=String(meta.evidenceKind||parsed?.kind||(keyMatch?.[1]?.toLowerCase()==="bill"?"R":keyMatch?.[1]?"S":"")).toUpperCase();
++  const slotRaw=meta.evidenceSlot ?? parsed?.slot ?? (keyMatch?Math.max(0,Number(keyMatch[2])-1):NaN);
++  const slot=Number(slotRaw);
++  if(!["R","S"].includes(kind)||!Number.isInteger(slot)||slot<0||slot>=(kind==="R"?3:10)){
++    return {ok:false,reason:"EVIDENCE_SLOT_OR_KIND_INVALID",submissionId:Number(sub.id)};
++  }
++  return {ok:true,sub,submissionId:Number(sub.id),kind,slot,matchMode};
++}
++
++async function linkProductionEvidenceObject(env, object, forcedSubmissionId=0) {
++  let resolved=await resolveProductionEvidenceTarget(env,object);
++  if(forcedSubmissionId>0){
++    const forced=await env.DB.prepare(`SELECT id,work_plan_item_id,employee_code,work_date,brand,store_code,status FROM field_submissions WHERE id=? LIMIT 1`).bind(forcedSubmissionId).first();
++    if(!forced)return {linked:false,reason:"SUBMISSION_NOT_FOUND"};
++    const meta=object?.customMetadata||{},parsed=parseProductionEvidenceKey(object?.key),keyMatch=String(object?.key||"").match(/\/(bill|store)\/(\d+)-/i);
++    const kind=String(meta.evidenceKind||parsed?.kind||(keyMatch?.[1]?.toLowerCase()==="bill"?"R":keyMatch?.[1]?"S":"")).toUpperCase();
++    const slot=Number(meta.evidenceSlot ?? parsed?.slot ?? (keyMatch?Math.max(0,Number(keyMatch[2])-1):NaN));
++    if(!["R","S"].includes(kind)||!Number.isInteger(slot)||slot<0||slot>=(kind==="R"?3:10))return {linked:false,reason:"EVIDENCE_SLOT_OR_KIND_INVALID"};
++    resolved={ok:true,sub:forced,submissionId:Number(forced.id),kind,slot,matchMode:"forced-submission"};
++  }
++  if(!resolved.ok)return {linked:false,...resolved};
++
++  const {sub,submissionId,kind,slot}=resolved;
++  const contentType=object.httpMetadata?.contentType||null;
++  const existing=await env.DB.prepare(`SELECT id,object_key FROM field_submission_evidence WHERE submission_id=? AND kind=? AND slot=? LIMIT 1`).bind(submissionId,kind,slot).first();
++
++  if(existing?.object_key===object.key){
++    await upsertR2Object(env,{key:object.key,category:"production",brandId:sub.brand||null,size:Number(object.size||0),contentType,protected:true,createdAt:object.uploaded?object.uploaded.toISOString():null});
++    return {linked:false,alreadyLinked:true,submissionId,kind,slot,matchMode:resolved.matchMode};
++  }
++
++  if(existing?.object_key){
++    const oldHead=await env.R2.head(existing.object_key);
++    if(oldHead){
++      const oldUploaded=oldHead.uploaded?new Date(oldHead.uploaded).getTime():0;
++      const newUploaded=object.uploaded?new Date(object.uploaded).getTime():0;
++      if(oldUploaded>=newUploaded){
++        return {linked:false,reason:"NEWER_SLOT_ALREADY_LINKED",submissionId,kind,slot,matchMode:resolved.matchMode};
++      }
++    }
++  }
++
++  await env.DB.batch([
++    env.DB.prepare(`INSERT INTO r2_objects(object_key,category,brand_id,profile_id,size_bytes,content_type,protected,archived,deleted,created_at,updated_at)
++      VALUES(?,?,?,?,?,?,1,0,0,COALESCE(?,CURRENT_TIMESTAMP),CURRENT_TIMESTAMP)
++      ON CONFLICT(object_key) DO UPDATE SET category='production',brand_id=COALESCE(excluded.brand_id,r2_objects.brand_id),size_bytes=excluded.size_bytes,content_type=COALESCE(excluded.content_type,r2_objects.content_type),protected=1,deleted=0,updated_at=CURRENT_TIMESTAMP`)
++      .bind(object.key,"production",sub.brand||null,null,Number(object.size||0),contentType,object.uploaded?object.uploaded.toISOString():null),
++    env.DB.prepare(`INSERT INTO field_submission_evidence(submission_id,kind,slot,object_key,content_type,size_bytes,source,captured_at,created_at,updated_at)
++      VALUES(?,?,?,?,?,?,?,NULL,COALESCE(?,CURRENT_TIMESTAMP),CURRENT_TIMESTAMP)
++      ON CONFLICT(submission_id,kind,slot) DO UPDATE SET object_key=excluded.object_key,content_type=excluded.content_type,size_bytes=excluded.size_bytes,source=excluded.source,updated_at=CURRENT_TIMESTAMP`)
++      .bind(submissionId,kind,slot,object.key,contentType,Number(object.size||0),String(object.customMetadata?.source||"R2_REPAIR"),object.uploaded?object.uploaded.toISOString():null)
++  ]);
++  return {linked:true,submissionId,kind,slot,matchMode:resolved.matchMode,replacedObjectKey:existing?.object_key||null};
++}
++
+ async function repairSubmissionEvidence(env, submissionId) {
+-  const sub=await env.DB.prepare(`SELECT id,employee_code,work_date,brand,store_code FROM field_submissions WHERE id=? LIMIT 1`).bind(submissionId).first();
+-  if(!sub)return {found:0,repaired:0,removedBroken:0};
++  const sub=await env.DB.prepare(`SELECT id,work_plan_item_id,employee_code,work_date,brand,store_code,status FROM field_submissions WHERE id=? LIMIT 1`).bind(submissionId).first();
++  if(!sub)return {found:0,broadFound:0,repaired:0,removedBroken:0,ambiguous:0};
++
+   const current=await env.DB.prepare(`SELECT id,kind,slot,object_key FROM field_submission_evidence WHERE submission_id=?`).bind(submissionId).all();
+   let removedBroken=0;
+   for(const row of (current.results||[])){
+-    const head=await env.R2.head(row.object_key);
+-    if(!head){
++    if(!(await env.R2.head(row.object_key))){
+       await env.DB.batch([
+         env.DB.prepare(`DELETE FROM field_submission_evidence WHERE id=?`).bind(row.id),
+         env.DB.prepare(`UPDATE r2_objects SET deleted=1,updated_at=CURRENT_TIMESTAMP WHERE object_key=?`).bind(row.object_key)
+@@ -175,31 +264,60 @@
+       removedBroken++;
+     }
+   }
+-  const prefix=`production/${safeR2Segment(sub.work_date)}/${safeR2Segment(sub.employee_code)}/${safeR2Segment(sub.store_code)}/${submissionId}/`;
+-  const listed=await env.R2.list({prefix,limit:100,include:["customMetadata","httpMetadata"]});
+-  const bySlot=new Map();
+-  for(const object of listed.objects){
+-    const parsed=parseProductionEvidenceKey(object.key);
+-    if(!parsed||parsed.submissionId!==Number(submissionId))continue;
++
++  const exactPrefix=`production/${safeR2Segment(sub.work_date)}/${safeR2Segment(sub.employee_code)}/${safeR2Segment(sub.store_code)}/${submissionId}/`;
++  const broadPrefix=`production/${safeR2Segment(sub.work_date)}/${safeR2Segment(sub.employee_code)}/${safeR2Segment(sub.store_code)}/`;
++  const exact=await env.R2.list({prefix:exactPrefix,limit:100,include:["customMetadata","httpMetadata"]});
++  let objects=[...(exact.objects||[])];
++
++  const broad=await env.R2.list({prefix:broadPrefix,limit:250,include:["customMetadata","httpMetadata"]});
++  const seenKeys=new Set(objects.map(x=>x.key));
++  for(const object of (broad.objects||[]))if(!seenKeys.has(object.key)){objects.push(object);seenKeys.add(object.key);}
++
++  let repaired=0,ambiguous=0,skipped=0;
++  for(const object of objects){
+     const meta=object.customMetadata||{};
+-    const kind=String(meta.evidenceKind||parsed.kind).toUpperCase();
+-    const slot=Number(meta.evidenceSlot??parsed.slot);
+-    if(!["R","S"].includes(kind)||!Number.isInteger(slot))continue;
+-    const k=`${kind}:${slot}`,prev=bySlot.get(k);
+-    if(!prev||new Date(object.uploaded||0)>new Date(prev.uploaded||0))bySlot.set(k,{object,kind,slot});
+-  }
+-  let repaired=0;
+-  for(const {object,kind,slot} of bySlot.values()){
+-    const existing=await env.DB.prepare(`SELECT id,object_key FROM field_submission_evidence WHERE submission_id=? AND kind=? AND slot=? LIMIT 1`).bind(submissionId,kind,slot).first();
+-    if(existing)continue;
+-    const contentType=object.httpMetadata?.contentType||null;
+-    await env.DB.batch([
+-      env.DB.prepare(`INSERT INTO r2_objects(object_key,category,brand_id,profile_id,size_bytes,content_type,protected,archived,deleted,created_at,updated_at) VALUES(?,?,?,?,?,?,1,0,0,COALESCE(?,CURRENT_TIMESTAMP),CURRENT_TIMESTAMP) ON CONFLICT(object_key) DO UPDATE SET category='production',size_bytes=excluded.size_bytes,content_type=COALESCE(excluded.content_type,r2_objects.content_type),protected=1,deleted=0,updated_at=CURRENT_TIMESTAMP`).bind(object.key,"production",sub.brand||null,null,Number(object.size||0),contentType,object.uploaded?object.uploaded.toISOString():null),
+-      env.DB.prepare(`INSERT INTO field_submission_evidence(submission_id,kind,slot,object_key,content_type,size_bytes,source,captured_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,NULL,COALESCE(?,CURRENT_TIMESTAMP),CURRENT_TIMESTAMP) ON CONFLICT(submission_id,kind,slot) DO NOTHING`).bind(submissionId,kind,slot,object.key,contentType,Number(object.size||0),String(object.customMetadata?.source||"R2_REPAIR"),object.uploaded?object.uploaded.toISOString():null)
+-    ]);
+-    repaired++;
++    const parsed=parseProductionEvidenceKey(object.key);
++    const metaSubmissionId=Number(meta.submissionId||0);
++    const parsedSubmissionId=Number(parsed?.submissionId||0);
++    const exactId=metaSubmissionId===Number(submissionId)||parsedSubmissionId===Number(submissionId);
++
++    let force=false;
++    if(!exactId){
++      const employeeMatch=String(meta.employeeCode||"")===String(sub.employee_code||"");
++      const storeMatch=String(meta.storeCode||"")===String(sub.store_code||"");
++      const dateMatch=String(meta.workDate||"")===String(sub.work_date||"");
++      if(!(employeeMatch&&storeMatch&&dateMatch)){skipped++;continue;}
++      const {results:candidates}=await env.DB.prepare(`
++        SELECT id FROM field_submissions
++        WHERE employee_code=? AND store_code=? AND work_date=?
++          AND status IN ('EVIDENCE_PENDING','SUBMITTED','RETURNED')
++        ORDER BY id DESC LIMIT 3
++      `).bind(sub.employee_code,sub.store_code,sub.work_date).all();
++      if((candidates||[]).length!==1||Number(candidates[0].id)!==Number(submissionId)){ambiguous++;continue;}
++      force=true;
++    }
++
++    const result=await linkProductionEvidenceObject(env,object,force?submissionId:0);
++    if(result.linked&&Number(result.submissionId)===Number(submissionId))repaired++;
+   }
+-  return {found:listed.objects.length,repaired,removedBroken,prefix};
++
++  const after=await env.DB.prepare(`SELECT COUNT(*) AS c,SUM(CASE WHEN kind='R' THEN 1 ELSE 0 END) receipt_count,SUM(CASE WHEN kind='S' THEN 1 ELSE 0 END) store_count FROM field_submission_evidence WHERE submission_id=?`).bind(submissionId).first();
++  return {
++    found:(exact.objects||[]).length,
++    broadFound:(broad.objects||[]).length,
++    repaired,
++    removedBroken,
++    ambiguous,
++    skipped,
++    evidenceRows:Number(after?.c||0),
++    receiptCount:Number(after?.receipt_count||0),
++    storeCount:Number(after?.store_count||0),
++    prefix:exactPrefix
++  };
+ }
+@@ -544,7 +662,7 @@
+-        return json({ ok: true, service: "receiptocr-api", release: "0.104.2", evidenceRuntime: true, reviewEditor: true, evidenceFinalize: true, storageCoordinator: true, directBinaryEvidence: true }, 200, { ...headers, "cache-control": "no-store" });
++        return json({ ok: true, service: "receiptocr-api", release: "0.104.3", evidenceRuntime: true, reviewEditor: true, evidenceFinalize: true, storageCoordinator: true, directBinaryEvidence: true, evidenceLinkerV2: true }, 200, { ...headers, "cache-control": "no-store" });
+@@ -1065,16 +1183,23 @@
+-        let linked=0,trackedCount=0,skipped=0;
++        let linked=0,trackedCount=0,skipped=0,ambiguous=0,alreadyLinked=0,replaced=0;
+         for(const object of listed.objects){
+-          const parsed=parseProductionEvidenceKey(object.key); if(!parsed){skipped++;continue;}
+-          const sub=await env.DB.prepare(`SELECT id,brand FROM field_submissions WHERE id=? LIMIT 1`).bind(parsed.submissionId).first(); if(!sub){skipped++;continue;}
+-          const meta=object.customMetadata||{}; const kind=String(meta.evidenceKind||parsed.kind).toUpperCase(); const slot=Number(meta.evidenceSlot??parsed.slot); const contentType=object.httpMetadata?.contentType||null;
+-          await upsertR2Object(env,{key:object.key,category:"production",brandId:sub.brand||null,size:Number(object.size||0),contentType,protected:true,createdAt:object.uploaded?object.uploaded.toISOString():null}); trackedCount++;
+-          const existing=await env.DB.prepare(`SELECT id FROM field_submission_evidence WHERE submission_id=? AND kind=? AND slot=? LIMIT 1`).bind(parsed.submissionId,kind,slot).first();
+-          if(!existing){await env.DB.prepare(`INSERT INTO field_submission_evidence(submission_id,kind,slot,object_key,content_type,size_bytes,source,created_at,updated_at) VALUES(?,?,?,?,?,?,?,COALESCE(?,CURRENT_TIMESTAMP),CURRENT_TIMESTAMP)`).bind(parsed.submissionId,kind,slot,object.key,contentType,Number(object.size||0),String(meta.source||"R2_REPAIR"),object.uploaded?object.uploaded.toISOString():null).run();linked++;}
++          const resolved=await resolveProductionEvidenceTarget(env,object);
++          if(!resolved.ok){
++            if(resolved.reason==="AMBIGUOUS_SUBMISSION")ambiguous++;
++            else skipped++;
++            continue;
++          }
++          const result=await linkProductionEvidenceObject(env,object);
++          if(result.linked){linked++;if(result.replacedObjectKey)replaced++;}
++          else if(result.alreadyLinked)alreadyLinked++;
++          else if(result.reason==="AMBIGUOUS_SUBMISSION")ambiguous++;
++          else skipped++;
++          trackedCount++;
+         }
+-        return json({ok:true,scanned:listed.objects.length,linked,tracked:trackedCount,skipped,truncated:listed.truncated,nextCursor:listed.truncated?listed.cursor:null},200,headers);
++        await audit(env,admin,"EVIDENCE_RECONCILE_V2",{scanned:listed.objects.length,linked,trackedCount,skipped,ambiguous,alreadyLinked,replaced},request);
++        return json({ok:true,scanned:listed.objects.length,linked,tracked:trackedCount,skipped,ambiguous,alreadyLinked,replaced,truncated:listed.truncated,nextCursor:listed.truncated?listed.cursor:null},200,{...headers,"cache-control":"no-store"});
+@@ -2092,11 +2217,34 @@
+       if(subDetailMatch && request.method==="GET"){
+         const admin=await requireAdmin(request,env); if(!admin)return unauthorized(headers); const id=Number(subDetailMatch[1]);
+         const sub=await env.DB.prepare(`SELECT * FROM field_submissions WHERE id=? LIMIT 1`).bind(id).first(); if(!sub)return json({error:"NOT_FOUND"},404,headers);
+-        const [{results:records},{results:evidence}]=await Promise.all([
+-          env.DB.prepare(`SELECT * FROM field_submission_pos WHERE submission_id=? ORDER BY pos_number`).bind(id).all(),
+-          env.DB.prepare(`SELECT id,kind,slot,content_type,size_bytes,source,captured_at,created_at,updated_at FROM field_submission_evidence WHERE submission_id=? ORDER BY CASE kind WHEN 'R' THEN 0 ELSE 1 END,slot`).bind(id).all()
+-        ]);
+-        return json({submission:sub,records:records||[],evidence:(evidence||[]).map(e=>({...e,label:e.kind==="R"?`ภาพบิล ${Number(e.slot)+1}`:`ภาพร้าน ${Number(e.slot)+1}`,url:`/api/admin/submission-evidence/${e.id}`}))},200,{...headers,"cache-control":"no-store"});
++        let sync=null;
++        let evidenceResult=await env.DB.prepare(`SELECT id,kind,slot,object_key,content_type,size_bytes,source,captured_at,created_at,updated_at FROM field_submission_evidence WHERE submission_id=? ORDER BY CASE kind WHEN 'R' THEN 0 ELSE 1 END,slot`).bind(id).all();
++        if(!(evidenceResult.results||[]).length && ["SUBMITTED","RETURNED","EVIDENCE_PENDING"].includes(String(sub.status||"").toUpperCase()) && env.R2){
++          sync=await repairSubmissionEvidence(env,id);
++          evidenceResult=await env.DB.prepare(`SELECT id,kind,slot,object_key,content_type,size_bytes,source,captured_at,created_at,updated_at FROM field_submission_evidence WHERE submission_id=? ORDER BY CASE kind WHEN 'R' THEN 0 ELSE 1 END,slot`).bind(id).all();
++        }
++        const {results:records}=await env.DB.prepare(`SELECT * FROM field_submission_pos WHERE submission_id=? ORDER BY pos_number`).bind(id).all();
++        const evidence=(evidenceResult.results||[]).map(e=>({...e,label:e.kind==="R"?`ภาพบิล ${Number(e.slot)+1}`:`ภาพร้าน ${Number(e.slot)+1}`,url:`/api/admin/submission-evidence/${e.id}`}));
++        const receiptImages=evidence.filter(e=>e.kind==="R").map(e=>e.url);
++        const storeImages=evidence.filter(e=>e.kind==="S").map(e=>e.url);
++        return json({submission:sub,records:records||[],evidence,receiptImages,storeImages,evidenceSync:sync,evidenceSummary:{total:evidence.length,receipt:receiptImages.length,store:storeImages.length}},200,{...headers,"cache-control":"no-store"});
+       }
