@@ -1,0 +1,383 @@
+/* Round104.10 — Review Focus Layout
+   Give the working viewport to evidence + POS. Keep office controls compact without tiny text. */
+:root{
+  --rf-bg:#eef3f6;
+  --rf-panel:#fbfcfd;
+  --rf-soft:#f5f8fa;
+  --rf-line:#d7e1e8;
+  --rf-text:#203347;
+  --rf-muted:#687b8d;
+  --rf-blue:#356fa9;
+  --rf-blue-soft:#e9f2fb;
+  --rf-green:#2f745d;
+  --rf-green-soft:#eaf5f0;
+  --rf-amber:#8b6119;
+  --rf-amber-soft:#fbf3e2;
+  --rf-red:#9a4a47;
+  --rf-red-soft:#fbefed;
+}
+
+/* The review page is a workbench, not a dashboard. */
+.reviewV103.reviewOffice1048{
+  height:100dvh!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  background:var(--rf-bg)!important;
+}
+
+/* 1) One compact command row. */
+.reviewOffice1048 .reviewCommandBar{
+  flex:0 0 auto!important;
+  padding:3px 8px!important;
+  min-height:38px!important;
+  background:#f8fafb!important;
+  border-bottom:1px solid var(--rf-line)!important;
+  display:flex!important;
+  align-items:flex-end!important;
+  gap:8px!important;
+}
+.reviewOffice1048 .reviewFilters{
+  flex:1 1 auto!important;
+  display:grid!important;
+  grid-template-columns:116px minmax(150px,170px) minmax(150px,170px) minmax(220px,1fr) auto auto!important;
+  gap:5px!important;
+  align-items:end!important;
+}
+.reviewOffice1048 .reviewFilters label{font-size:9.5px!important;line-height:1.05!important;margin:0!important;}
+.reviewOffice1048 .reviewFilters select,
+.reviewOffice1048 .reviewFilters input{
+  width:100%!important;
+  min-height:27px!important;
+  height:27px!important;
+  padding:3px 7px!important;
+  font-size:11px!important;
+  border-radius:6px!important;
+}
+.reviewOffice1048 .reviewFilters>button{
+  min-height:27px!important;
+  height:27px!important;
+  padding:0 9px!important;
+  font-size:10px!important;
+  border-radius:6px!important;
+  white-space:nowrap!important;
+}
+.reviewOffice1048 .reviewSearchLabel{min-width:0!important;}
+.reviewOffice1048 .reviewLiveMeta{
+  flex:0 0 auto!important;
+  align-self:center!important;
+  margin-top:12px!important;
+  font-size:9px!important;
+  white-space:nowrap!important;
+  color:#758697!important;
+}
+.reviewOffice1048 .reviewLiveMeta span:nth-child(2){display:none!important;}
+
+/* 2) Dashboard-style cards become a single thin status strip. */
+.reviewOffice1048 .reviewMetrics{
+  flex:0 0 27px!important;
+  min-height:27px!important;
+  margin:0!important;
+  padding:2px 8px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:4px!important;
+  overflow:hidden!important;
+  background:var(--rf-bg)!important;
+}
+.reviewOffice1048 .reviewMetric{
+  flex:1 1 0!important;
+  min-height:23px!important;
+  height:23px!important;
+  padding:2px 7px!important;
+  border-radius:6px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:6px!important;
+  box-shadow:none!important;
+  background:#f8fafb!important;
+}
+.reviewOffice1048 .reviewMetric span{font-size:9px!important;white-space:nowrap!important;}
+.reviewOffice1048 .reviewMetric strong{font-size:13px!important;line-height:1!important;font-variant-numeric:tabular-nums!important;}
+
+/* 3) Employee filter remains available but only as a 26px rail. */
+.reviewOffice1048 .reviewPeople{
+  flex:0 0 28px!important;
+  min-height:28px!important;
+  max-height:28px!important;
+  margin:0!important;
+  padding:2px 8px!important;
+  gap:4px!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+}
+.reviewOffice1048 .reviewPersonChip{
+  min-height:23px!important;
+  height:23px!important;
+  padding:1px 8px!important;
+  border-radius:6px!important;
+  font-size:9.5px!important;
+}
+.reviewOffice1048 .reviewPersonChip strong{font-size:9.5px!important;}
+.reviewOffice1048 .reviewPersonChip span{font-size:9px!important;}
+
+/* 4) The actual review workspace takes everything left. */
+.reviewOffice1048 .reviewWorkspace{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  grid-template-columns:minmax(250px,18%) minmax(0,1fr)!important;
+  gap:5px!important;
+  padding:3px 6px 6px!important;
+  overflow:hidden!important;
+}
+.reviewOffice1048 .reviewQueuePanel,
+.reviewOffice1048 .reviewDetailPanel{border-radius:8px!important;box-shadow:none!important;}
+
+/* Queue: more stores visible without sacrificing readability. */
+.reviewOffice1048 .reviewQueuePanel>header{padding:5px 7px!important;min-height:38px!important;}
+.reviewOffice1048 .reviewQueuePanel>header strong{font-size:11.5px!important;}
+.reviewOffice1048 .reviewQueuePanel>header span{font-size:8.8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:175px!important;display:block!important;}
+.reviewOffice1048 .reviewCountBox{min-width:46px!important;padding:3px 6px!important;}
+.reviewOffice1048 .reviewCountBox strong{font-size:14px!important;}
+.reviewOffice1048 .reviewCountBox span{font-size:8px!important;}
+.reviewOffice1048 .reviewQueue{padding:3px!important;gap:2px!important;}
+.reviewOffice1048 .reviewQueueItem{
+  min-height:49px!important;
+  padding:4px 5px!important;
+  gap:5px!important;
+  grid-template-columns:32px 1fr auto!important;
+  border-radius:6px!important;
+}
+.reviewOffice1048 .queueBrand{width:32px!important;height:32px!important;border-radius:6px!important;font-size:8.7px!important;}
+.reviewOffice1048 .queueMain strong{font-size:10.7px!important;line-height:1.18!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+.reviewOffice1048 .queueMain small{font-size:8.8px!important;line-height:1.18!important;}
+.reviewOffice1048 .queueSide{min-width:58px!important;gap:2px!important;}
+.reviewOffice1048 .statusBadge,.reviewOffice1048 .queueWait{font-size:8px!important;}
+
+/* 5) Detail header: store identity in one compact band. */
+.reviewOffice1048 .reviewDetailHead{
+  flex:0 0 auto!important;
+  min-height:38px!important;
+  padding:4px 8px!important;
+  align-items:center!important;
+  gap:6px!important;
+}
+.reviewOffice1048 .reviewDetailHead h2{font-size:15px!important;line-height:1.12!important;margin:0!important;}
+.reviewOffice1048 .reviewDetailHead p{display:none!important;}
+.reviewOffice1048 .detailBreadcrumb{font-size:8.7px!important;line-height:1.15!important;}
+.reviewOffice1048 .detailNav{gap:3px!important;}
+.reviewOffice1048 .detailNav button{min-height:25px!important;padding:2px 6px!important;font-size:9px!important;}
+
+/* 6) Detail summary is one thin row. */
+.reviewOffice1048 .reviewSummary{
+  flex:0 0 31px!important;
+  min-height:31px!important;
+  padding:3px 6px!important;
+  gap:4px!important;
+}
+.reviewOffice1048 .summaryTile{
+  min-height:25px!important;
+  padding:2px 6px!important;
+  border-radius:6px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:5px!important;
+}
+.reviewOffice1048 .summaryTile span{font-size:8.7px!important;white-space:nowrap!important;}
+.reviewOffice1048 .summaryTile strong{font-size:14px!important;line-height:1!important;}
+.reviewOffice1048 .reviewAlert{
+  flex:0 0 auto!important;
+  min-height:27px!important;
+  margin:3px 6px 0!important;
+  padding:3px 7px!important;
+  border-radius:6px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+}
+.reviewOffice1048 .reviewAlert strong{font-size:9.8px!important;white-space:nowrap!important;}
+.reviewOffice1048 .reviewAlert span{font-size:8.8px!important;margin:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+
+/* 7) Evidence + POS dominate the screen. */
+.reviewOffice1048 .reviewSplit{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  grid-template-columns:minmax(440px,46%) minmax(500px,54%)!important;
+  gap:5px!important;
+  padding:4px 6px 6px!important;
+  overflow:hidden!important;
+  align-items:stretch!important;
+}
+.reviewOffice1048 .evidencePanel,
+.reviewOffice1048 .submissionPanel{border-radius:7px!important;min-height:0!important;height:100%!important;}
+
+/* Evidence viewer: almost the whole left pane. */
+.reviewOffice1048 .evidencePanel{
+  display:grid!important;
+  grid-template-rows:29px minmax(0,1fr) 34px 31px!important;
+  overflow:hidden!important;
+}
+.reviewOffice1048 .evidenceToolbar{height:29px!important;min-height:29px!important;padding:2px 5px!important;gap:3px!important;}
+.reviewOffice1048 .evidenceToolbar button{height:23px!important;min-width:27px!important;padding:0 5px!important;font-size:9.5px!important;border-radius:5px!important;}
+.reviewOffice1048 .evidenceToolbar span{font-size:9px!important;}
+.reviewOffice1048 .evidenceStage{
+  min-height:0!important;
+  height:auto!important;
+  max-height:none!important;
+  background:#273540!important;
+  overflow:hidden!important;
+}
+.reviewOffice1048 .evidenceStage img{width:100%!important;height:100%!important;object-fit:contain!important;}
+.reviewOffice1048 #evidenceTabsHost{min-height:34px!important;max-height:34px!important;height:34px!important;overflow:hidden!important;}
+.reviewOffice1048 .evidenceTabs{height:34px!important;padding:2px 4px!important;gap:3px!important;align-items:center!important;}
+.reviewOffice1048 .evidenceTabs button{
+  flex:0 0 88px!important;
+  min-width:88px!important;
+  max-width:88px!important;
+  min-height:27px!important;
+  height:27px!important;
+  padding:2px 5px!important;
+  border-radius:5px!important;
+  font-size:9px!important;
+}
+.reviewOffice1048 .evidenceMissing{height:34px!important;min-height:34px!important;padding:3px 6px!important;display:flex!important;align-items:center!important;gap:6px!important;}
+.reviewOffice1048 .evidenceMissing strong{font-size:9.5px!important;}
+.reviewOffice1048 .evidenceMissing span{font-size:8.5px!important;}
+
+/* Maintenance tools stay available but never steal the normal working viewport. */
+.reviewOffice1048 .reviewEvidenceManager{
+  min-height:31px!important;
+  max-height:31px!important;
+  height:31px!important;
+  padding:2px 5px!important;
+  overflow:hidden!important;
+  border-top:1px solid var(--rf-line)!important;
+}
+.reviewOffice1048 .reviewEvidenceManager.is-open{position:absolute!important;left:6px!important;right:6px!important;bottom:6px!important;z-index:20!important;height:auto!important;max-height:220px!important;overflow:auto!important;border:1px solid #cdd9e3!important;border-radius:7px!important;box-shadow:0 8px 24px rgba(32,51,71,.16)!important;}
+.reviewOffice1048 .reviewEvidenceManagerHead{min-height:26px!important;height:26px!important;margin:0!important;}
+.reviewOffice1048 .reviewEvidenceManagerHead strong{font-size:9.2px!important;}
+.reviewOffice1048 .reviewEvidenceManagerHead small{display:none!important;}
+.reviewOffice1048 .reviewEvidenceToggle,
+.reviewOffice1048 .reviewEvidenceManager button{min-height:22px!important;padding:2px 6px!important;font-size:8.8px!important;}
+
+/* The repair diagnostic is exceptional tooling, not part of ordinary review. */
+.reviewOffice1048 .evidenceDirectStatus{display:none!important;}
+
+/* 8) Right pane: identity + POS + note + final decision. */
+.reviewOffice1048 .submissionPanel{display:flex!important;flex-direction:column!important;overflow:hidden!important;}
+.reviewOffice1048 .reviewEditorBar{
+  flex:0 0 31px!important;
+  min-height:31px!important;
+  padding:3px 6px!important;
+  overflow:hidden!important;
+}
+.reviewOffice1048 .reviewEditorBar strong{font-size:9.8px!important;}
+.reviewOffice1048 .reviewEditorBar span{font-size:8.5px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+.reviewOffice1048 .reviewEditorBar button{min-height:24px!important;padding:2px 7px!important;font-size:9px!important;}
+.reviewOffice1048 .submissionFacts{
+  flex:0 0 38px!important;
+  min-height:38px!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+}
+.reviewOffice1048 .submissionFacts>div{min-height:38px!important;padding:3px 6px!important;}
+.reviewOffice1048 .submissionFacts span{font-size:8.5px!important;line-height:1!important;}
+.reviewOffice1048 .submissionFacts strong{font-size:10.7px!important;line-height:1.15!important;margin-top:2px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+.reviewOffice1048 .sectionTitle{flex:0 0 24px!important;min-height:24px!important;padding:3px 6px 2px!important;}
+.reviewOffice1048 .sectionTitle strong{font-size:9.8px!important;}
+.reviewOffice1048 .sectionTitle span{font-size:8.5px!important;}
+
+/* POS is the main reading surface on the right. */
+.reviewOffice1048 .recordTableWrap{
+  flex:1 1 auto!important;
+  min-height:150px!important;
+  max-height:none!important;
+  overflow:auto!important;
+  padding:0 5px 2px!important;
+  background:#f8fafb!important;
+}
+.reviewOffice1048 .reviewRecordTable{border-spacing:0 2px!important;font-variant-numeric:tabular-nums!important;}
+.reviewOffice1048 .reviewRecordTable thead th{
+  padding:4px 5px!important;
+  font-size:9.2px!important;
+  line-height:1.15!important;
+  background:#edf2f5!important;
+}
+.reviewOffice1048 .reviewRecordTable td{
+  padding:5px 5px!important;
+  font-size:10.5px!important;
+  line-height:1.25!important;
+}
+.reviewOffice1048 .reviewRecordTable td strong,
+.reviewOffice1048 .reviewRecordTable .recordMain{font-size:10.7px!important;font-weight:650!important;font-variant-numeric:tabular-nums!important;}
+.reviewOffice1048 .recordSub,.reviewOffice1048 .rowMessage,.reviewOffice1048 .rowNotice{font-size:8.7px!important;line-height:1.18!important;}
+.reviewOffice1048 .pill{font-size:8.7px!important;padding:2px 5px!important;}
+
+/* Note is compact by default; actions are always visible. */
+.reviewOffice1048 .reviewNote{
+  flex:0 0 60px!important;
+  min-height:60px!important;
+  max-height:60px!important;
+  padding:3px 6px!important;
+  overflow:hidden!important;
+  font-size:9px!important;
+}
+.reviewOffice1048 .reviewQuickNotes{height:23px!important;min-height:23px!important;margin:1px 0 2px!important;gap:3px!important;}
+.reviewOffice1048 .reviewQuickNotes button{height:20px!important;min-height:20px!important;padding:1px 6px!important;font-size:8.5px!important;}
+.reviewOffice1048 .reviewNote textarea{
+  height:28px!important;
+  min-height:28px!important;
+  max-height:28px!important;
+  margin-top:1px!important;
+  padding:4px 6px!important;
+  font-size:10px!important;
+  line-height:1.2!important;
+}
+.reviewOffice1048 .reviewHistoryToggle{height:20px!important;min-height:20px!important;margin:0 6px!important;font-size:8.5px!important;}
+.reviewOffice1048 .reviewHistory{max-height:105px!important;}
+.reviewOffice1048 .reviewActions{
+  flex:0 0 39px!important;
+  min-height:39px!important;
+  height:39px!important;
+  padding:4px 6px!important;
+  gap:5px!important;
+  background:#f7f9fb!important;
+}
+.reviewOffice1048 .reviewActions button{min-height:29px!important;height:29px!important;padding:0 12px!important;font-size:10px!important;border-radius:6px!important;}
+.reviewOffice1048 .actionHint{font-size:8.5px!important;line-height:1.15!important;max-width:46%!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+
+/* Quiet, readable scrollbars. */
+.reviewOffice1048 *{scrollbar-width:thin!important;scrollbar-color:#a8b8c5 #edf2f5!important;}
+.reviewOffice1048 *::-webkit-scrollbar{width:7px!important;height:7px!important;}
+.reviewOffice1048 *::-webkit-scrollbar-track{background:#edf2f5!important;}
+.reviewOffice1048 *::-webkit-scrollbar-thumb{background:#a8b8c5!important;border-radius:7px!important;border:2px solid #edf2f5!important;}
+
+/* Wide office screens: give the image slightly more room. */
+@media(min-width:1600px){
+  .reviewOffice1048 .reviewWorkspace{grid-template-columns:minmax(275px,18%) minmax(0,1fr)!important;}
+  .reviewOffice1048 .reviewSplit{grid-template-columns:minmax(500px,47%) minmax(560px,53%)!important;}
+  .reviewOffice1048 .reviewRecordTable td{font-size:10.8px!important;}
+}
+
+/* Medium office screens still keep one-screen review as long as possible. */
+@media(max-width:1280px) and (min-width:1001px){
+  .reviewOffice1048 .reviewFilters{grid-template-columns:105px 145px 145px minmax(185px,1fr) auto auto!important;}
+  .reviewOffice1048 .reviewWorkspace{grid-template-columns:235px minmax(0,1fr)!important;}
+  .reviewOffice1048 .reviewSplit{grid-template-columns:minmax(360px,44%) minmax(460px,56%)!important;}
+}
+
+/* Small screens fall back to the previous responsive behavior instead of cramming. */
+@media(max-width:1000px){
+  .reviewV103.reviewOffice1048{height:auto!important;min-height:100vh!important;overflow:auto!important;}
+  .reviewOffice1048 .reviewCommandBar{display:block!important;}
+  .reviewOffice1048 .reviewFilters{display:grid!important;grid-template-columns:1fr 1fr!important;}
+  .reviewOffice1048 .reviewLiveMeta{margin-top:3px!important;}
+  .reviewOffice1048 .reviewWorkspace{display:block!important;height:auto!important;overflow:visible!important;}
+  .reviewOffice1048 .reviewQueuePanel{height:260px!important;margin-bottom:5px!important;}
+  .reviewOffice1048 .reviewDetailPanel{height:auto!important;min-height:720px!important;overflow:visible!important;}
+  .reviewOffice1048 .reviewSplit{display:block!important;height:auto!important;overflow:visible!important;}
+  .reviewOffice1048 .evidencePanel{height:430px!important;margin-bottom:5px!important;}
+  .reviewOffice1048 .submissionPanel{height:520px!important;}
+}
