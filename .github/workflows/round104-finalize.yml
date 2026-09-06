@@ -6,9 +6,12 @@ on:
     paths:
       - "android-app/**"
       - ".gitignore"
+      - "web-admin/admin.html"
       - "web-admin/admin-spa.js"
       - "web-admin/content-page.js"
+      - "web-admin/dashboard.html"
       - "web-admin/dashboard.js"
+      - "web-admin/reports.html"
       - "web-admin/reports.js"
       - "web-admin/review.html"
       - "web-admin/review-logic.js"
@@ -92,8 +95,8 @@ jobs:
           grep -q 'review-storage-sync-round104.js' web-admin/review.html
           grep -q 'review-evidence-direct-round104.js' web-admin/review.html
           grep -q 'evidence-repair' web-admin/review-storage-sync-round104.js
-          grep -q 'สถานะ D1 ↔ R2' web-admin/storage.html
-          grep -q 'วินิจฉัยภาพที่ยังไม่เชื่อมโยง' web-admin/storage.html
+          grep -q 'สถานะข้อมูลและไฟล์ภาพ' web-admin/storage.html
+          grep -q 'ตรวจสอบภาพที่ยังไม่เชื่อมกับงาน' web-admin/storage.html
           grep -q 'storage-evidence-diagnostics-round104.js' web-admin/storage.html
           grep -q 'diagOrphanRows' web-admin/storage.html
           grep -q '/api/storage/evidence-health' web-admin/storage.js
