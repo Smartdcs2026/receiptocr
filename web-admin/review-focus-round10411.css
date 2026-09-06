@@ -1,0 +1,683 @@
+/* Round104.11 — Review Workspace Final Focus
+   Main rule: the review page is a workbench. Filters and summaries must not consume
+   the working viewport while an operator is comparing evidence with POS data. */
+:root{
+  --r11-bg:#edf2f5;
+  --r11-panel:#fbfcfd;
+  --r11-panel-soft:#f5f8fa;
+  --r11-line:#d5e0e7;
+  --r11-line-strong:#c4d2dc;
+  --r11-text:#203246;
+  --r11-muted:#687b8d;
+  --r11-blue:#356fa9;
+  --r11-blue-soft:#e9f2fb;
+  --r11-green:#2f745d;
+  --r11-green-soft:#eaf5f0;
+  --r11-amber:#8b6119;
+  --r11-amber-soft:#fbf3e2;
+  --r11-red:#9a4a47;
+  --r11-red-soft:#fbefed;
+  --r11-view:#243343;
+}
+
+.reviewV103.reviewOffice1048.reviewFocus10411{
+  height:100dvh!important;
+  min-height:0!important;
+  overflow:hidden!important;
+  background:var(--r11-bg)!important;
+  font-family:"Leelawadee UI",Tahoma,Arial,sans-serif!important;
+  color:var(--r11-text)!important;
+}
+
+/* ===== 1. One very small command line. Filters float over the page when opened. ===== */
+.reviewFocus10411 .reviewCommandBar{
+  position:relative!important;
+  z-index:30!important;
+  flex:0 0 31px!important;
+  min-height:31px!important;
+  height:31px!important;
+  padding:2px 7px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  background:#f8fafb!important;
+  border-bottom:1px solid var(--r11-line)!important;
+  overflow:visible!important;
+}
+.reviewFocus10411 .reviewFilterToggle{
+  height:25px!important;
+  min-height:25px!important;
+  padding:0 10px!important;
+  border:1px solid #bfcfdb!important;
+  border-radius:6px!important;
+  background:#fff!important;
+  color:#29465f!important;
+  font-size:11.5px!important;
+  font-weight:700!important;
+  cursor:pointer!important;
+  white-space:nowrap!important;
+}
+.reviewFocus10411 .reviewFilterToggle[aria-expanded="true"]{
+  border-color:#88acd0!important;
+  background:var(--r11-blue-soft)!important;
+  color:#245d94!important;
+}
+.reviewFocus10411 .reviewFocusHint{
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  font-size:10.5px!important;
+  color:var(--r11-muted)!important;
+}
+.reviewFocus10411 .reviewFilters{
+  display:none!important;
+  position:absolute!important;
+  top:30px!important;
+  left:7px!important;
+  z-index:80!important;
+  width:min(850px,calc(100vw - 28px))!important;
+  padding:9px!important;
+  grid-template-columns:125px 175px 175px minmax(220px,1fr) auto auto!important;
+  gap:7px!important;
+  align-items:end!important;
+  background:rgba(251,253,254,.99)!important;
+  border:1px solid var(--r11-line-strong)!important;
+  border-radius:8px!important;
+  box-shadow:0 10px 28px rgba(37,58,78,.14)!important;
+}
+.reviewFocus10411.filters-open .reviewFilters{display:grid!important;}
+.reviewFocus10411 .reviewFilters label{
+  margin:0!important;
+  font-size:10.5px!important;
+  line-height:1.15!important;
+  color:#516679!important;
+}
+.reviewFocus10411 .reviewFilters select,
+.reviewFocus10411 .reviewFilters input{
+  height:30px!important;
+  min-height:30px!important;
+  padding:3px 8px!important;
+  font-size:12px!important;
+  border:1px solid #c6d3dd!important;
+  border-radius:6px!important;
+  background:#fff!important;
+  color:var(--r11-text)!important;
+}
+.reviewFocus10411 .reviewFilters>button{
+  height:30px!important;
+  min-height:30px!important;
+  padding:0 10px!important;
+  font-size:11px!important;
+  border-radius:6px!important;
+  white-space:nowrap!important;
+}
+.reviewFocus10411 .reviewLiveMeta{
+  margin:0 0 0 auto!important;
+  align-self:center!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:4px!important;
+  font-size:9.5px!important;
+  color:#738596!important;
+  white-space:nowrap!important;
+}
+.reviewFocus10411 .reviewLiveMeta span:nth-child(2){display:none!important;}
+
+/* Queue totals are still maintained by review.js, but not allowed to consume review space. */
+.reviewFocus10411 .reviewMetrics,
+.reviewFocus10411 .reviewPeople{display:none!important;}
+
+/* ===== 2. Give almost all remaining height to the actual workbench. ===== */
+.reviewFocus10411 .reviewWorkspace{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  display:grid!important;
+  grid-template-columns:minmax(235px,19%) minmax(0,1fr)!important;
+  gap:5px!important;
+  padding:5px 6px 6px!important;
+  overflow:hidden!important;
+  background:var(--r11-bg)!important;
+}
+.reviewFocus10411 .reviewQueuePanel,
+.reviewFocus10411 .reviewDetailPanel{
+  min-height:0!important;
+  height:100%!important;
+  border:1px solid var(--r11-line)!important;
+  border-radius:7px!important;
+  background:var(--r11-panel)!important;
+  box-shadow:none!important;
+  overflow:hidden!important;
+}
+
+/* ===== 3. Queue: compact enough for many stores, readable enough for long sessions. ===== */
+.reviewFocus10411 .reviewQueuePanel{
+  display:flex!important;
+  flex-direction:column!important;
+}
+.reviewFocus10411 .reviewQueuePanel>header{
+  flex:0 0 36px!important;
+  min-height:36px!important;
+  padding:5px 8px!important;
+  display:flex!important;
+  align-items:center!important;
+  border-bottom:1px solid var(--r11-line)!important;
+  background:#f8fafb!important;
+}
+.reviewFocus10411 .reviewQueuePanel>header strong{font-size:12.5px!important;color:#213a51!important;}
+.reviewFocus10411 #reviewQueueCaption{display:none!important;}
+.reviewFocus10411 .reviewCountBox{
+  margin-left:auto!important;
+  display:flex!important;
+  align-items:baseline!important;
+  gap:3px!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+}
+.reviewFocus10411 .reviewCountBox strong{font-size:16px!important;color:#2b68a1!important;}
+.reviewFocus10411 .reviewCountBox span{font-size:9px!important;color:var(--r11-muted)!important;}
+.reviewFocus10411 .reviewQueue{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow:auto!important;
+  scrollbar-gutter:stable!important;
+}
+.reviewFocus10411 .reviewQueueItem{
+  min-height:54px!important;
+  padding:5px 6px!important;
+  gap:6px!important;
+  border-radius:0!important;
+  border:0!important;
+  border-bottom:1px solid #e5ebef!important;
+  background:#fbfcfd!important;
+}
+.reviewFocus10411 .reviewQueueItem:hover{background:#f3f7fa!important;}
+.reviewFocus10411 .reviewQueueItem.active{
+  background:#eaf3fb!important;
+  box-shadow:inset 3px 0 0 #3f7db7!important;
+}
+.reviewFocus10411 .queueBrand{
+  min-width:38px!important;
+  max-width:38px!important;
+  font-size:9.5px!important;
+  line-height:1.05!important;
+}
+.reviewFocus10411 .queueMain{min-width:0!important;}
+.reviewFocus10411 .queueMain strong{
+  display:block!important;
+  font-size:12px!important;
+  line-height:1.2!important;
+  color:#24384a!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.reviewFocus10411 .queueMain small{
+  display:block!important;
+  margin-top:1px!important;
+  font-size:9.5px!important;
+  line-height:1.15!important;
+  color:#6b7e8f!important;
+}
+.reviewFocus10411 .queueSide{min-width:64px!important;gap:2px!important;}
+.reviewFocus10411 .queueSide .statusBadge{font-size:9px!important;padding:2px 5px!important;}
+.reviewFocus10411 .queueWait{font-size:9px!important;line-height:1.1!important;}
+
+/* ===== 4. Detail shell: no dashboard feeling. ===== */
+.reviewFocus10411 .reviewDetailPanel{
+  display:flex!important;
+  flex-direction:column!important;
+  padding:0!important;
+}
+.reviewFocus10411 .reviewDetailHead{
+  flex:0 0 49px!important;
+  min-height:49px!important;
+  padding:5px 8px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  border-bottom:1px solid var(--r11-line)!important;
+  background:#fbfcfd!important;
+}
+.reviewFocus10411 .reviewDetailHead>div:first-child{min-width:0!important;flex:1 1 auto!important;}
+.reviewFocus10411 .detailBreadcrumb{
+  font-size:9.5px!important;
+  line-height:1!important;
+  color:#46749c!important;
+}
+.reviewFocus10411 .reviewDetailHead h2{
+  margin:2px 0 0!important;
+  font-size:16px!important;
+  line-height:1.05!important;
+  color:#1f3346!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.reviewFocus10411 .reviewDetailHead p{
+  margin:2px 0 0!important;
+  font-size:9.5px!important;
+  line-height:1!important;
+  color:#6b7e8e!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.reviewFocus10411 .detailNav{display:flex!important;gap:3px!important;}
+.reviewFocus10411 .detailNav button{
+  height:25px!important;
+  min-height:25px!important;
+  padding:0 8px!important;
+  font-size:9.5px!important;
+  border-radius:5px!important;
+}
+.reviewFocus10411 .reviewDetailHead .statusBadge{font-size:8.5px!important;padding:2px 5px!important;}
+.reviewFocus10411 .reviewDetailHead>div:last-child>div:last-child{margin-top:1px!important;}
+
+/* Four summary cards become a one-line information rail, not cards. */
+.reviewFocus10411 .reviewSummary{
+  flex:0 0 27px!important;
+  min-height:27px!important;
+  display:grid!important;
+  grid-template-columns:repeat(4,1fr)!important;
+  gap:0!important;
+  margin:0!important;
+  padding:0 6px!important;
+  border-bottom:1px solid var(--r11-line)!important;
+  background:#f8fafb!important;
+}
+.reviewFocus10411 .summaryTile{
+  min-height:26px!important;
+  padding:3px 8px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:5px!important;
+  border:0!important;
+  border-right:1px solid #e1e8ed!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+.reviewFocus10411 .summaryTile:last-child{border-right:0!important;}
+.reviewFocus10411 .summaryTile span{font-size:9px!important;color:#718394!important;white-space:nowrap!important;}
+.reviewFocus10411 .summaryTile strong{font-size:13px!important;line-height:1!important;color:#294b67!important;}
+.reviewFocus10411 .summaryTile.good strong{color:#2c745b!important;}
+.reviewFocus10411 .summaryTile.warn strong{color:#8a611b!important;}
+.reviewFocus10411 .summaryTile.danger strong{color:#994a47!important;}
+
+/* Alert becomes a thin status line. */
+.reviewFocus10411 .reviewAlert{
+  flex:0 0 27px!important;
+  min-height:27px!important;
+  margin:0!important;
+  padding:4px 8px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  border:0!important;
+  border-bottom:1px solid var(--r11-line)!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+.reviewFocus10411 .reviewAlert strong{font-size:10.5px!important;white-space:nowrap!important;}
+.reviewFocus10411 .reviewAlert span{
+  min-width:0!important;
+  font-size:9.5px!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.reviewFocus10411 .reviewAlert.good{background:var(--r11-green-soft)!important;color:#2c6654!important;}
+.reviewFocus10411 .reviewAlert.warn{background:var(--r11-amber-soft)!important;color:#79551d!important;}
+.reviewFocus10411 .reviewAlert.danger{background:var(--r11-red-soft)!important;color:#8e4542!important;}
+
+/* ===== 5. Actual inspection area. Overall target: queue 19%, image ~46%, POS ~35%. ===== */
+.reviewFocus10411 .reviewSplit{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,57%) minmax(0,43%)!important;
+  gap:5px!important;
+  padding:5px!important;
+  overflow:hidden!important;
+  background:var(--r11-bg)!important;
+}
+.reviewFocus10411 .evidencePanel,
+.reviewFocus10411 .submissionPanel{
+  min-height:0!important;
+  height:100%!important;
+  border:1px solid var(--r11-line)!important;
+  border-radius:6px!important;
+  background:var(--r11-panel)!important;
+  box-shadow:none!important;
+  overflow:hidden!important;
+}
+
+/* Evidence takes all vertical room; controls never push the image down. */
+.reviewFocus10411 .evidencePanel{
+  display:flex!important;
+  flex-direction:column!important;
+}
+.reviewFocus10411 .evidenceToolbar{
+  flex:0 0 30px!important;
+  min-height:30px!important;
+  padding:2px 6px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:3px!important;
+  border-bottom:1px solid var(--r11-line)!important;
+  background:#f8fafb!important;
+}
+.reviewFocus10411 .evidenceToolbar button{
+  height:24px!important;
+  min-height:24px!important;
+  padding:0 7px!important;
+  font-size:10px!important;
+  border-radius:5px!important;
+}
+.reviewFocus10411 #zoomLabel{min-width:34px!important;font-size:10px!important;text-align:center!important;color:#64788a!important;}
+.reviewFocus10411 .evidenceStage{
+  flex:1 1 0!important;
+  min-height:0!important;
+  height:auto!important;
+  overflow:hidden!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  background:var(--r11-view)!important;
+}
+.reviewFocus10411 .evidenceStage img{
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:contain!important;
+  transform-origin:center center!important;
+}
+.reviewFocus10411 #evidenceTabsHost{
+  flex:0 0 36px!important;
+  min-height:36px!important;
+  overflow:hidden!important;
+  border-top:1px solid var(--r11-line)!important;
+  background:#f9fbfc!important;
+}
+.reviewFocus10411 .evidenceTabs{
+  height:35px!important;
+  padding:3px 4px!important;
+  display:flex!important;
+  gap:4px!important;
+  align-items:center!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  white-space:nowrap!important;
+}
+.reviewFocus10411 .evidenceTabs button{
+  flex:0 0 auto!important;
+  height:27px!important;
+  padding:0 10px!important;
+  font-size:10.5px!important;
+  border-radius:5px!important;
+}
+.reviewFocus10411 .evidenceMissing{
+  height:35px!important;
+  padding:3px 8px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+}
+.reviewFocus10411 .evidenceMissing strong{font-size:10.5px!important;}
+.reviewFocus10411 .evidenceMissing span{font-size:9px!important;}
+
+/* Evidence management is a drawer, not a permanent inspection block. */
+.reviewFocus10411 .reviewEvidenceManager{
+  flex:0 0 33px!important;
+  min-height:33px!important;
+  max-height:33px!important;
+  overflow:hidden!important;
+  margin:0!important;
+  border-top:1px solid var(--r11-line)!important;
+  background:#f8fafb!important;
+  transition:max-height .16s ease!important;
+}
+.reviewFocus10411 .reviewEvidenceManager.is-open{
+  flex:0 0 auto!important;
+  max-height:210px!important;
+  overflow:auto!important;
+}
+.reviewFocus10411 .reviewEvidenceManagerHead{
+  min-height:32px!important;
+  padding:3px 6px!important;
+  display:flex!important;
+  align-items:center!important;
+}
+.reviewFocus10411 .reviewEvidenceManagerHead>div:first-child{display:none!important;}
+.reviewFocus10411 .reviewEvidenceManagerHead button{
+  height:25px!important;
+  min-height:25px!important;
+  padding:0 8px!important;
+  font-size:10px!important;
+}
+.reviewFocus10411 .reviewEvidenceManager:not(.is-open) .reviewEvidenceManagerHead button:not(.reviewEvidenceToggle){display:none!important;}
+.reviewFocus10411 .reviewEvidenceSummary,
+.reviewFocus10411 .reviewEvidenceStatus,
+.reviewFocus10411 .reviewEvidenceRepairBox{font-size:10px!important;}
+
+/* ===== 6. POS side is a fixed work column. ===== */
+.reviewFocus10411 .submissionPanel{
+  display:flex!important;
+  flex-direction:column!important;
+  padding:0!important;
+}
+.reviewFocus10411 .submissionFacts{
+  flex:0 0 42px!important;
+  min-height:42px!important;
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:0!important;
+  padding:0 5px!important;
+  border-bottom:1px solid var(--r11-line)!important;
+  background:#fbfcfd!important;
+}
+.reviewFocus10411 .submissionFacts>div{
+  min-width:0!important;
+  padding:5px 7px!important;
+  border:0!important;
+  border-right:1px solid #e4eaee!important;
+  border-radius:0!important;
+  background:transparent!important;
+}
+.reviewFocus10411 .submissionFacts>div:last-child{border-right:0!important;}
+.reviewFocus10411 .submissionFacts span{display:block!important;font-size:8.5px!important;line-height:1!important;color:#718394!important;}
+.reviewFocus10411 .submissionFacts strong{
+  display:block!important;
+  margin-top:3px!important;
+  font-size:11px!important;
+  line-height:1.05!important;
+  color:#213a50!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.reviewFocus10411 .submissionPanel>.sectionTitle{
+  flex:0 0 25px!important;
+  min-height:25px!important;
+  margin:0!important;
+  padding:4px 7px!important;
+  border-bottom:1px solid var(--r11-line)!important;
+  background:#f7f9fb!important;
+}
+.reviewFocus10411 .submissionPanel>.sectionTitle strong{font-size:10.5px!important;}
+.reviewFocus10411 .submissionPanel>.sectionTitle span{font-size:8.5px!important;color:#758697!important;}
+.reviewFocus10411 .recordTableWrap{
+  flex:1 1 auto!important;
+  min-height:105px!important;
+  max-height:none!important;
+  margin:0!important;
+  overflow:auto!important;
+  border:0!important;
+  border-radius:0!important;
+  scrollbar-gutter:stable!important;
+}
+.reviewFocus10411 .reviewRecordTable{
+  width:100%!important;
+  table-layout:fixed!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+}
+.reviewFocus10411 .reviewRecordTable thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:3!important;
+  height:27px!important;
+  padding:4px 6px!important;
+  background:#eef3f6!important;
+  border-bottom:1px solid #ccd8e0!important;
+  color:#52687b!important;
+  font-size:9.5px!important;
+  font-weight:700!important;
+}
+.reviewFocus10411 .reviewRecordTable tbody td{
+  padding:7px 6px!important;
+  font-size:11.5px!important;
+  line-height:1.25!important;
+  border-bottom:1px solid #e4eaee!important;
+  color:#263b4d!important;
+  font-variant-numeric:tabular-nums!important;
+}
+.reviewFocus10411 .reviewRecordTable tbody tr:nth-child(odd){background:#fbfcfd!important;}
+.reviewFocus10411 .reviewRecordTable tbody tr:nth-child(even){background:#f5f8fa!important;}
+.reviewFocus10411 .reviewRecordTable tbody tr.officePosFocus{background:#e8f2fb!important;box-shadow:inset 3px 0 0 #3d78ae!important;}
+.reviewFocus10411 .reviewRecordTable .recordMain{font-size:11.5px!important;font-weight:700!important;}
+.reviewFocus10411 .reviewRecordTable .recordSub{font-size:8.5px!important;color:#718394!important;}
+.reviewFocus10411 .reviewRecordTable .pill{font-size:9px!important;padding:2px 6px!important;border-radius:9px!important;}
+.reviewFocus10411 .reviewRecordTable .rowMessage,
+.reviewFocus10411 .reviewRecordTable .rowNotice{font-size:8.5px!important;line-height:1.15!important;}
+
+/* History remains closed until explicitly requested. */
+.reviewFocus10411 .reviewHistory,
+.reviewFocus10411 .submissionPanel>.sectionTitle:has(+ .reviewHistory){display:none!important;}
+.reviewFocus10411.showReviewHistory .reviewHistory{display:block!important;flex:0 0 auto!important;max-height:120px!important;overflow:auto!important;}
+.reviewFocus10411 .reviewHistoryToggle{
+  flex:0 0 24px!important;
+  min-height:24px!important;
+  margin:2px 6px 0!important;
+  padding:0 7px!important;
+  align-self:flex-start!important;
+  font-size:9px!important;
+}
+
+/* Notes use only the space they need. */
+.reviewFocus10411 .reviewNote{
+  flex:0 0 auto!important;
+  margin:0!important;
+  padding:4px 6px 3px!important;
+  border-top:1px solid var(--r11-line)!important;
+  background:#fbfcfd!important;
+  font-size:9.5px!important;
+  color:#64788a!important;
+}
+.reviewFocus10411 .reviewQuickNotes{
+  margin:0 0 3px!important;
+  display:flex!important;
+  gap:3px!important;
+  flex-wrap:nowrap!important;
+  overflow-x:auto!important;
+}
+.reviewFocus10411 .reviewQuickNotes button{
+  flex:0 0 auto!important;
+  height:22px!important;
+  min-height:22px!important;
+  padding:0 6px!important;
+  font-size:8.5px!important;
+  border-radius:10px!important;
+}
+.reviewFocus10411 #reviewNote{
+  min-height:34px!important;
+  height:34px!important;
+  max-height:76px!important;
+  padding:5px 7px!important;
+  resize:vertical!important;
+  font-size:11px!important;
+  line-height:1.25!important;
+  border-radius:5px!important;
+}
+
+/* Decision bar never leaves the operator's view. */
+.reviewFocus10411 .reviewActions{
+  flex:0 0 43px!important;
+  min-height:43px!important;
+  margin:0!important;
+  padding:5px 6px!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto auto!important;
+  align-items:center!important;
+  gap:5px!important;
+  border-top:1px solid var(--r11-line-strong)!important;
+  background:#f7f9fb!important;
+}
+.reviewFocus10411 .actionHint{
+  min-width:0!important;
+  font-size:9px!important;
+  color:#66798b!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.reviewFocus10411 .reviewActions button{
+  height:31px!important;
+  min-height:31px!important;
+  min-width:110px!important;
+  padding:0 13px!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  border-radius:6px!important;
+}
+.reviewFocus10411 #approveSubmission{background:#356fa9!important;border-color:#356fa9!important;color:#fff!important;}
+.reviewFocus10411 #approveSubmission:disabled{background:#a8bac8!important;border-color:#a8bac8!important;color:#f7f9fb!important;}
+.reviewFocus10411 #returnSubmission{background:#fff8f7!important;border-color:#e3aaa6!important;color:#984946!important;}
+
+/* Admin editor enhancement stays compact. */
+.reviewFocus10411 .reviewEditorBanner{
+  flex:0 0 34px!important;
+  min-height:34px!important;
+  padding:3px 6px!important;
+  border-radius:0!important;
+  border-left:0!important;
+  border-right:0!important;
+}
+.reviewFocus10411 .reviewEditorBanner strong{font-size:10.5px!important;}
+.reviewFocus10411 .reviewEditorBanner span{font-size:8.5px!important;}
+.reviewFocus10411 .reviewEditorBanner button{height:26px!important;min-height:26px!important;font-size:9.5px!important;}
+
+/* Scrollbars: visible enough to discover, quiet enough for detailed inspection. */
+.reviewFocus10411 .reviewQueue,
+.reviewFocus10411 .recordTableWrap,
+.reviewFocus10411 .evidenceTabs,
+.reviewFocus10411 .reviewQuickNotes{scrollbar-width:thin!important;scrollbar-color:#aebdca transparent!important;}
+.reviewFocus10411 .reviewQueue::-webkit-scrollbar,
+.reviewFocus10411 .recordTableWrap::-webkit-scrollbar,
+.reviewFocus10411 .evidenceTabs::-webkit-scrollbar,
+.reviewFocus10411 .reviewQuickNotes::-webkit-scrollbar{width:7px!important;height:7px!important;}
+.reviewFocus10411 .reviewQueue::-webkit-scrollbar-thumb,
+.reviewFocus10411 .recordTableWrap::-webkit-scrollbar-thumb,
+.reviewFocus10411 .evidenceTabs::-webkit-scrollbar-thumb,
+.reviewFocus10411 .reviewQuickNotes::-webkit-scrollbar-thumb{background:#afbeca!important;border-radius:7px!important;}
+
+/* 1366px office screens: preserve readability; sacrifice a little image width, not font size. */
+@media(max-width:1450px){
+  .reviewFocus10411 .reviewWorkspace{grid-template-columns:minmax(210px,20%) minmax(0,1fr)!important;}
+  .reviewFocus10411 .reviewSplit{grid-template-columns:minmax(0,54%) minmax(0,46%)!important;}
+  .reviewFocus10411 .reviewFilters{grid-template-columns:115px 150px 150px minmax(190px,1fr) auto auto!important;}
+  .reviewFocus10411 .queueMain strong{font-size:11.5px!important;}
+}
+
+/* Narrower screens fall back gracefully without changing desktop priorities. */
+@media(max-width:1080px){
+  .reviewFocus10411 .reviewWorkspace{grid-template-columns:230px minmax(0,1fr)!important;}
+  .reviewFocus10411 .reviewSplit{grid-template-columns:1fr!important;overflow:auto!important;}
+  .reviewFocus10411 .evidencePanel{min-height:420px!important;}
+  .reviewFocus10411 .submissionPanel{min-height:430px!important;}
+  .reviewFocus10411 .reviewFilters{grid-template-columns:1fr 1fr!important;width:min(620px,calc(100vw - 24px))!important;}
+}
