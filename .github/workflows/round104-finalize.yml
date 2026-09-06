@@ -23,6 +23,8 @@ on:
       - "web-admin/review-round104.css"
       - "web-admin/review-editor-round104.css"
       - "web-admin/review-evidence-direct-round104.css"
+      - "web-admin/review-queue-integrated-round10413.css"
+      - "web-admin/review-queue-integrated-round10413.js"
       - "web-admin/storage.html"
       - "web-admin/storage.js"
       - "web-admin/storage-evidence-diagnostics-round104.js"
@@ -85,9 +87,12 @@ jobs:
           node --check web-admin/review-editor-round104.js
           node --check web-admin/review-storage-sync-round104.js
           node --check web-admin/review-evidence-direct-round104.js
+          node --check web-admin/review-queue-integrated-round10413.js
           node --check web-admin/storage.js
           node --check web-admin/storage-evidence-diagnostics-round104.js
-          grep -q 'VERSION="104120"' web-admin/admin-spa.js
+          grep -q 'VERSION="104130"' web-admin/admin-spa.js
+          grep -q 'review-queue-integrated-round10413.css' web-admin/review.html
+          grep -q 'review-queue-integrated-round10413.js' web-admin/review.html
           grep -q 'summary=1' web-admin/admin-spa.js
           grep -q '/api/admin/office-summary' web-admin/dashboard.js
           grep -q 'dateFrom=' web-admin/reports.js
