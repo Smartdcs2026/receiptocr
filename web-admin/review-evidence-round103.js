@@ -1,8 +1,9 @@
-/* Round103: bridge private R2 evidence returned by the Worker into the review workspace. */
+/* Round104.6: apply the evidence guard once after a review detail is loaded. No page-wide observers. */
 (()=>{
   if(!window.AdminAuth)return;
   const detailById=new Map();
   const originalJson=AdminAuth.json.bind(AdminAuth);
+  let applyQueued=false;
 
   function normalizeEvidence(data){
     const items=Array.isArray(data?.evidence)?data.evidence:[];
@@ -11,12 +12,22 @@
     return data;
   }
 
+  function scheduleGuard(){
+    if(applyQueued)return;
+    applyQueued=true;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      applyQueued=false;
+      applyEvidenceGuard();
+    }));
+  }
+
   AdminAuth.json=async function(path,options){
     const data=await originalJson(path,options);
     const match=String(path||'').match(/^\/api\/admin\/submissions\/(\d+)$/);
     if(match&&(!options||String(options.method||'GET').toUpperCase()==='GET')){
       normalizeEvidence(data);
       detailById.set(Number(match[1]),data);
+      scheduleGuard();
     }
     return data;
   };
@@ -40,7 +51,7 @@
 
     const approve=document.getElementById('approveSubmission');
     if(approve&&missing.length){
-      approve.disabled=true;
+      if(!approve.disabled)approve.disabled=true;
       approve.dataset.evidenceBlocked='1';
       approve.title=`ยังผ่านไม่ได้: ${missing.join(' และ ')}`;
     }
@@ -57,16 +68,12 @@
 
     if(id!==lastSelected){
       lastSelected=id;
-      requestAnimationFrame(()=>{
-        const panel=document.querySelector('.submissionPanel');
-        const detail=document.querySelector('.reviewDetailPanel');
-        if(panel)panel.scrollTop=0;
-        if(detail)detail.scrollTop=0;
-      });
+      const panel=document.querySelector('.submissionPanel');
+      const detail=document.querySelector('.reviewDetailPanel');
+      if(panel)panel.scrollTop=0;
+      if(detail)detail.scrollTop=0;
     }
   }
 
-  const observer=new MutationObserver(()=>applyEvidenceGuard());
-  observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','disabled']});
-  window.addEventListener('load',applyEvidenceGuard);
+  window.addEventListener('load',scheduleGuard,{once:true});
 })();
