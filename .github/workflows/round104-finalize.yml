@@ -5,17 +5,22 @@ on:
     branches: ["round104-production-evidence-runtime"]
     paths:
       - "android-app/**"
+      - ".gitignore"
       - "web-admin/review.html"
       - "web-admin/review-logic.js"
       - "web-admin/review-runtime-round104.js"
       - "web-admin/review-editor-round104.js"
+      - "web-admin/review-storage-sync-round104.js"
       - "web-admin/review-round104.css"
       - "web-admin/review-editor-round104.css"
+      - "web-admin/storage.html"
+      - "web-admin/storage.js"
       - "tests/review-logic.test.js"
       - "tools/round104_worker_runtime_patch.py"
       - "tools/round104_review_editor_patch.py"
       - "tools/round104_review_editor_preserve_pos_patch.py"
       - "tools/round104_evidence_finalize_patch.py"
+      - "tools/round104_2_worker_storage_patch.py"
       - "cloudflare/migrations/round103_submission_evidence.sql"
       - ".github/workflows/round104-finalize.yml"
   workflow_dispatch:
@@ -36,57 +41,56 @@ jobs:
       - name: Verify Round103 baseline
         run: git merge-base --is-ancestor ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 HEAD
 
-      - name: Verify Round104 Android hotfix version
+      - name: Verify Round104.2 Android version and direct evidence upload
         run: |
-          grep -q 'versionCode = 107' android-app/app/build.gradle.kts
-          grep -q 'versionName = "0.104.1"' android-app/app/build.gradle.kts
+          grep -q 'versionCode = 108' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.2"' android-app/app/build.gradle.kts
+          grep -q 'X-Evidence-Kind' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+          grep -q 'X-Evidence-Slot' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+          grep -q 'setFixedLengthStreamingMode' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
+          grep -q 'Server ยังไม่ยืนยันการบันทึก' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
 
-      - name: Protect Round103 OCR baseline and verify evidence finalize flow
+      - name: Protect Round103 OCR baseline and evidence finalize flow
         run: |
           git diff --exit-code ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 -- android-app/app/src/main/java/com/receiptocr/app/ocr
           grep -q 'syncEvidenceForLatestSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
-          grep -q 'api/app/submissions/.*/evidence' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'finalizeSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'api/app/submissions/.*/finalize' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'EVIDENCE_PENDING_STATUS' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
 
-      - name: Review queue readiness tests
+      - name: Review and Storage UI checks
         run: |
           node tests/review-logic.test.js
           node --check web-admin/review-logic.js
           node --check web-admin/review-runtime-round104.js
           node --check web-admin/review-editor-round104.js
-          grep -q 'งานใหม่พร้อมตรวจ' web-admin/review.html
-          grep -q 'review-runtime-round104.js' web-admin/review.html
-          grep -q 'review-editor-round104.js' web-admin/review.html
-          grep -q 'review-round104.css' web-admin/review.html
-          grep -q 'review-editor-round104.css' web-admin/review.html
+          node --check web-admin/review-storage-sync-round104.js
+          node --check web-admin/storage.js
+          grep -q 'review-storage-sync-round104.js' web-admin/review.html
+          grep -q 'evidence-repair' web-admin/review-storage-sync-round104.js
+          grep -q 'สถานะ D1 ↔ R2' web-admin/storage.html
+          grep -q 'cleanupPreviewBtn' web-admin/storage.html
+          grep -q '/api/storage/evidence-health' web-admin/storage.js
+          grep -q '/api/storage/evidence-reconcile' web-admin/storage.js
+          grep -q '/api/storage/cleanup-execute' web-admin/storage.js
           grep -q 'แก้ไขข้อมูลร้าน / POS' web-admin/review-editor-round104.js
           grep -q 'data-add-evidence' web-admin/review-editor-round104.js
           grep -q 'data-delete-evidence' web-admin/review-editor-round104.js
-          grep -q 'transitionedReadyIds' web-admin/review-logic.js
-          grep -q 'waitingEvidenceCount' web-admin/review-logic.js
 
-      - name: Verify Worker production evidence reviewer editor and finalization patches
+      - name: Verify Worker coordinator patch
         run: |
           python -m py_compile tools/round104_worker_runtime_patch.py
           python -m py_compile tools/round104_review_editor_patch.py
           python -m py_compile tools/round104_review_editor_preserve_pos_patch.py
           python -m py_compile tools/round104_evidence_finalize_patch.py
-          grep -q 'receipt_evidence_count' tools/round104_worker_runtime_patch.py
-          grep -q 'store_evidence_count' tools/round104_worker_runtime_patch.py
-          grep -q 'bill_required_count' tools/round104_worker_runtime_patch.py
-          grep -q 'SUBMISSION_EVIDENCE_LOCKED' tools/round104_worker_runtime_patch.py
-          grep -q 'SUBMISSION_DATA_EDIT' tools/round104_review_editor_patch.py
-          grep -q 'SUBMISSION_EVIDENCE_UPLOAD' tools/round104_review_editor_patch.py
-          grep -q 'SUBMISSION_EVIDENCE_DELETE' tools/round104_review_editor_patch.py
-          grep -q 'EVIDENCE_REQUIRED' tools/round104_review_editor_patch.py
-          grep -q 'reviewEditor: true' tools/round104_review_editor_patch.py
-          grep -q 'UPDATE field_submission_pos SET customer_no' tools/round104_review_editor_preserve_pos_patch.py
-          grep -q 'beforeByPos' tools/round104_review_editor_preserve_pos_patch.py
-          grep -q 'EVIDENCE_PENDING' tools/round104_evidence_finalize_patch.py
-          grep -q 'appFinalizeMatch' tools/round104_evidence_finalize_patch.py
-          grep -q 'evidenceFinalize: true' tools/round104_evidence_finalize_patch.py
+          python -m py_compile tools/round104_2_worker_storage_patch.py
+          grep -q 'directBinaryEvidence: true' tools/round104_2_worker_storage_patch.py
+          grep -q 'saveEvidenceCoordinated' tools/round104_2_worker_storage_patch.py
+          grep -q 'repairSubmissionEvidence' tools/round104_2_worker_storage_patch.py
+          grep -q 'api/storage/evidence-health' tools/round104_2_worker_storage_patch.py
+          grep -q 'api/storage/evidence-reconcile' tools/round104_2_worker_storage_patch.py
+          grep -q 'api/storage/cleanup-execute' tools/round104_2_worker_storage_patch.py
+          grep -q 'R2_DELETE_FAILED' tools/round104_2_worker_storage_patch.py
           grep -q 'field_submission_evidence' cloudflare/migrations/round103_submission_evidence.sql
 
       - name: Set up JDK 17
@@ -113,10 +117,10 @@ jobs:
         working-directory: android-app
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload Round104 hotfix debug APK
+      - name: Upload Round104.2 debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: ReceiptOCR-Round104-hotfix-debug
+          name: ReceiptOCR-Round104-2-debug
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
           if-no-files-found: error
