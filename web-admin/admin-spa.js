@@ -1,6 +1,6 @@
 (async()=>{
   if(!await AdminAuth.guard()) return;
-  const VERSION="78",allRoles=["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"];
+  const VERSION="1046",allRoles=["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"];
   const routes={
     home:{title:"ภาพรวมการปฏิบัติงาน",sub:"สถานะงาน การตรวจสอบ และรายการที่ต้องดำเนินการ",url:"dashboard.html",roles:allRoles,group:"งานประจำวัน",icon:"grid"},
     review:{title:"ศูนย์ตรวจสอบงาน",sub:"ตรวจภาพบิล ภาพร้าน และข้อมูลยอดลูกค้าราย POS",url:"review.html",roles:allRoles,group:"งานประจำวัน",icon:"check"},
@@ -11,7 +11,7 @@
     brands:{title:"ร้านและแบรนด์",sub:"จัดการแบรนด์ โลโก้ และข้อมูลอ้างอิงของร้าน",url:"brands.html",roles:["ADMIN"],group:"ข้อมูลหลัก",icon:"store"},
     ocr:{title:"รูปแบบการอ่านบิล",sub:"กำหนดและทดสอบเงื่อนไข OCR แยกตามแบรนด์",url:"index.html",roles:["ADMIN"],group:"ข้อมูลหลัก",icon:"scan"},
     users:{title:"ผู้ใช้และสิทธิ์",sub:"จัดการผู้ปฏิบัติงาน หัวหน้างาน และผู้ดูแลระบบ",url:"users.html",roles:["ADMIN"],group:"ระบบ",icon:"users"},
-    storage:{title:"ไฟล์และพื้นที่ R2",sub:"ตรวจสอบ จัดเก็บ และบริหารไฟล์หลักฐาน",url:"storage.html",roles:["ADMIN"],group:"ระบบ",icon:"cloud"},
+    storage:{title:"ไฟล์และพื้นที่จัดเก็บ",sub:"ตรวจสอบ จัดเก็บ และบริหารไฟล์หลักฐาน",url:"storage.html",roles:["ADMIN"],group:"ระบบ",icon:"cloud"},
     settings:{title:"ตัวเลือกและการตั้งค่า",sub:"จัดการรายการหมายเหตุและค่าที่ใช้ร่วมกัน",url:"settings.html",roles:["ADMIN"],group:"ระบบ",icon:"settings"},
     audit:{title:"ประวัติระบบ",sub:"ตรวจสอบผู้ดำเนินการ เวลา และเหตุผลของการเปลี่ยนแปลง",url:"audit.html",roles:["ADMIN"],group:"ระบบ",icon:"history"}
   };
@@ -22,7 +22,7 @@
   const entries=Object.entries(routes).filter(([,r])=>r.roles.includes(role)),groups=[...new Set(entries.map(([,r])=>r.group))];
   const roleLabel={ADMIN:"ผู้ดูแลระบบ",SUPERVISOR:"หัวหน้างาน",DEPARTMENT_HEAD:"หัวหน้าฝ่าย"}[role]||"ผู้ใช้งาน";
   root.innerHTML=`<div class="officeShell" id="officeShell"><aside class="officeSidebar"><div class="officeBrand"><div class="officeLogo">RO</div><div class="officeBrandText"><strong>ReceiptOCR</strong><span>ระบบจัดการงาน</span></div><button id="collapseNav" class="navCollapse" aria-label="ย่อเมนู">‹</button></div><nav class="officeNav" id="spaNav">${groups.map(g=>`<section><div class="navGroupLabel">${g}</div>${entries.filter(([,r])=>r.group===g).map(([key,r])=>`<a href="#${key}" data-route="${key}" title="${r.title}"><span class="navIcon">${icon(r.icon)}</span><span class="navText">${r.title}</span>${key==="review"?'<span class="navCount" id="reviewNavCount" hidden>0</span>':''}</a>`).join("")}</section>`).join("")}</nav><div class="officeSystem"><span class="onlineDot"></span><div><strong>ระบบพร้อมใช้งาน</strong><small>การเชื่อมต่อปกติ</small></div></div></aside><section class="officeMain"><header class="officeHeader"><button id="mobileMenu" class="mobileMenuBtn" aria-label="เปิดเมนู">☰</button><div class="officePageTitle"><div class="officeBreadcrumb">ReceiptOCR / <span id="spaCrumb"></span></div><h1 id="spaTitle"></h1><p id="spaSub"></p></div><div class="officeHeaderActions"><span class="rolePill">${roleLabel}</span><div class="officeUser"><strong>${esc(u.fullName||u.username||"ผู้ใช้งาน")}</strong><span>${esc(u.username||"")}</span></div><button id="spaLogout" class="officeLogout">ออกจากระบบ</button></div></header><div class="spaProgress" id="spaProgress"></div><main class="officeWorkspace"><div class="spaFrameWrap"><iframe id="frameA" class="spaFrame active" title="พื้นที่ทำงาน"></iframe><iframe id="frameB" class="spaFrame" title="พื้นที่ทำงาน"></iframe></div></main></section><button id="navBackdrop" class="navBackdrop" aria-label="ปิดเมนู"></button></div>`;
-  const shell=document.getElementById("officeShell"),frames=[document.getElementById("frameA"),document.getElementById("frameB")],progress=document.getElementById("spaProgress"),navHost=document.getElementById("spaNav");let activeIndex=0,currentRoute="",serial=0;
+  const shell=document.getElementById("officeShell"),frames=[document.getElementById("frameA"),document.getElementById("frameB")],progress=document.getElementById("spaProgress"),navHost=document.getElementById("spaNav");let activeIndex=0,currentRoute="",serial=0;const frameRoutes=["",""];
   if(localStorage.getItem("receiptocr_nav_compact")==="1")shell.classList.add("navCompact");
   const firstRoute=()=>entries[0]?.[0]||"home";
   function keyFromHash(){const key=(location.hash||`#${firstRoute()}`).slice(1).split("?")[0];return routes[key]?.roles.includes(role)?key:firstRoute()}
@@ -34,15 +34,36 @@
     try{
       const doc=frame.contentDocument;
       if(!doc)return;
-      if(!doc.getElementById("round78OcrCss")){
-        const link=doc.createElement("link");link.id="round78OcrCss";link.rel="stylesheet";link.href=`ocr-admin-ux.css?v=${VERSION}`;doc.head.appendChild(link);
-      }
-      if(!doc.getElementById("round78OcrJs")){
-        const script=doc.createElement("script");script.id="round78OcrJs";script.src=`ocr-admin-ux.js?v=${VERSION}`;doc.body.appendChild(script);
-      }
-    }catch(_){/* same-origin iframe expected; base page still works if enhancement cannot load */}
+      if(!doc.getElementById("round78OcrCss")){const link=doc.createElement("link");link.id="round78OcrCss";link.rel="stylesheet";link.href=`ocr-admin-ux.css?v=${VERSION}`;doc.head.appendChild(link);}
+      if(!doc.getElementById("round78OcrJs")){const script=doc.createElement("script");script.id="round78OcrJs";script.src=`ocr-admin-ux.js?v=${VERSION}`;doc.body.appendChild(script);}
+    }catch(_){/* หน้าเดิมยังใช้งานได้หากส่วนเสริมโหลดไม่ได้ */}
   }
-  function navigate(force=false){const key=keyFromHash();if((location.hash||"").slice(1).split("?")[0]!==key)history.replaceState(null,"",`#${key}`);setHeader(key);closeMobile();if(!force&&key===currentRoute)return;const n=++serial,nextIndex=1-activeIndex,next=frames[nextIndex];progress.classList.add("show");next.onload=()=>{if(n!==serial)return;installRouteEnhancements(next,key);next.classList.add("active");frames[activeIndex].classList.remove("active");activeIndex=nextIndex;currentRoute=key;progress.classList.remove("show")};next.src=routeUrl(routes[key])}
-  async function refreshReviewCount(){const badge=document.getElementById("reviewNavCount");if(!badge)return;try{const d=await AdminAuth.json("/api/admin/submissions?status=SUBMITTED"),n=(d.items||[]).length;badge.textContent=n;badge.hidden=!n}catch{badge.hidden=true}}
+  function activateFrame(index,key){
+    frames[index].classList.add("active");frames[1-index].classList.remove("active");
+    activeIndex=index;currentRoute=key;progress.classList.remove("show");
+  }
+  function navigate(force=false){
+    const key=keyFromHash();
+    if((location.hash||"").slice(1).split("?")[0]!==key)history.replaceState(null,"",`#${key}`);
+    setHeader(key);closeMobile();
+    if(!force&&key===currentRoute)return;
+
+    const readyIndex=frameRoutes.findIndex((route,index)=>route===key&&frames[index].src);
+    if(readyIndex>=0){activateFrame(readyIndex,key);return;}
+
+    const n=++serial,nextIndex=1-activeIndex,next=frames[nextIndex];
+    progress.classList.add("show");
+    next.onload=()=>{
+      if(n!==serial)return;
+      frameRoutes[nextIndex]=key;
+      installRouteEnhancements(next,key);
+      activateFrame(nextIndex,key);
+    };
+    next.src=routeUrl(routes[key]);
+  }
+  async function refreshReviewCount(){
+    const badge=document.getElementById("reviewNavCount");if(!badge)return;
+    try{const d=await AdminAuth.json("/api/admin/submissions?status=SUBMITTED&summary=1"),n=Number(d.count||0);badge.textContent=n;badge.hidden=!n}catch{badge.hidden=true}
+  }
   window.addEventListener("hashchange",()=>navigate());document.getElementById("spaLogout").onclick=AdminAuth.logout;document.getElementById("collapseNav").onclick=()=>{shell.classList.toggle("navCompact");localStorage.setItem("receiptocr_nav_compact",shell.classList.contains("navCompact")?"1":"0")};document.getElementById("mobileMenu").onclick=()=>shell.classList.add("mobileNavOpen");document.getElementById("navBackdrop").onclick=closeMobile;navigate(true);refreshReviewCount();setInterval(refreshReviewCount,60000);
 })();
