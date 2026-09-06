@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>ReceiptOCR Admin - R2 Storage</title>
+  <title>ReceiptOCR Admin - R2 / D1 Storage</title>
   <link rel="stylesheet" href="styles.css?v=65">
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
 <div class="storagePage">
@@ -14,8 +14,29 @@
   <section class="panel">
     <div class="sectionHead">
       <div>
+        <h2>สถานะ D1 ↔ R2</h2>
+        <div class="small">D1 เก็บดัชนีและ object key ส่วน R2 เก็บไฟล์จริง ระบบสามารถตรวจและซ่อมความเชื่อมโยงได้โดยไม่ใช้ลิงก์สาธารณะ</div>
+      </div>
+      <div class="toolbar" style="margin:0">
+        <button id="syncHealthBtn" class="ghost">ตรวจสถานะ</button>
+        <button id="syncEvidenceBtn" class="secondary">ตรวจและซ่อมภาพทั้งหมด</button>
+      </div>
+    </div>
+    <div class="metricGrid">
+      <div class="metric"><div id="evidenceRowsValue" class="value">-</div><div class="label">รายการภาพใน D1</div></div>
+      <div class="metric"><div id="trackedProductionValue" class="value">-</div><div class="label">ไฟล์งานจริงที่ D1 ติดตาม</div></div>
+      <div class="metric"><div id="pendingSubmissionValue" class="value">-</div><div class="label">งานที่ยังส่งภาพไม่ครบ</div></div>
+      <div class="metric"><div id="brokenEvidenceValue" class="value">-</div><div class="label">ดัชนีภาพที่หาไฟล์ใน R2 ไม่เจอ*</div></div>
+    </div>
+    <div id="syncNotice" class="notice ok" style="margin-top:10px">ยังไม่ได้ตรวจสถานะ D1 ↔ R2</div>
+    <div class="small">* ตรวจตัวอย่างรายการภาพล่าสุดสูงสุด 100 รายการต่อครั้ง</div>
+  </section>
+
+  <section class="panel" style="margin-top:14px">
+    <div class="sectionHead">
+      <div>
         <h2>การใช้พื้นที่ R2</h2>
-        <div class="small">หน้านี้นับไฟล์ที่ ReceiptOCR ติดตามใน D1 หากมีไฟล์เดิมใน R2 ให้กด “ตรวจนับไฟล์ R2” หนึ่งครั้ง</div>
+        <div class="small">หน้านี้นับไฟล์ที่ ReceiptOCR ติดตามใน D1 หากมีไฟล์เดิมใน R2 ให้กด “ตรวจนับไฟล์ R2”</div>
       </div>
       <div class="toolbar" style="margin:0">
         <button id="refreshBtn" class="ghost">อัปเดตข้อมูล</button>
@@ -46,41 +67,49 @@
         <label>ขนาดไฟล์สำรองสูงสุดต่อครั้ง (MB)<input id="batchMb" type="number" value="200"></label>
       </div>
       <button id="saveSettingsBtn" class="primary full">บันทึกนโยบาย</button>
-      <div class="small" style="margin-top:8px">
-        การตั้งค่านี้ใช้สำหรับเตือนและควบคุมภายในระบบ ไม่ได้ตัดการใช้งาน Cloudflare โดยอัตโนมัติ
-      </div>
+      <div class="small" style="margin-top:8px">การตั้งค่านี้ใช้สำหรับเตือนและควบคุมภายในระบบ ไม่ได้ตัดการใช้งาน Cloudflare โดยอัตโนมัติ</div>
     </section>
 
     <section class="panel">
-      <h2>สำรองและจัดการข้อมูลตามอายุ</h2>
-      <div class="toolbar">
-        <select id="archiveCategory">
-          <option value="production">ภาพงานจริง</option>
-          <option value="training">ภาพตัวอย่าง OCR</option>
-        </select>
-        <button id="loadCandidatesBtn" class="secondary">ค้นหาภาพครบอายุ</button>
-        <button id="downloadArchiveBtn" class="primary">ดาวน์โหลดชุดสำรอง (.tar)</button>
-      </div>
-      <div id="candidateSummary" class="small">ยังไม่ได้ค้นหา</div>
-      <div style="max-height:420px;overflow:auto;margin-top:8px">
-        <table class="storageTable">
-          <thead><tr><th></th><th>ชื่อไฟล์</th><th>วันที่สร้าง</th><th>ขนาด</th></tr></thead>
-          <tbody id="candidateRows"></tbody>
-        </table>
+      <h2>เคลียร์ D1 + R2 จาก Admin</h2>
+      <div class="small">ลบเฉพาะข้อมูลงานที่ส่งและภาพงานจริง ไม่แตะแผนงาน, ผู้ใช้, กฎ OCR, โลโก้ หรือภาพ Training</div>
+      <div class="grid2" style="margin-top:10px">
+        <label>ขอบเขต<select id="cleanupMode"><option value="PENDING">เฉพาะงานค้างส่งภาพ</option><option value="ALL">งานที่ส่ง + ภาพตามตัวกรอง</option></select></label>
+        <label>รหัสพนักงาน<input id="cleanupEmployee" placeholder="เว้นว่าง = ทุกคน"></label>
+        <label>วันที่เริ่ม<input id="cleanupDateFrom" type="date"></label>
+        <label>วันที่สิ้นสุด<input id="cleanupDateTo" type="date"></label>
+        <label>รหัสร้าน<input id="cleanupStore" placeholder="เว้นว่าง = ทุกร้าน"></label>
       </div>
       <div class="toolbar">
-        <button id="markArchivedBtn" class="secondary">ยืนยันว่าสำรองแล้ว</button>
-        <button id="purgeBtn" class="ghost">ลบจาก R2 เฉพาะรายการที่สำรองแล้ว</button>
+        <button id="cleanupPreviewBtn" class="secondary">ตรวจจำนวนก่อนลบ</button>
+        <button id="cleanupExecuteBtn" class="ghost" disabled>ลบ D1 + R2 ตามขอบเขต</button>
       </div>
-      <div class="notice warn">
-        ขั้นตอนที่ปลอดภัย: ดาวน์โหลดชุดสำรอง → ตรวจไฟล์บนเครื่อง → ยืนยันว่าสำรองแล้ว → จึงค่อยลบออกจาก R2
-      </div>
+      <div id="cleanupPreview" class="notice warn">ยังไม่ได้ตรวจจำนวน</div>
+      <div class="notice warn">ระบบจะลบไฟล์ R2 ก่อน แล้วจึงลบดัชนีภาพ/POS/Submission ใน D1 หาก R2 ลบไม่สำเร็จ รายการนั้นจะถูกข้ามเพื่อไม่ให้ D1 สูญเสียตัวอ้างอิง</div>
     </section>
   </div>
+
+  <section class="panel" style="margin-top:14px">
+    <h2>สำรองและจัดการข้อมูลตามอายุ</h2>
+    <div class="toolbar">
+      <select id="archiveCategory"><option value="production">ภาพงานจริง</option><option value="training">ภาพตัวอย่าง OCR</option></select>
+      <button id="loadCandidatesBtn" class="secondary">ค้นหาภาพครบอายุ</button>
+      <button id="downloadArchiveBtn" class="primary">ดาวน์โหลดชุดสำรอง (.tar)</button>
+    </div>
+    <div id="candidateSummary" class="small">ยังไม่ได้ค้นหา</div>
+    <div style="max-height:420px;overflow:auto;margin-top:8px">
+      <table class="storageTable"><thead><tr><th></th><th>ชื่อไฟล์</th><th>วันที่สร้าง</th><th>ขนาด</th></tr></thead><tbody id="candidateRows"></tbody></table>
+    </div>
+    <div class="toolbar">
+      <button id="markArchivedBtn" class="secondary">ยืนยันว่าสำรองแล้ว</button>
+      <button id="purgeBtn" class="ghost">ลบจาก R2 เฉพาะรายการที่สำรองแล้ว</button>
+    </div>
+    <div class="notice warn">ขั้นตอนที่ปลอดภัย: ดาวน์โหลดชุดสำรอง → ตรวจไฟล์บนเครื่อง → ยืนยันว่าสำรองแล้ว → จึงค่อยลบออกจาก R2</div>
+  </section>
 </div>
 <script src="config.js"></script>
 <script src="admin-auth.js?v=65"></script>
 <script src="content-page.js"></script>
-<script src="storage.js"></script>
+<script src="storage.js?v=1042"></script>
 </body>
 </html>
