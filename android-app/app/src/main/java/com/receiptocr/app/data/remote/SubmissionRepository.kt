@@ -4,12 +4,9 @@ import android.content.Context
 import com.receiptocr.app.model.PosRecord
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedOutputStream
-import java.io.DataOutputStream
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.UUID
 
 private const val SUBMISSION_API_BASE_URL = "https://receiptocr-api.somchai147258.workers.dev"
 private const val EVIDENCE_UPLOAD_PREFS = "submission_evidence_upload"
@@ -143,6 +140,10 @@ object SubmissionRepository {
             val code = c.responseCode
             val body = responseBody(c, code)
             if (code !in 200..299) throw IllegalStateException(submissionError(body))
+            val root = runCatching { JSONObject(body) }.getOrNull()
+            if (root != null && !root.optBoolean("ok", false)) {
+                throw IllegalStateException("ระบบยังยืนยันหลักฐานไม่สำเร็จ กรุณาลองส่งอีกครั้ง")
+            }
         } finally {
             c.disconnect()
         }
@@ -197,6 +198,11 @@ object SubmissionRepository {
         }
     }
 
+    /**
+     * Round104.2: send the image body directly instead of multipart/form-data.
+     * This removes multipart boundary/parser problems between Android HttpURLConnection
+     * and Cloudflare Workers. Worker still accepts multipart for Admin browser uploads.
+     */
     private fun uploadEvidence(token: String, submissionId: Long, kind: String, slot: Int, path: String) {
         val file = File(path)
         if (!file.exists() || file.length() <= 0L) {
@@ -205,8 +211,18 @@ object SubmissionRepository {
                 else "ภาพร้าน ${slot + 1} เปิดไม่ได้ กรุณาเลือกภาพใหม่"
             )
         }
+        if (file.length() > 15L * 1024L * 1024L) {
+            throw IllegalStateException(
+                if (kind == "R") "ภาพบิล ${slot + 1} มีขนาดเกิน 15 MB"
+                else "ภาพร้าน ${slot + 1} มีขนาดเกิน 15 MB"
+            )
+        }
 
-        val boundary = "ReceiptOCR-${UUID.randomUUID()}"
+        val mime = when (file.extension.lowercase()) {
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            else -> "image/jpeg"
+        }
         val c = URL("$SUBMISSION_API_BASE_URL/api/app/submissions/$submissionId/evidence")
             .openConnection() as HttpURLConnection
         c.requestMethod = "POST"
@@ -215,34 +231,18 @@ object SubmissionRepository {
         c.doOutput = true
         c.useCaches = false
         c.setRequestProperty("Authorization", "Bearer $token")
-        c.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
-        c.setChunkedStreamingMode(64 * 1024)
+        c.setRequestProperty("Content-Type", mime)
+        c.setRequestProperty("X-Evidence-Kind", kind)
+        c.setRequestProperty("X-Evidence-Slot", slot.toString())
+        c.setRequestProperty("X-Evidence-Source", "APP")
+        c.setRequestProperty("X-Evidence-File-Name", file.name)
+        c.setFixedLengthStreamingMode(file.length())
 
         try {
-            DataOutputStream(BufferedOutputStream(c.outputStream)).use { out ->
-                fun field(name: String, value: String) {
-                    out.writeBytes("--$boundary\r\n")
-                    out.writeBytes("Content-Disposition: form-data; name=\"$name\"\r\n\r\n")
-                    out.write(value.toByteArray(Charsets.UTF_8))
-                    out.writeBytes("\r\n")
-                }
-                field("kind", kind)
-                field("slot", slot.toString())
-                field("source", "APP")
-
-                val mime = when (file.extension.lowercase()) {
-                    "png" -> "image/png"
-                    "webp" -> "image/webp"
-                    else -> "image/jpeg"
-                }
-                out.writeBytes("--$boundary\r\n")
-                out.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"${file.name.replace("\"", "")}\"\r\n")
-                out.writeBytes("Content-Type: $mime\r\n\r\n")
+            c.outputStream.use { out ->
                 file.inputStream().use { input -> input.copyTo(out, 64 * 1024) }
-                out.writeBytes("\r\n--$boundary--\r\n")
                 out.flush()
             }
-
             val code = c.responseCode
             val body = responseBody(c, code)
             if (code !in 200..299) {
@@ -252,6 +252,12 @@ object SubmissionRepository {
                     if (server.isBlank()) "ส่ง $label ไม่สำเร็จ กรุณาลองอีกครั้ง"
                     else "ส่ง $label ไม่สำเร็จ ($server)"
                 )
+            }
+            val root = runCatching { JSONObject(body) }.getOrNull()
+            val evidenceId = root?.optJSONObject("evidence")?.optLong("id", 0L) ?: 0L
+            if (evidenceId <= 0L) {
+                val label = if (kind == "R") "ภาพบิล ${slot + 1}" else "ภาพร้าน ${slot + 1}"
+                throw IllegalStateException("Server ยังไม่ยืนยันการบันทึก $label กรุณาลองส่งอีกครั้ง")
             }
         } finally {
             c.disconnect()
