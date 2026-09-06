@@ -1,0 +1,409 @@
+/* Round104.12 — Search, Queue & Notes usability
+   Keep the inspection workbench dominant while making frequent actions obvious. */
+:root{
+  --r12-blue:#2f6fa8;
+  --r12-blue-2:#4b86ba;
+  --r12-blue-soft:#eaf3fb;
+  --r12-blue-softer:#f3f8fc;
+  --r12-cyan-soft:#eef8fa;
+  --r12-amber:#9a6b22;
+  --r12-amber-soft:#fff8e9;
+  --r12-green:#34745d;
+  --r12-green-soft:#eaf6f0;
+  --r12-red:#9d4d49;
+  --r12-red-soft:#fff1ef;
+  --r12-line:#d3e0e8;
+  --r12-text:#22384d;
+  --r12-muted:#6b7f90;
+}
+
+.reviewV103.reviewOffice1048.reviewFocus10411.reviewFocus10412{
+  font-family:"Leelawadee UI",Tahoma,Arial,sans-serif!important;
+  color:var(--r12-text)!important;
+}
+
+/* ===== Quick search stays visible; advanced filters float above the workbench. ===== */
+.reviewFocus10412 .reviewCommandBar{
+  grid-row:1!important;
+  height:38px!important;
+  min-height:38px!important;
+  padding:4px 7px!important;
+  gap:6px!important;
+  background:#f7fafc!important;
+  border-bottom:1px solid var(--r12-line)!important;
+}
+.reviewFocus10412 .reviewQuickSearchWrap{
+  flex:0 1 360px!important;
+  min-width:210px!important;
+  height:29px!important;
+  display:flex!important;
+  align-items:center!important;
+  position:relative!important;
+}
+.reviewFocus10412 .reviewQuickSearch{
+  flex:1 1 auto!important;
+  height:29px!important;
+  min-width:0!important;
+  margin:0!important;
+  display:flex!important;
+  align-items:center!important;
+  position:relative!important;
+  font-size:0!important;
+}
+.reviewFocus10412 .reviewQuickSearch::before{
+  content:"ค้นหา";
+  position:absolute!important;
+  left:9px!important;
+  top:50%!important;
+  transform:translateY(-50%)!important;
+  z-index:2!important;
+  padding-right:7px!important;
+  border-right:1px solid #d7e1e8!important;
+  color:#587086!important;
+  font-size:10.5px!important;
+  font-weight:700!important;
+  pointer-events:none!important;
+}
+.reviewFocus10412 .reviewQuickSearch #reviewSearch{
+  width:100%!important;
+  height:29px!important;
+  min-height:29px!important;
+  padding:3px 31px 3px 58px!important;
+  border:1px solid #bfd0dc!important;
+  border-radius:7px!important;
+  background:#fff!important;
+  color:#20364a!important;
+  font-size:11.5px!important;
+  outline:none!important;
+}
+.reviewFocus10412 .reviewQuickSearch #reviewSearch:focus{
+  border-color:#6d9ec7!important;
+  box-shadow:0 0 0 2px rgba(67,127,178,.12)!important;
+}
+.reviewFocus10412 .reviewSearchClear{
+  position:absolute!important;
+  right:4px!important;
+  top:4px!important;
+  z-index:4!important;
+  width:21px!important;
+  height:21px!important;
+  min-width:21px!important;
+  min-height:21px!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:5px!important;
+  background:transparent!important;
+  color:#718596!important;
+  font-size:15px!important;
+  line-height:21px!important;
+  cursor:pointer!important;
+}
+.reviewFocus10412 .reviewSearchClear:hover{background:#edf3f7!important;color:#385d7d!important;}
+.reviewFocus10412 .reviewFilterToggle{
+  height:29px!important;
+  min-height:29px!important;
+  padding:0 10px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:5px!important;
+  border-color:#b9cbd8!important;
+  background:#fff!important;
+  color:#31536e!important;
+  font-size:11px!important;
+}
+.reviewFocus10412 .reviewFilterCount{
+  min-width:17px!important;
+  height:17px!important;
+  padding:0 5px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:9px!important;
+  background:#dfeefa!important;
+  color:#275f90!important;
+  font-size:9px!important;
+  font-weight:800!important;
+}
+.reviewFocus10412 .reviewFilterCount:empty{display:none!important;}
+.reviewFocus10412 .reviewFocusHint{
+  flex:1 1 auto!important;
+  min-width:80px!important;
+  font-size:10px!important;
+  color:#6d8091!important;
+}
+.reviewFocus10412 .reviewLiveMeta{font-size:9px!important;color:#718496!important;}
+.reviewFocus10412 .reviewLiveDot{width:6px!important;height:6px!important;}
+
+.reviewFocus10412 .reviewFilters{
+  top:37px!important;
+  left:7px!important;
+  width:min(690px,calc(100vw - 24px))!important;
+  padding:10px!important;
+  grid-template-columns:140px 190px 175px auto auto!important;
+  gap:8px!important;
+  align-items:end!important;
+  border:1px solid #bfd0dc!important;
+  border-top:3px solid #6d9bc2!important;
+  border-radius:8px!important;
+  background:#f9fcfe!important;
+  box-shadow:0 14px 34px rgba(34,56,77,.18)!important;
+}
+.reviewFocus10412 .reviewFilters .reviewSearchLabel{display:none!important;}
+.reviewFocus10412 .reviewFilters label{font-size:10px!important;color:#526b80!important;font-weight:600!important;}
+.reviewFocus10412 .reviewFilters select{
+  height:31px!important;
+  min-height:31px!important;
+  border-color:#c6d5df!important;
+  background:#fff!important;
+  font-size:11.5px!important;
+}
+.reviewFocus10412 .reviewFilters>button{
+  height:31px!important;
+  min-height:31px!important;
+  font-size:10.5px!important;
+}
+.reviewFocus10412 .reviewResetFilters{
+  grid-column:1 / -1!important;
+  justify-self:end!important;
+  min-width:94px!important;
+  border:1px solid #c8d5df!important;
+  background:#fff!important;
+  color:#536c80!important;
+}
+
+/* ===== Queue becomes a fast chooser, visually separated from the inspection detail. ===== */
+.reviewFocus10412 .reviewWorkspace{
+  grid-row:2!important;
+  grid-template-columns:minmax(250px,19.5%) minmax(0,1fr)!important;
+  gap:5px!important;
+  padding:5px 6px 6px!important;
+}
+.reviewFocus10412 .reviewQueuePanel{
+  border-color:#c9dbe6!important;
+  background:#f7fafc!important;
+}
+.reviewFocus10412 .reviewQueuePanel>header{
+  flex:0 0 39px!important;
+  min-height:39px!important;
+  padding:5px 8px!important;
+  background:#eaf3f9!important;
+  border-bottom:1px solid #c9dbe6!important;
+}
+.reviewFocus10412 .reviewQueuePanel>header strong{font-size:13px!important;color:#264a68!important;}
+.reviewFocus10412 .reviewCountBox{
+  min-width:42px!important;
+  height:28px!important;
+  padding:2px 7px!important;
+  justify-content:center!important;
+  border:1px solid #bed3e1!important;
+  border-radius:7px!important;
+  background:#fff!important;
+}
+.reviewFocus10412 .reviewCountBox strong{font-size:15px!important;color:#2d6b9f!important;}
+.reviewFocus10412 .reviewCountBox span{font-size:8px!important;}
+.reviewFocus10412 .reviewQueueShortcuts{
+  flex:0 0 31px!important;
+  min-height:31px!important;
+  padding:3px 5px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:3px!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  border-bottom:1px solid #d8e4eb!important;
+  background:#f3f8fb!important;
+  scrollbar-width:none!important;
+}
+.reviewFocus10412 .reviewQueueShortcuts::-webkit-scrollbar{display:none!important;}
+.reviewFocus10412 .reviewQueueShortcuts button{
+  flex:0 0 auto!important;
+  height:23px!important;
+  min-height:23px!important;
+  padding:0 7px!important;
+  border:1px solid #c7d6e0!important;
+  border-radius:11px!important;
+  background:#fff!important;
+  color:#536b7e!important;
+  font-size:9.5px!important;
+  font-weight:700!important;
+  cursor:pointer!important;
+}
+.reviewFocus10412 .reviewQueueShortcuts button:hover{border-color:#8fb1cc!important;background:#edf5fb!important;}
+.reviewFocus10412 .reviewQueueShortcuts button.active{
+  border-color:#6e9ec3!important;
+  background:#dfedf8!important;
+  color:#245e8e!important;
+}
+.reviewFocus10412 .reviewQueueShortcuts .queueSortToggle{
+  margin-left:auto!important;
+  border-color:#d8cba9!important;
+  background:#fffaf0!important;
+  color:#78602d!important;
+}
+.reviewFocus10412 .reviewQueue{
+  background:#f8fafc!important;
+}
+.reviewFocus10412 .reviewQueueItem{
+  min-height:58px!important;
+  padding:6px 6px 6px 5px!important;
+  border-left:4px solid transparent!important;
+  border-bottom:1px solid #e0e8ee!important;
+  background:#fff!important;
+}
+.reviewFocus10412 .reviewQueueItem:nth-child(even){background:#fbfcfd!important;}
+.reviewFocus10412 .reviewQueueItem:hover{background:#f1f7fb!important;}
+.reviewFocus10412 .reviewQueueItem:has(.status-submitted){border-left-color:#ddb45c!important;}
+.reviewFocus10412 .reviewQueueItem:has(.status-returned){border-left-color:#dc8a75!important;}
+.reviewFocus10412 .reviewQueueItem:has(.status-approved){border-left-color:#78af96!important;}
+.reviewFocus10412 .reviewQueueItem.active{
+  border-left-color:#367bb4!important;
+  background:#e7f2fb!important;
+  box-shadow:inset 0 0 0 1px #b9d4e8!important;
+}
+.reviewFocus10412 .queueBrand{
+  min-width:40px!important;
+  max-width:40px!important;
+  padding:4px 3px!important;
+  border-radius:7px!important;
+  background:#eaf3fb!important;
+  color:#2e6592!important;
+  font-size:9.5px!important;
+  font-weight:800!important;
+}
+.reviewFocus10412 .queueMain strong{font-size:12.2px!important;color:#22394d!important;}
+.reviewFocus10412 .queueMain small{font-size:9.5px!important;color:#687e90!important;}
+.reviewFocus10412 .queueSide{min-width:68px!important;}
+.reviewFocus10412 .queueSide .statusBadge{font-size:9px!important;font-weight:700!important;}
+.reviewFocus10412 .queueWait{font-size:9.2px!important;color:#7a6a45!important;}
+.reviewFocus10412 .queueWait.waiting-long,.reviewFocus10412 .queueWait.waiting-long *{color:#9a5c36!important;}
+
+/* ===== Distinct but calm work zones. ===== */
+.reviewFocus10412 .reviewDetailPanel{border-color:#cbdce7!important;background:#f8fafc!important;}
+.reviewFocus10412 .reviewDetailHead{background:#f3f8fc!important;border-bottom-color:#cddce6!important;}
+.reviewFocus10412 .reviewSummary{background:#f7fafc!important;}
+.reviewFocus10412 .evidencePanel{border-color:#c5d6e1!important;background:#f8fafc!important;}
+.reviewFocus10412 .evidenceToolbar{background:#eef4f8!important;}
+.reviewFocus10412 .submissionPanel{border-color:#c8dce5!important;background:#fff!important;}
+.reviewFocus10412 .submissionFacts{background:var(--r12-cyan-soft)!important;border-bottom-color:#cfe1e7!important;}
+.reviewFocus10412 .submissionPanel>.sectionTitle{background:#f0f6fa!important;color:#365b78!important;}
+.reviewFocus10412 .recordTableWrap{background:#fff!important;}
+.reviewFocus10412 .reviewRecordTable thead th{background:#e8f1f6!important;color:#436278!important;}
+.reviewFocus10412 .reviewRecordTable tbody tr:nth-child(odd){background:#fff!important;}
+.reviewFocus10412 .reviewRecordTable tbody tr:nth-child(even){background:#f7fafc!important;}
+.reviewFocus10412 .reviewRecordTable tbody tr.officePosFocus{background:#e7f2fb!important;}
+.reviewFocus10412 .evidenceTabs button.isReceipt{background:#eaf3fb!important;border-color:#a8c5dc!important;color:#2c6594!important;}
+.reviewFocus10412 .evidenceTabs button.isStore{background:#eaf6f1!important;border-color:#acd0bf!important;color:#33735e!important;}
+.reviewFocus10412 .evidenceTabs button.active{box-shadow:inset 0 0 0 1px currentColor!important;font-weight:800!important;}
+
+/* ===== Notes never fall outside the right column. ===== */
+.reviewFocus10412 .reviewNote{
+  flex:0 0 106px!important;
+  width:100%!important;
+  min-width:0!important;
+  height:106px!important;
+  min-height:106px!important;
+  max-height:106px!important;
+  margin:0!important;
+  padding:5px 7px 6px!important;
+  box-sizing:border-box!important;
+  display:grid!important;
+  grid-template-rows:16px auto minmax(42px,1fr)!important;
+  gap:4px!important;
+  overflow:hidden!important;
+  border-top:1px solid #ead9b7!important;
+  background:var(--r12-amber-soft)!important;
+  color:#6e5d3c!important;
+}
+.reviewFocus10412 .reviewNoteTitle{
+  display:flex!important;
+  align-items:center!important;
+  font-size:10.5px!important;
+  font-weight:800!important;
+  color:#735c31!important;
+  line-height:16px!important;
+}
+.reviewFocus10412 .reviewQuickNotes{
+  width:100%!important;
+  min-width:0!important;
+  margin:0!important;
+  display:flex!important;
+  flex-wrap:wrap!important;
+  align-content:flex-start!important;
+  gap:3px!important;
+  overflow:visible!important;
+}
+.reviewFocus10412 .reviewQuickNotes button{
+  flex:0 0 auto!important;
+  height:20px!important;
+  min-height:20px!important;
+  padding:0 6px!important;
+  border:1px solid #dbc89d!important;
+  border-radius:9px!important;
+  background:#fffdf7!important;
+  color:#705d38!important;
+  font-size:8.5px!important;
+}
+.reviewFocus10412 .reviewQuickNotes button:hover,
+.reviewFocus10412 .reviewQuickNotes button.is-picked{
+  border-color:#c4a765!important;
+  background:#f7e9c7!important;
+  color:#624d23!important;
+}
+.reviewFocus10412 #reviewNote{
+  display:block!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  height:44px!important;
+  min-height:44px!important;
+  max-height:44px!important;
+  margin:0!important;
+  padding:6px 8px!important;
+  box-sizing:border-box!important;
+  resize:none!important;
+  overflow:auto!important;
+  border:1px solid #d9c9a8!important;
+  border-radius:6px!important;
+  background:#fff!important;
+  color:#2b3f50!important;
+  font-size:11px!important;
+  line-height:1.3!important;
+}
+.reviewFocus10412 #reviewNote:focus{border-color:#c7a866!important;box-shadow:0 0 0 2px rgba(190,154,85,.12)!important;outline:none!important;}
+
+.reviewFocus10412 .reviewActions{
+  flex:0 0 45px!important;
+  min-height:45px!important;
+  padding:5px 7px!important;
+  border-top:1px solid #cbdce7!important;
+  background:#edf4f9!important;
+}
+.reviewFocus10412 .actionHint{font-size:9.2px!important;color:#587086!important;}
+.reviewFocus10412 #returnSubmission{background:#fff7f5!important;border-color:#dfaaa3!important;color:#934743!important;}
+.reviewFocus10412 #approveSubmission{background:#3478ae!important;border-color:#3478ae!important;color:#fff!important;}
+
+/* Make sure the POS table yields space to notes/actions instead of forcing them out. */
+.reviewFocus10412 .recordTableWrap{
+  flex:1 1 0!important;
+  min-height:90px!important;
+  max-height:none!important;
+  overflow:auto!important;
+}
+.reviewFocus10412 .submissionPanel{
+  min-width:0!important;
+  overflow:hidden!important;
+}
+.reviewFocus10412 .submissionPanel>*{min-width:0!important;box-sizing:border-box!important;}
+
+@media(max-width:1450px){
+  .reviewFocus10412 .reviewQuickSearchWrap{flex-basis:280px!important;}
+  .reviewFocus10412 .reviewWorkspace{grid-template-columns:minmax(225px,20%) minmax(0,1fr)!important;}
+  .reviewFocus10412 .reviewFilters{grid-template-columns:125px 165px 155px auto auto!important;width:min(620px,calc(100vw - 24px))!important;}
+  .reviewFocus10412 .reviewNote{flex-basis:104px!important;height:104px!important;min-height:104px!important;max-height:104px!important;}
+}
+@media(max-width:1080px){
+  .reviewFocus10412 .reviewQuickSearchWrap{flex:1 1 220px!important;}
+  .reviewFocus10412 .reviewFocusHint{display:none!important;}
+  .reviewFocus10412 .reviewFilters{grid-template-columns:1fr 1fr!important;width:min(590px,calc(100vw - 20px))!important;}
+  .reviewFocus10412 .reviewResetFilters{grid-column:1 / -1!important;}
+}
