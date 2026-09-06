@@ -44,6 +44,11 @@ const AdminAuth = (() => {
   return {apiBase,token,user,saveSession,clear,request,json,guard,logout};
 })();
 
+// Round104.5: expose the shared AdminAuth instance for enhancement scripts.
+// Top-level const bindings are not properties of window, while Round104 modules
+// intentionally use window.AdminAuth as a readiness guard.
+window.AdminAuth=AdminAuth;
+
 const OfficeSwal = (()=>{
   const classes=(kind="",extra={})=>({
     popup:`officeSwal ${kind?`officeSwal--${kind}`:""} ${extra.popup||""}`.trim(),
