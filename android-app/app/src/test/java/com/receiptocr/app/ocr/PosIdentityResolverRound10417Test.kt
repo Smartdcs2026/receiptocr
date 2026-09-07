@@ -3,7 +3,9 @@ package com.receiptocr.app.ocr
 import com.receiptocr.app.config.PosIdentityMapping
 import com.receiptocr.app.config.PosIdentityRule
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PosIdentityResolverRound10417Test {
@@ -40,9 +42,51 @@ class PosIdentityResolverRound10417Test {
         assertEquals(4, PosIdentityResolver.resolve("B02", r, listOf(1, 2, 3, 4))?.workPos)
     }
 
+    @Test fun ocr_801_is_recovered_as_b01_when_store_has_no_pos_801() {
+        val result = PosIdentityResolver.resolve("801", prefixRule(), listOf(1, 2, 3))
+        assertEquals("B01", result?.display)
+        assertEquals("B1", result?.key)
+        assertEquals(3, result?.workPos)
+        assertTrue(result?.mappedByBrandRule == true)
+    }
+
+    @Test fun ocr_8o1_is_recovered_as_b01_with_digit_normalization() {
+        val result = PosIdentityResolver.resolve("8O1", prefixRule(), listOf(1, 2, 3, 4, 5))
+        assertEquals("B01", result?.display)
+        assertEquals(5, result?.workPos)
+    }
+
+    @Test fun genuine_numeric_801_is_preserved_when_store_has_pos_801() {
+        val result = PosIdentityResolver.resolve("801", prefixRule(), listOf(1, 2, 3, 801))
+        assertEquals("801", result?.display)
+        assertEquals(801, result?.workPos)
+        assertFalse(result?.mappedByBrandRule == true)
+    }
+
+    @Test fun single_digit_8_is_never_changed_to_b() {
+        val result = PosIdentityResolver.resolve("8", prefixRule(), listOf(1, 2, 3, 8))
+        assertEquals("8", result?.display)
+        assertEquals(8, result?.workPos)
+        assertFalse(result?.mappedByBrandRule == true)
+    }
+
+    @Test fun numeric_value_is_not_recovered_without_store_context() {
+        val result = PosIdentityResolver.resolve("801", prefixRule())
+        assertEquals("801", result?.display)
+        assertEquals(801, result?.workPos)
+        assertFalse(result?.mappedByBrandRule == true)
+    }
+
     @Test fun runtime_last_pos_supports_interpreter_without_explicit_plan_list() {
         val r = prefixRule(lastWorkPos = 5)
         assertEquals(5, PosIdentityResolver.resolve("B88", r)?.workPos)
+    }
+
+    @Test fun ambiguous_8_prefix_can_use_runtime_store_context() {
+        val r = prefixRule(lastWorkPos = 5)
+        val result = PosIdentityResolver.resolve("801", r)
+        assertEquals("B01", result?.display)
+        assertEquals(5, result?.workPos)
     }
 
     @Test fun terminal_prefix_does_not_guess_when_store_plan_is_unknown() {
