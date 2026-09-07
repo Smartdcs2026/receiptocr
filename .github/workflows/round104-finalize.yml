@@ -23,10 +23,8 @@ on:
       - "web-admin/review-round104.css"
       - "web-admin/review-editor-round104.css"
       - "web-admin/review-evidence-direct-round104.css"
-      - "web-admin/review-queue-integrated-round10413.css"
-      - "web-admin/review-queue-integrated-round10413.js"
-      - "web-admin/review-livequeue-round10414.css"
-      - "web-admin/review-livequeue-round10414.js"
+      - "web-admin/review-workspace-v2.css"
+      - "web-admin/review-workspace-v2.js"
       - "web-admin/storage.html"
       - "web-admin/storage.js"
       - "web-admin/storage-evidence-diagnostics-round104.js"
@@ -89,15 +87,14 @@ jobs:
           node --check web-admin/review-editor-round104.js
           node --check web-admin/review-storage-sync-round104.js
           node --check web-admin/review-evidence-direct-round104.js
-          node --check web-admin/review-queue-integrated-round10413.js
-          node --check web-admin/review-livequeue-round10414.js
+          node --check web-admin/review-workspace-v2.js
           node --check web-admin/storage.js
           node --check web-admin/storage-evidence-diagnostics-round104.js
-          grep -q 'VERSION="104140"' web-admin/admin-spa.js
-          grep -q 'review-queue-integrated-round10413.css' web-admin/review.html
-          grep -q 'review-queue-integrated-round10413.js' web-admin/review.html
-          grep -q 'review-livequeue-round10414.css' web-admin/review.html
-          grep -q 'review-livequeue-round10414.js' web-admin/review.html
+          grep -q 'VERSION="104150"' web-admin/admin-spa.js
+          grep -q 'review-workspace-v2.css?v=104150' web-admin/review.html
+          grep -q 'review-workspace-v2.js?v=104150' web-admin/review.html
+          ! grep -q 'review-queue-integrated-round10413.js' web-admin/review.html
+          ! grep -q 'review-livequeue-round10414.js' web-admin/review.html
           grep -q 'summary=1' web-admin/admin-spa.js
           grep -q '/api/admin/office-summary' web-admin/dashboard.js
           grep -q 'dateFrom=' web-admin/reports.js
