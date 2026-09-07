@@ -32,7 +32,7 @@ jobs:
 
       - name: Verify OCR save reliability wiring
         run: |
-          grep -Eq 'VERSION="104(162|170)"' web-admin/admin-spa.js
+          grep -Eq 'VERSION="104(162|170|171)"' web-admin/admin-spa.js
           grep -q 'ocr-save-reliability-round104162.js' web-admin/admin-spa.js
           grep -q 'verifiedAfterTimeout' web-admin/ocr-save-reliability-round104162.js
           grep -q 'unchanged:true' web-admin/ocr-save-reliability-round104162.js
