@@ -1,6 +1,6 @@
 (async()=>{
   if(!await AdminAuth.guard()) return;
-  const VERSION="104140",allRoles=["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"];
+  const VERSION="104150",allRoles=["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"];
   const routes={
     home:{title:"ภาพรวมการปฏิบัติงาน",sub:"สถานะงาน การตรวจสอบ และรายการที่ต้องดำเนินการ",url:"dashboard.html",roles:allRoles,group:"งานประจำวัน",icon:"grid"},
     review:{title:"ศูนย์ตรวจสอบงาน",sub:"ตรวจภาพบิล ภาพร้าน และข้อมูลยอดลูกค้าราย POS",url:"review.html",roles:allRoles,group:"งานประจำวัน",icon:"check"},
@@ -38,32 +38,18 @@
       if(!doc.getElementById("round78OcrJs")){const script=doc.createElement("script");script.id="round78OcrJs";script.src=`ocr-admin-ux.js?v=${VERSION}`;doc.body.appendChild(script);}
     }catch(_){/* หน้าเดิมยังใช้งานได้หากส่วนเสริมโหลดไม่ได้ */}
   }
-  function activateFrame(index,key){
-    frames[index].classList.add("active");frames[1-index].classList.remove("active");
-    activeIndex=index;currentRoute=key;progress.classList.remove("show");
-  }
+  function activateFrame(index,key){frames[index].classList.add("active");frames[1-index].classList.remove("active");activeIndex=index;currentRoute=key;progress.classList.remove("show")}
   function navigate(force=false){
     const key=keyFromHash();
     if((location.hash||"").slice(1).split("?")[0]!==key)history.replaceState(null,"",`#${key}`);
     setHeader(key);closeMobile();
     if(!force&&key===currentRoute)return;
-
     const readyIndex=frameRoutes.findIndex((route,index)=>route===key&&frames[index].src);
     if(readyIndex>=0){activateFrame(readyIndex,key);return;}
-
-    const n=++serial,nextIndex=1-activeIndex,next=frames[nextIndex];
-    progress.classList.add("show");
-    next.onload=()=>{
-      if(n!==serial)return;
-      frameRoutes[nextIndex]=key;
-      installRouteEnhancements(next,key);
-      activateFrame(nextIndex,key);
-    };
+    const n=++serial,nextIndex=1-activeIndex,next=frames[nextIndex];progress.classList.add("show");
+    next.onload=()=>{if(n!==serial)return;frameRoutes[nextIndex]=key;installRouteEnhancements(next,key);activateFrame(nextIndex,key)};
     next.src=routeUrl(routes[key]);
   }
-  async function refreshReviewCount(){
-    const badge=document.getElementById("reviewNavCount");if(!badge)return;
-    try{const d=await AdminAuth.json("/api/admin/submissions?status=SUBMITTED&summary=1"),n=Number(d.count||0);badge.textContent=n;badge.hidden=!n}catch{badge.hidden=true}
-  }
+  async function refreshReviewCount(){const badge=document.getElementById("reviewNavCount");if(!badge)return;try{const d=await AdminAuth.json("/api/admin/submissions?status=SUBMITTED&summary=1"),n=Number(d.count||0);badge.textContent=n;badge.hidden=!n}catch{badge.hidden=true}}
   window.addEventListener("hashchange",()=>navigate());document.getElementById("spaLogout").onclick=AdminAuth.logout;document.getElementById("collapseNav").onclick=()=>{shell.classList.toggle("navCompact");localStorage.setItem("receiptocr_nav_compact",shell.classList.contains("navCompact")?"1":"0")};document.getElementById("mobileMenu").onclick=()=>shell.classList.add("mobileNavOpen");document.getElementById("navBackdrop").onclick=closeMobile;navigate(true);refreshReviewCount();setInterval(refreshReviewCount,60000);
 })();
