@@ -10,6 +10,7 @@ on:
       - "web-admin/admin-spa.js"
       - "web-admin/index.html"
       - "web-admin/ocr-simple.js"
+      - "web-admin/receipt-date-rules.js"
       - "web-admin/content-page.js"
       - "web-admin/dashboard.html"
       - "web-admin/dashboard.js"
@@ -70,7 +71,7 @@ jobs:
           grep -q 'setFixedLengthStreamingMode' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'Server ยังไม่ยืนยันการบันทึก' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
 
-      - name: Protect Round103 OCR baseline and allow Round104.17 terminal POS files
+      - name: Protect Round103 OCR baseline and allow Round104.17 POS identity files
         run: |
           unexpected="$(git diff --name-only ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 -- android-app/app/src/main/java/com/receiptocr/app/ocr | grep -Ev '(^|/)(PosIdentityResolver|RealOcrPipeline)\.kt$' || true)"
           if [ -n "$unexpected" ]; then
@@ -78,7 +79,10 @@ jobs:
             echo "$unexpected"
             exit 1
           fi
-          grep -q 'useLastWorkPos' android-app/app/src/main/java/com/receiptocr/app/ocr/PosIdentityResolver.kt
+          grep -q 'lastWorkPosPrefixes' android-app/app/src/main/java/com/receiptocr/app/config/ReceiptRuleModels.kt
+          grep -q 'lastWorkPosPrefixes' android-app/app/src/main/java/com/receiptocr/app/data/remote/OcrTemplateRepository.kt
+          grep -q 'legacyLastPrefixes' android-app/app/src/main/java/com/receiptocr/app/data/remote/OcrTemplateRepository.kt
+          grep -q 'prefix in terminalPrefixes' android-app/app/src/main/java/com/receiptocr/app/ocr/PosIdentityResolver.kt
           grep -q 'runtimeLastWorkPos = expectedPosSet.maxOrNull() ?: 0' android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt
           grep -q 'syncEvidenceForLatestSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'finalizeSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
@@ -91,6 +95,7 @@ jobs:
           node tests/round10417-pos-terminal.test.js
           node --check web-admin/admin-spa.js
           node --check web-admin/ocr-simple.js
+          node --check web-admin/receipt-date-rules.js
           node --check web-admin/ocr-terminal-pos-round10417.js
           node --check web-admin/content-page.js
           node --check web-admin/dashboard.js
@@ -104,15 +109,15 @@ jobs:
           node --check web-admin/review-workspace-v2.js
           node --check web-admin/storage.js
           node --check web-admin/storage-evidence-diagnostics-round104.js
-          grep -q 'VERSION="104175"' web-admin/admin-spa.js
-          grep -q 'admin-spa.js?v=104175' web-admin/admin.html
-          grep -q 'ocr-simple.js?v=104175' web-admin/index.html
-          grep -q 'useLastWorkPos:true' web-admin/ocr-simple.js
-          grep -q 'Math.max(...values)' web-admin/ocr-simple.js
-          grep -q 'function configuredPosMappingItems()' web-admin/ocr-simple.js
-          grep -q 'brandReceiptRule?.posIdentityRule?.mappings' web-admin/ocr-simple.js
-          ! grep -q 'if(allowed.length&&!allowed.includes(prefix))return null' web-admin/ocr-simple.js
-          ! grep -q 'if (allowed.isNotEmpty() && prefix !in allowed) return null' android-app/app/src/main/java/com/receiptocr/app/ocr/PosIdentityResolver.kt
+          grep -q 'VERSION="104176"' web-admin/admin-spa.js
+          grep -q 'admin-spa.js?v=104176' web-admin/admin.html
+          grep -q 'receipt-date-rules.js?v=104176' web-admin/index.html
+          grep -q 'ocr-simple.js?v=104176' web-admin/index.html
+          grep -q 'id="brandLastPosPrefixes"' web-admin/index.html
+          grep -q 'B01, B02, B99' web-admin/index.html
+          grep -q 'ReceiptDateRules.resolvePosIdentity' web-admin/ocr-simple.js
+          grep -q 'lastWorkPosPrefixes' web-admin/receipt-date-rules.js
+          grep -q 'legacyLastPrefixes' web-admin/receipt-date-rules.js
           ! grep -q 'round10417TerminalPos' web-admin/admin-spa.js
           grep -q 'review-workspace-v2.css?v=104161' web-admin/review.html
           grep -q 'review-workspace-v2.js?v=104161' web-admin/review.html
