@@ -1,0 +1,41 @@
+name: Round104.16.2 OCR save reliability
+
+on:
+  push:
+    branches: ["round104-production-evidence-runtime"]
+    paths:
+      - "web-admin/admin-spa.js"
+      - "web-admin/ocr-save-reliability-round104162.js"
+      - "tests/ocr-save-reliability.test.js"
+      - ".github/workflows/round104-16-2-ocr-save.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Syntax checks
+        run: |
+          node --check web-admin/admin-spa.js
+          node --check web-admin/ocr-save-reliability-round104162.js
+          node --check tests/ocr-save-reliability.test.js
+
+      - name: OCR save reliability tests
+        run: node tests/ocr-save-reliability.test.js
+
+      - name: Verify Round104.16.2 wiring
+        run: |
+          grep -q 'VERSION="104162"' web-admin/admin-spa.js
+          grep -q 'ocr-save-reliability-round104162.js' web-admin/admin-spa.js
+          grep -q 'verifiedAfterTimeout' web-admin/ocr-save-reliability-round104162.js
+          grep -q 'unchanged:true' web-admin/ocr-save-reliability-round104162.js
+          grep -q 'inFlight' web-admin/ocr-save-reliability-round104162.js
+          grep -q 'ระบบฐานข้อมูลใช้เวลาบันทึกนานเกินไป' web-admin/ocr-save-reliability-round104162.js
+          grep -q 'ผู้ใช้ไม่ควรเห็นข้อความเทคนิค D1' tests/ocr-save-reliability.test.js
