@@ -12,7 +12,8 @@ on:
       - "android-app/app/src/test/java/com/receiptocr/app/ocr/PosIdentityResolverRound10417Test.kt"
       - "web-admin/admin.html"
       - "web-admin/admin-spa.js"
-      - "web-admin/ocr-terminal-pos-round10417.js"
+      - "web-admin/index.html"
+      - "web-admin/ocr-simple.js"
       - "tests/round10417-pos-terminal.test.js"
       - ".github/workflows/round104-17-pos-terminal.yml"
   workflow_dispatch:
@@ -36,7 +37,7 @@ jobs:
       - name: Admin terminal POS checks
         run: |
           node --check web-admin/admin-spa.js
-          node --check web-admin/ocr-terminal-pos-round10417.js
+          node --check web-admin/ocr-simple.js
           node --check tests/round10417-pos-terminal.test.js
           node tests/round10417-pos-terminal.test.js
 
