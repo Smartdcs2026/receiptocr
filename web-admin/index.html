@@ -291,9 +291,13 @@
           <label>อักษรนำหน้าที่อนุญาต
             <input id="brandPosPrefixes" placeholder="เช่น N,B">
           </label>
-          <label style="grid-column:1/-1">จับคู่รหัสบนบิล → POS ในงาน
-            <textarea id="brandPosMappings" rows="4" placeholder="N01=1&#10;N02=2&#10;B01=3"></textarea>
-            <span class="small">หนึ่งบรรทัดต่อหนึ่งรหัส เช่น B01=3 หมายถึงบิล B01 ให้ลง POS 3</span>
+          <label>อักษรนำหน้าที่ให้ใช้ POS สุดท้าย
+            <input id="brandLastPosPrefixes" placeholder="เช่น B">
+            <span class="small">ใส่ B แล้ว B01, B02, B99 จะใช้ POS สุดท้ายของร้าน โดยไม่ใช้เลขหลัง B เป็นเลข POS</span>
+          </label>
+          <label style="grid-column:1/-1">จับคู่รหัสเฉพาะบนบิล → POS ในงาน
+            <textarea id="brandPosMappings" rows="4" placeholder="N01=1&#10;N02=2"></textarea>
+            <span class="small">ใช้เฉพาะรหัสที่ต้องจับคู่เป็นรายตัว ส่วนรหัสที่ขึ้นต้นด้วย B ให้กำหนดในช่อง “POS สุดท้าย” ด้านบน</span>
           </label>
           <label class="checkRow" style="grid-column:1/-1">
             <input id="allowUnmappedPosChoice" type="checkbox" checked>
@@ -342,6 +346,6 @@
 <script src="ocr-template-contract.js?v=69"></script>
 <script src="ocr-pattern-engine.js?v=69"></script>
 <script src="receipt-date-rules.js?v=69"></script>
-<script src="ocr-simple.js?v=104175"></script>
+<script src="ocr-simple.js?v=104176"></script>
 </body>
 </html>

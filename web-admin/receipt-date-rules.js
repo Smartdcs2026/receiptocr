@@ -10,11 +10,72 @@
   const iso=d=>`${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`;
   const add=(d,n)=>{const x=new Date(d);x.setUTCDate(x.getUTCDate()+n);return x};
   const days=(a,b)=>Math.round((b-a)/86400000);
-  function defaultRule(brandId=""){return{brandId,customerCounterMode:"CONTINUOUS",preventDuplicateImage:true,preventDuplicateReceiptData:true,posIdentityRule:{enabled:false,allowedPrefixes:[],mappings:[],allowUnmappedUserChoice:true},groupDateRule:{enabled:true,resetAtMonthEnd:false,maxBeforeDays:2,afterDaysWhenOldestIsMaxBefore:0,afterDaysWhenOldestIsOneDayBefore:2,afterDaysWhenOldestIsWorkDay:2,action:"BLOCK",warningText:"วันที่บิลไม่อยู่ในช่วงที่ใช้ได้"}}}
+  const normalizePosIdentity=value=>{
+    const text=String(value||"").toUpperCase().replace(/\s+/g,"").replace(/^POS[:#=\-]?/,"");
+    const m=text.match(/^([A-Z]{1,4})?(\d{1,3})$/);
+    if(!m)return null;
+    const n=Number(m[2]);
+    return Number.isInteger(n)&&n>0?`${m[1]||""}${n}`:null;
+  };
+  const posPrefix=value=>{
+    const key=normalizePosIdentity(value);
+    return key?(key.match(/^[A-Z]+/)||[""])[0]:"";
+  };
+  const uniquePrefixes=values=>[...new Set((values||[]).map(x=>String(x||"").trim().toUpperCase()).filter(x=>/^[A-Z]{1,4}$/.test(x)))];
+  function normalizePosIdentityRule(raw={}){
+    const mappings=(Array.isArray(raw.mappings)?raw.mappings:[]).map(item=>{
+      const receiptPos=String(item?.receiptPos||"").trim().toUpperCase();
+      const workPos=Math.max(0,Number(item?.workPos)||0);
+      const useLastWorkPos=item?.useLastWorkPos===true||String(item?.target||"").toUpperCase()==="LAST";
+      return receiptPos&&(workPos>0||useLastWorkPos)?{...item,receiptPos,workPos,useLastWorkPos}:null;
+    }).filter(Boolean);
+    // Backward compatibility: old B01=LAST becomes a B-prefix terminal rule.
+    const legacyLastPrefixes=mappings.filter(x=>x.useLastWorkPos).map(x=>posPrefix(x.receiptPos)).filter(Boolean);
+    const lastWorkPosPrefixes=uniquePrefixes([...(raw.lastWorkPosPrefixes||[]),...legacyLastPrefixes]);
+    const mappingPrefixes=mappings.map(x=>posPrefix(x.receiptPos)).filter(Boolean);
+    const allowedPrefixes=uniquePrefixes([...(raw.allowedPrefixes||[]),...lastWorkPosPrefixes,...mappingPrefixes]);
+    return {
+      ...raw,
+      enabled:raw.enabled===true||mappings.length>0||lastWorkPosPrefixes.length>0,
+      allowedPrefixes,
+      lastWorkPosPrefixes,
+      mappings,
+      allowUnmappedUserChoice:raw.allowUnmappedUserChoice!==false,
+      runtimeLastWorkPos:Math.max(0,Number(raw.runtimeLastWorkPos)||0)
+    };
+  }
+  function resolvePosIdentity(value,rawRule={},availableWorkPos=[]){
+    const key=normalizePosIdentity(value);
+    if(!key)return null;
+    const numeric=Number((key.match(/(\d+)$/)||[])[1]||0)||null;
+    const rule=normalizePosIdentityRule(rawRule);
+    const prefix=posPrefix(key);
+    const active=rule.enabled||rule.mappings.length>0||rule.lastWorkPosPrefixes.length>0;
+    if(!prefix)return numeric;
+    if(!active)return numeric;
+
+    // Brand rule has priority: every code beginning with this prefix uses the
+    // store's actual last POS; the digits after the letter are not the POS number.
+    if(rule.lastWorkPosPrefixes.includes(prefix)){
+      const last=(availableWorkPos||[]).map(Number).filter(x=>Number.isInteger(x)&&x>0).sort((a,b)=>b-a)[0]
+        ||(rule.runtimeLastWorkPos>0?rule.runtimeLastWorkPos:null);
+      return last||null;
+    }
+
+    const mapping=rule.mappings.find(x=>normalizePosIdentity(x.receiptPos)===key);
+    if(!mapping)return null;
+    if(mapping.useLastWorkPos){
+      const last=(availableWorkPos||[]).map(Number).filter(x=>Number.isInteger(x)&&x>0).sort((a,b)=>b-a)[0]
+        ||(rule.runtimeLastWorkPos>0?rule.runtimeLastWorkPos:null);
+      return last||null;
+    }
+    return mapping.workPos>0?mapping.workPos:null;
+  }
+  function defaultRule(brandId=""){return{brandId,customerCounterMode:"CONTINUOUS",preventDuplicateImage:true,preventDuplicateReceiptData:true,posIdentityRule:{enabled:false,allowedPrefixes:[],lastWorkPosPrefixes:[],mappings:[],allowUnmappedUserChoice:true},groupDateRule:{enabled:true,resetAtMonthEnd:false,maxBeforeDays:2,afterDaysWhenOldestIsMaxBefore:0,afterDaysWhenOldestIsOneDayBefore:2,afterDaysWhenOldestIsWorkDay:2,action:"BLOCK",warningText:"วันที่บิลไม่อยู่ในช่วงที่ใช้ได้"}}}
   function normalize(raw={},brandId=""){
     const base=defaultRule(brandId),g=raw.groupDateRule||{};
     const number=(v,fallback)=>Number.isFinite(Number(v))?Math.max(0,Math.min(31,Number(v))):fallback;
-    return {...base,...raw,brandId:raw.brandId||brandId,customerCounterMode:raw.customerCounterMode||((g.resetAtMonthEnd)?"MONTHLY_RESET":"CONTINUOUS"),groupDateRule:{...base.groupDateRule,...g,maxBeforeDays:Math.min(2,number(g.maxBeforeDays,2)),afterDaysWhenOldestIsMaxBefore:number(g.afterDaysWhenOldestIsMaxBefore,0),afterDaysWhenOldestIsOneDayBefore:number(g.afterDaysWhenOldestIsOneDayBefore,2),afterDaysWhenOldestIsWorkDay:number(g.afterDaysWhenOldestIsWorkDay,2),action:"BLOCK"}};
+    return {...base,...raw,brandId:raw.brandId||brandId,customerCounterMode:raw.customerCounterMode||((g.resetAtMonthEnd)?"MONTHLY_RESET":"CONTINUOUS"),posIdentityRule:normalizePosIdentityRule(raw.posIdentityRule||{}),groupDateRule:{...base.groupDateRule,...g,maxBeforeDays:Math.min(2,number(g.maxBeforeDays,2)),afterDaysWhenOldestIsMaxBefore:number(g.afterDaysWhenOldestIsMaxBefore,0),afterDaysWhenOldestIsOneDayBefore:number(g.afterDaysWhenOldestIsOneDayBefore,2),afterDaysWhenOldestIsWorkDay:number(g.afterDaysWhenOldestIsWorkDay,2),action:"BLOCK"}};
   }
   function validate(workDateValue,records,rawRule){
     const work=parseIso(workDateValue),rule=normalize(rawRule).groupDateRule;
@@ -31,5 +92,5 @@
     valid.filter(x=>x.date<earliest||x.date>max).forEach(x=>issues.push({posNumber:x.posNumber,code:"DATE_OUTSIDE_GROUP",message:`${rule.warningText} (${iso(earliest)} - ${iso(max)})`}));
     return{valid:issues.length===0,issues,minDate:iso(earliest),maxDate:iso(max)};
   }
-  return{defaultRule,normalize,validate};
+  return{defaultRule,normalize,validate,normalizePosIdentityRule,resolvePosIdentity};
 });

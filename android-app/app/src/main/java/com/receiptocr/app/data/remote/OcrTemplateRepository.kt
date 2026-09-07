@@ -131,36 +131,49 @@ object OcrTemplateRepository {
     private fun parsePosIdentityRule(root: JSONObject?): PosIdentityRule {
         if (root == null) return PosIdentityRule()
         val prefixes = root.optJSONArray("allowedPrefixes")
-        val mappings = root.optJSONArray("mappings")
+        val lastPrefixes = root.optJSONArray("lastWorkPosPrefixes")
+        val mappingsJson = root.optJSONArray("mappings")
+        val parsedMappings = buildList {
+            if (mappingsJson != null) {
+                for (i in 0 until mappingsJson.length()) {
+                    val item = mappingsJson.optJSONObject(i) ?: continue
+                    val receiptPos = item.optString("receiptPos").trim().uppercase()
+                    val workPos = item.optInt("workPos", 0)
+                    val useLastWorkPos = item.optBoolean("useLastWorkPos", false) ||
+                        item.optString("target").equals("LAST", ignoreCase = true)
+                    if (receiptPos.isNotBlank() && (workPos > 0 || useLastWorkPos)) {
+                        add(PosIdentityMapping(receiptPos = receiptPos, workPos = workPos, useLastWorkPos = useLastWorkPos))
+                    }
+                }
+            }
+        }
+        val explicitLastPrefixes = buildList {
+            if (lastPrefixes != null) {
+                for (i in 0 until lastPrefixes.length()) {
+                    lastPrefixes.optString(i).trim().uppercase().takeIf { it.matches(Regex("^[A-Z]{1,4}$")) }?.let(::add)
+                }
+            }
+        }
+        // Older Admin versions stored B01=LAST. Promote its alphabetic prefix so
+        // B01, B02, B99 all follow the same brand rule without requiring re-entry.
+        val legacyLastPrefixes = parsedMappings.filter { it.useLastWorkPos }
+            .map { it.receiptPos.takeWhile(Char::isLetter).uppercase() }
+            .filter { it.isNotBlank() }
+        val terminalPrefixes = (explicitLastPrefixes + legacyLastPrefixes).distinct()
+        val allowed = buildList {
+            if (prefixes != null) {
+                for (i in 0 until prefixes.length()) {
+                    prefixes.optString(i).trim().uppercase().takeIf { it.isNotBlank() }?.let(::add)
+                }
+            }
+            addAll(terminalPrefixes)
+            addAll(parsedMappings.map { it.receiptPos.takeWhile(Char::isLetter).uppercase() }.filter { it.isNotBlank() })
+        }.distinct()
         return PosIdentityRule(
-            enabled = root.optBoolean("enabled", false),
-            allowedPrefixes = buildList {
-                if (prefixes != null) {
-                    for (i in 0 until prefixes.length()) {
-                        prefixes.optString(i).trim().uppercase().takeIf { it.isNotBlank() }?.let(::add)
-                    }
-                }
-            }.distinct(),
-            mappings = buildList {
-                if (mappings != null) {
-                    for (i in 0 until mappings.length()) {
-                        val item = mappings.optJSONObject(i) ?: continue
-                        val receiptPos = item.optString("receiptPos").trim().uppercase()
-                        val workPos = item.optInt("workPos", 0)
-                        val useLastWorkPos = item.optBoolean("useLastWorkPos", false) ||
-                            item.optString("target").equals("LAST", ignoreCase = true)
-                        if (receiptPos.isNotBlank() && (workPos > 0 || useLastWorkPos)) {
-                            add(
-                                PosIdentityMapping(
-                                    receiptPos = receiptPos,
-                                    workPos = workPos,
-                                    useLastWorkPos = useLastWorkPos
-                                )
-                            )
-                        }
-                    }
-                }
-            },
+            enabled = root.optBoolean("enabled", false) || parsedMappings.isNotEmpty() || terminalPrefixes.isNotEmpty(),
+            allowedPrefixes = allowed,
+            lastWorkPosPrefixes = terminalPrefixes,
+            mappings = parsedMappings,
             allowUnmappedUserChoice = root.optBoolean("allowUnmappedUserChoice", true)
         )
     }

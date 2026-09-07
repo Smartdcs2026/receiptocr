@@ -74,28 +74,11 @@ function configuredPosMappingItems(){
   return [...byKey.values()];
 }
 function resolveConfiguredPos(value){
-  const numeric=posNumberValue(value);
-  const key=normalizePosIdentityKey(value);
-  if(!key)return null;
-  const prefix=(key.match(/^[A-Z]+/)||[""])[0];
-  if(!prefix)return numeric;
-
-  // The test must use the mapping the admin can actually see/edit.  Read the
-  // current textarea first and fall back to the last rule loaded from storage.
-  // This avoids losing B01=LAST through an intermediate normalized rule state.
-  const item=configuredPosMappingItems().find(x=>normalizePosIdentityKey(x.receiptPos)===key);
-  if(item){
-    const isLast=item.useLastWorkPos===true||String(item.target||"").toUpperCase()==="LAST";
-    if(isLast){
-      const values=configuredTestPosValues();
-      return values.length?Math.max(...values):null;
-    }
-    const workPos=Number(item.workPos);
-    return Number.isInteger(workPos)&&workPos>0?workPos:null;
-  }
-
-  const rule=buildReceiptRule().posIdentityRule||{};
-  return rule.enabled?null:numeric;
+  return ReceiptDateRules.resolvePosIdentity(
+    value,
+    buildReceiptRule().posIdentityRule||{},
+    configuredTestPosValues()
+  );
 }
 
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
@@ -132,29 +115,40 @@ function renderDateRule(){
   $("dateRuleExample").textContent=r.resetAtMonthEnd
     ?"แบรนด์นี้ห้ามใช้วันที่บิลข้ามเดือน แม้อยู่ในช่วงจำนวนวันที่กำหนด"
     :"แบรนด์นี้ใช้วันที่ข้ามเดือนได้ตามช่วงจำนวนวันที่กำหนด";
-  const p=brandReceiptRule.posIdentityRule||{enabled:false,allowedPrefixes:[],mappings:[],allowUnmappedUserChoice:true};
-  $("posIdentityMode").value=(p.enabled||(p.mappings||[]).length)?"PREFIX_MAPPING":"NORMAL";
+  const p=ReceiptDateRules.normalizePosIdentityRule(brandReceiptRule.posIdentityRule||{});
+  const lastPrefixes=p.lastWorkPosPrefixes||[];
+  const visibleMappings=(p.mappings||[]).filter(item=>{
+    const key=normalizePosIdentityKey(item?.receiptPos);
+    const prefix=key?(key.match(/^[A-Z]+/)||[""])[0]:"";
+    return !(item?.useLastWorkPos===true&&prefix&&lastPrefixes.includes(prefix));
+  });
+  $("posIdentityMode").value=(p.enabled||visibleMappings.length||lastPrefixes.length)?"PREFIX_MAPPING":"NORMAL";
   $("brandPosPrefixes").value=(p.allowedPrefixes||[]).join(",");
-  $("brandPosMappings").value=formatBrandPosMappings(p.mappings);
+  $("brandLastPosPrefixes").value=lastPrefixes.join(",");
+  $("brandPosMappings").value=formatBrandPosMappings(visibleMappings);
   $("allowUnmappedPosChoice").checked=p.allowUnmappedUserChoice!==false;
-  $("posIdentityRuleExample").textContent=p.enabled
-    ?`แยกรหัสเครื่องตามอักษรนำหน้า • ตั้งไว้ ${(p.mappings||[]).length} รายการ`
+  $("posIdentityRuleExample").textContent=(p.enabled||lastPrefixes.length||visibleMappings.length)
+    ?`กติกาหมายเลขเครื่อง • POS สุดท้าย: ${lastPrefixes.length?lastPrefixes.join(", "):"ไม่มี"} • จับคู่เฉพาะ ${visibleMappings.length} รายการ`
     :"ค่าเริ่มต้น: ใช้เลข POS แบบเดิม จึงไม่กระทบแบรนด์ที่ใช้งานอยู่";
 }
 function buildReceiptRule(){
   const mode=$("dateCountingMode").value;
   const posMappings=parseBrandPosMappings($("brandPosMappings").value);
+  const lastWorkPosPrefixes=String($("brandLastPosPrefixes")?.value||"")
+    .split(/[,;\s]+/).map(x=>x.trim().toUpperCase()).filter(x=>/^[A-Z]{1,4}$/.test(x));
   return ReceiptDateRules.normalize({
     brandId:$("brandId").value,
     customerCounterMode:mode,
     preventDuplicateImage:true,
     preventDuplicateReceiptData:true,
     posIdentityRule:{
-      enabled:$("posIdentityMode").value==="PREFIX_MAPPING"||posMappings.length>0,
+      enabled:$("posIdentityMode").value==="PREFIX_MAPPING"||posMappings.length>0||lastWorkPosPrefixes.length>0,
       allowedPrefixes:[...new Set([
         ...String($("brandPosPrefixes").value||"").split(/[,;\s]+/).map(x=>x.trim().toUpperCase()).filter(Boolean),
+        ...lastWorkPosPrefixes,
         ...parseBrandPosMappings($("brandPosMappings").value).map(item=>(normalizePosIdentityKey(item.receiptPos)?.match(/^[A-Z]+/)||[""])[0]).filter(Boolean)
       ])],
+      lastWorkPosPrefixes,
       mappings:posMappings,
       allowUnmappedUserChoice:$("allowUnmappedPosChoice").checked
     },

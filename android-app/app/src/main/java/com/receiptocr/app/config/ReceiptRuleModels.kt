@@ -40,7 +40,9 @@ data class PosIdentityRule(
     val enabled: Boolean = false,
     /** ตัวอักษรนำหน้าที่แบรนด์นี้อนุญาต เช่น N,B,A */
     val allowedPrefixes: List<String> = emptyList(),
-    /** จับคู่ เช่น N01 -> POS 1, B01 -> POS สุดท้ายของร้าน */
+    /** ถ้ารหัสเครื่องขึ้นต้นด้วยอักษรเหล่านี้ ให้ใช้ POS สุดท้ายของร้าน เช่น B01/B02/B99 -> POS สุดท้าย */
+    val lastWorkPosPrefixes: List<String> = emptyList(),
+    /** จับคู่รหัสเฉพาะ เช่น N01 -> POS 1 */
     val mappings: List<PosIdentityMapping> = emptyList(),
     /** ถ้าเจอรหัสใหม่ ห้ามเดา POS เอง; ให้แจ้งผู้ใช้/ผู้ดูแล */
     val allowUnmappedUserChoice: Boolean = true,

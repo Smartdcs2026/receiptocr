@@ -20,7 +20,8 @@ object PosIdentityResolver {
         val key = OcrTextNormalizer.normalizePosIdentity(raw) ?: return null
         val numeric = OcrTextNormalizer.parsePosNumber(display) ?: return null
 
-        if (!rule.enabled) {
+        val active = rule.enabled || rule.mappings.isNotEmpty() || rule.lastWorkPosPrefixes.isNotEmpty()
+        if (!active) {
             return ResolvedPosIdentity(display, key, numeric, mappedByBrandRule = false)
         }
 
@@ -29,8 +30,15 @@ object PosIdentityResolver {
             return ResolvedPosIdentity(display, key, numeric, mappedByBrandRule = false)
         }
 
-        // Explicit mapping wins over a stale allowedPrefixes list. The mapping itself
-        // is the brand-specific authorization for this receipt identity.
+        val terminalPrefixes = rule.lastWorkPosPrefixes.map { it.trim().uppercase() }.filter { it.isNotBlank() }.toSet()
+        if (prefix in terminalPrefixes) {
+            val lastPos = availableWorkPos.filter { it > 0 }.maxOrNull()
+                ?: rule.runtimeLastWorkPos.takeIf { it > 0 }
+                ?: return null
+            return ResolvedPosIdentity(display, key, lastPos, mappedByBrandRule = true)
+        }
+
+        // Exact mapping remains available for prefixes that are not terminal-prefix rules.
         val mapping = rule.mappings.firstOrNull { item ->
             OcrTextNormalizer.normalizePosIdentity(item.receiptPos) == key &&
                 (item.workPos > 0 || item.useLastWorkPos)
@@ -53,7 +61,7 @@ object PosIdentityResolver {
         rule: PosIdentityRule,
         availableWorkPos: Collection<Int> = emptyList()
     ): List<String> {
-        if (!rule.enabled) return emptyList()
+        if (!rule.enabled && rule.mappings.isEmpty() && rule.lastWorkPosPrefixes.isEmpty()) return emptyList()
         val found = linkedSetOf<String>()
         templates.filter { it.active }.forEach { template ->
             rawTexts.filter { it.isNotBlank() }.forEach { raw ->
