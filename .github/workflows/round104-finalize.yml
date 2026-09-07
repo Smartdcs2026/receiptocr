@@ -101,7 +101,7 @@ jobs:
           node --check web-admin/review-workspace-v2.js
           node --check web-admin/storage.js
           node --check web-admin/storage-evidence-diagnostics-round104.js
-          grep -q 'VERSION="104170"' web-admin/admin-spa.js
+          grep -q 'VERSION="104171"' web-admin/admin-spa.js
           grep -q 'ocr-terminal-pos-round10417.js' web-admin/admin-spa.js
           grep -q 'review-workspace-v2.css?v=104161' web-admin/review.html
           grep -q 'review-workspace-v2.js?v=104161' web-admin/review.html
