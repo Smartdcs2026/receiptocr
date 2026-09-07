@@ -147,7 +147,17 @@ object OcrTemplateRepository {
                         val item = mappings.optJSONObject(i) ?: continue
                         val receiptPos = item.optString("receiptPos").trim().uppercase()
                         val workPos = item.optInt("workPos", 0)
-                        if (receiptPos.isNotBlank() && workPos > 0) add(PosIdentityMapping(receiptPos, workPos))
+                        val useLastWorkPos = item.optBoolean("useLastWorkPos", false) ||
+                            item.optString("target").equals("LAST", ignoreCase = true)
+                        if (receiptPos.isNotBlank() && (workPos > 0 || useLastWorkPos)) {
+                            add(
+                                PosIdentityMapping(
+                                    receiptPos = receiptPos,
+                                    workPos = workPos,
+                                    useLastWorkPos = useLastWorkPos
+                                )
+                            )
+                        }
                     }
                 }
             },
