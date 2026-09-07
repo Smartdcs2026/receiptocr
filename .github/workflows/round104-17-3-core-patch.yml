@@ -1,0 +1,153 @@
+name: Round104.17.3 native LAST core patch
+
+on:
+  push:
+    branches: ["round104-production-evidence-runtime"]
+    paths:
+      - ".github/workflows/round104-17-3-core-patch.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: round104-production-evidence-runtime
+          fetch-depth: 0
+
+      - name: Patch Admin core LAST support
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          core = Path('web-admin/ocr-simple.js')
+          text = core.read_text(encoding='utf-8')
+          old = r'''function parseBrandPosMappings(value){
+            return String(value||"").split(/\n+/).map(line=>line.trim()).filter(Boolean).map(line=>{
+              const m=line.match(/^([^=:\s]+)\s*(?:=|:)\s*(\d+)$/);
+              if(!m)return null;
+              const key=normalizePosIdentityKey(m[1]);
+              const workPos=Number(m[2]);
+              return key&&workPos>0?{receiptPos:m[1].trim().toUpperCase(),workPos}:null;
+            }).filter(Boolean);
+          }
+          function formatBrandPosMappings(items){
+            return (items||[]).filter(x=>x&&x.receiptPos&&Number(x.workPos)>0).map(x=>`${x.receiptPos}=${x.workPos}`).join("\n");
+          }
+          function resolveConfiguredPos(value){
+            const numeric=posNumberValue(value);
+            const rule=buildReceiptRule().posIdentityRule||{};
+            if(!rule.enabled)return numeric;
+            const key=normalizePosIdentityKey(value);
+            if(!key)return null;
+            const prefix=(key.match(/^[A-Z]+/)||[""])[0];
+            if(!prefix)return numeric;
+            const allowed=(rule.allowedPrefixes||[]).map(x=>String(x).toUpperCase());
+            if(allowed.length&&!allowed.includes(prefix))return null;
+            const item=(rule.mappings||[]).find(x=>normalizePosIdentityKey(x.receiptPos)===key);
+            return item?Number(item.workPos):null;
+          }'''
+          new = r'''function parseBrandPosMappings(value){
+            return String(value||"").split(/\n+/).map(line=>line.trim()).filter(Boolean).map(line=>{
+              const m=line.match(/^([^=:\s]+)\s*(?:=|:)\s*(\d+|LAST)$/i);
+              if(!m)return null;
+              const key=normalizePosIdentityKey(m[1]);
+              if(!key)return null;
+              const receiptPos=m[1].trim().toUpperCase();
+              if(String(m[2]).toUpperCase()==="LAST"){
+                return {receiptPos,workPos:0,useLastWorkPos:true,target:"LAST"};
+              }
+              const workPos=Number(m[2]);
+              return workPos>0?{receiptPos,workPos,useLastWorkPos:false}:null;
+            }).filter(Boolean);
+          }
+          function formatBrandPosMappings(items){
+            return (items||[]).map(x=>{
+              if(!x||!x.receiptPos)return null;
+              const receiptPos=String(x.receiptPos).trim().toUpperCase();
+              const isLast=x.useLastWorkPos===true||String(x.target||"").toUpperCase()==="LAST";
+              if(isLast)return `${receiptPos}=LAST`;
+              const workPos=Number(x.workPos);
+              return Number.isInteger(workPos)&&workPos>0?`${receiptPos}=${workPos}`:null;
+            }).filter(Boolean).join("\n");
+          }
+          function configuredTestPosValues(){
+            return String($("testAllowedPos")?.value||"")
+              .split(/[,;\s]+/).map(Number).filter(value=>Number.isInteger(value)&&value>0);
+          }
+          function resolveConfiguredPos(value){
+            const numeric=posNumberValue(value);
+            const rule=buildReceiptRule().posIdentityRule||{};
+            if(!rule.enabled)return numeric;
+            const key=normalizePosIdentityKey(value);
+            if(!key)return null;
+            const prefix=(key.match(/^[A-Z]+/)||[""])[0];
+            if(!prefix)return numeric;
+            const allowed=(rule.allowedPrefixes||[]).map(x=>String(x).toUpperCase());
+            if(allowed.length&&!allowed.includes(prefix))return null;
+            const item=(rule.mappings||[]).find(x=>normalizePosIdentityKey(x.receiptPos)===key);
+            if(!item)return null;
+            const isLast=item.useLastWorkPos===true||String(item.target||"").toUpperCase()==="LAST";
+            if(isLast){
+              const values=configuredTestPosValues();
+              return values.length?Math.max(...values):null;
+            }
+            const workPos=Number(item.workPos);
+            return Number.isInteger(workPos)&&workPos>0?workPos:null;
+          }'''
+          if old not in text:
+              raise SystemExit('Expected legacy POS mapping block not found; refusing unsafe patch')
+          text = text.replace(old, new, 1)
+          core.write_text(text, encoding='utf-8')
+
+          index = Path('web-admin/index.html')
+          text = index.read_text(encoding='utf-8')
+          if 'ocr-simple.js?v=94' not in text:
+              raise SystemExit('Expected ocr-simple cache key not found')
+          text = text.replace('ocr-simple.js?v=94', 'ocr-simple.js?v=104173', 1)
+          index.write_text(text, encoding='utf-8')
+
+          spa = Path('web-admin/admin-spa.js')
+          text = spa.read_text(encoding='utf-8')
+          if 'const VERSION="104172"' not in text:
+              raise SystemExit('Expected Admin SPA cache version not found')
+          text = text.replace('const VERSION="104172"', 'const VERSION="104173"', 1)
+          legacy = '      if(!doc.getElementById("round10417TerminalPos")){const script=doc.createElement("script");script.id="round10417TerminalPos";script.src=`ocr-terminal-pos-round10417.js?v=${VERSION}`;doc.body.appendChild(script);}\n'
+          if legacy not in text:
+              raise SystemExit('Expected legacy terminal helper injection not found')
+          text = text.replace(legacy, '', 1)
+          spa.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Verify native LAST behavior is wired in core
+        shell: bash
+        run: |
+          node --check web-admin/ocr-simple.js
+          node --check web-admin/admin-spa.js
+          grep -F 'd+|LAST' web-admin/ocr-simple.js >/dev/null
+          grep -F 'useLastWorkPos:true' web-admin/ocr-simple.js >/dev/null
+          grep -F 'Math.max(...values)' web-admin/ocr-simple.js >/dev/null
+          grep -F 'ocr-simple.js?v=104173' web-admin/index.html >/dev/null
+          grep -F 'VERSION="104173"' web-admin/admin-spa.js >/dev/null
+          if grep -F 'round10417TerminalPos' web-admin/admin-spa.js >/dev/null; then
+            echo 'Legacy terminal helper is still injected' >&2
+            exit 1
+          fi
+
+      - name: Commit native core fix
+        shell: bash
+        run: |
+          git config user.name "receiptocr-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add web-admin/ocr-simple.js web-admin/index.html web-admin/admin-spa.js
+          if git diff --cached --quiet; then
+            echo "No patch changes to commit"
+            exit 0
+          fi
+          git commit -m "Round104.17.3 make LAST native in Admin OCR core"
+          git push origin HEAD:round104-production-evidence-runtime
