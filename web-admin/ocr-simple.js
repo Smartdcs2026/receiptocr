@@ -33,15 +33,31 @@ function normalizePosIdentityKey(value){
 }
 function parseBrandPosMappings(value){
   return String(value||"").split(/\n+/).map(line=>line.trim()).filter(Boolean).map(line=>{
-    const m=line.match(/^([^=:\s]+)\s*(?:=|:)\s*(\d+)$/);
+    const m=line.match(/^([^=:\s]+)\s*(?:=|:)\s*(\d+|LAST)$/i);
     if(!m)return null;
     const key=normalizePosIdentityKey(m[1]);
+    if(!key)return null;
+    const receiptPos=m[1].trim().toUpperCase();
+    if(String(m[2]).toUpperCase()==="LAST"){
+      return {receiptPos,workPos:0,useLastWorkPos:true,target:"LAST"};
+    }
     const workPos=Number(m[2]);
-    return key&&workPos>0?{receiptPos:m[1].trim().toUpperCase(),workPos}:null;
+    return workPos>0?{receiptPos,workPos,useLastWorkPos:false}:null;
   }).filter(Boolean);
 }
 function formatBrandPosMappings(items){
-  return (items||[]).filter(x=>x&&x.receiptPos&&Number(x.workPos)>0).map(x=>`${x.receiptPos}=${x.workPos}`).join("\n");
+  return (items||[]).map(x=>{
+    if(!x||!x.receiptPos)return null;
+    const receiptPos=String(x.receiptPos).trim().toUpperCase();
+    const isLast=x.useLastWorkPos===true||String(x.target||"").toUpperCase()==="LAST";
+    if(isLast)return `${receiptPos}=LAST`;
+    const workPos=Number(x.workPos);
+    return Number.isInteger(workPos)&&workPos>0?`${receiptPos}=${workPos}`:null;
+  }).filter(Boolean).join("\n");
+}
+function configuredTestPosValues(){
+  return String($("testAllowedPos")?.value||"")
+    .split(/[,;\s]+/).map(Number).filter(value=>Number.isInteger(value)&&value>0);
 }
 function resolveConfiguredPos(value){
   const numeric=posNumberValue(value);
@@ -54,7 +70,14 @@ function resolveConfiguredPos(value){
   const allowed=(rule.allowedPrefixes||[]).map(x=>String(x).toUpperCase());
   if(allowed.length&&!allowed.includes(prefix))return null;
   const item=(rule.mappings||[]).find(x=>normalizePosIdentityKey(x.receiptPos)===key);
-  return item?Number(item.workPos):null;
+  if(!item)return null;
+  const isLast=item.useLastWorkPos===true||String(item.target||"").toUpperCase()==="LAST";
+  if(isLast){
+    const values=configuredTestPosValues();
+    return values.length?Math.max(...values):null;
+  }
+  const workPos=Number(item.workPos);
+  return Number.isInteger(workPos)&&workPos>0?workPos:null;
 }
 
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
