@@ -24,10 +24,15 @@ data class StoreIdentityRule(
 )
 
 
-/** จับคู่รหัสเครื่องที่พิมพ์บนบิล เช่น N01/B01 ไปยังช่อง POS ในงาน */
+/**
+ * จับคู่รหัสเครื่องที่พิมพ์บนบิลไปยังช่อง POS ในงาน
+ * - workPos > 0 = จับคู่แบบตายตัว เช่น N01 -> POS 1
+ * - useLastWorkPos = true = ใช้ POS ลำดับสุดท้ายตามแผนงานของร้าน เช่น B01 -> LAST
+ */
 data class PosIdentityMapping(
     val receiptPos: String,
-    val workPos: Int
+    val workPos: Int = 0,
+    val useLastWorkPos: Boolean = false
 )
 
 data class PosIdentityRule(
@@ -35,7 +40,7 @@ data class PosIdentityRule(
     val enabled: Boolean = false,
     /** ตัวอักษรนำหน้าที่แบรนด์นี้อนุญาต เช่น N,B,A */
     val allowedPrefixes: List<String> = emptyList(),
-    /** จับคู่ เช่น N01 -> POS 1, B01 -> POS 2 */
+    /** จับคู่ เช่น N01 -> POS 1, B01 -> POS สุดท้ายของร้าน */
     val mappings: List<PosIdentityMapping> = emptyList(),
     /** ถ้าเจอรหัสใหม่ ห้ามเดา POS เอง; ให้แจ้งผู้ใช้/ผู้ดูแล */
     val allowUnmappedUserChoice: Boolean = true
