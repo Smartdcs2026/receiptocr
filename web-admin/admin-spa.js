@@ -1,6 +1,6 @@
 (async()=>{
   if(!await AdminAuth.guard()) return;
-  const VERSION="104161",allRoles=["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"];
+  const VERSION="104162",allRoles=["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"];
   const routes={
     home:{title:"ภาพรวมการปฏิบัติงาน",sub:"สถานะงาน การตรวจสอบ และรายการที่ต้องดำเนินการ",url:"dashboard.html",roles:allRoles,group:"งานประจำวัน",icon:"grid"},
     review:{title:"ศูนย์ตรวจสอบงาน",sub:"ตรวจภาพบิล ภาพร้าน และข้อมูลยอดลูกค้าราย POS",url:"review.html",roles:allRoles,group:"งานประจำวัน",icon:"check"},
@@ -35,6 +35,7 @@
       const doc=frame.contentDocument;
       if(!doc)return;
       if(!doc.getElementById("round78OcrCss")){const link=doc.createElement("link");link.id="round78OcrCss";link.rel="stylesheet";link.href=`ocr-admin-ux.css?v=${VERSION}`;doc.head.appendChild(link);}
+      if(!doc.getElementById("round104162OcrSaveReliability")){const script=doc.createElement("script");script.id="round104162OcrSaveReliability";script.src=`ocr-save-reliability-round104162.js?v=${VERSION}`;doc.body.appendChild(script);}
       if(!doc.getElementById("round78OcrJs")){const script=doc.createElement("script");script.id="round78OcrJs";script.src=`ocr-admin-ux.js?v=${VERSION}`;doc.body.appendChild(script);}
     }catch(_){/* หน้าเดิมยังใช้งานได้หากส่วนเสริมโหลดไม่ได้ */}
   }
