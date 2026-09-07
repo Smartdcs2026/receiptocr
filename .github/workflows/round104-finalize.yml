@@ -2,7 +2,7 @@ name: Round104 production evidence runtime regression
 
 on:
   push:
-    branches:["round104-production-evidence-runtime"]
+    branches: ["round104-production-evidence-runtime"]
     paths:
       - "android-app/**"
       - ".gitignore"
