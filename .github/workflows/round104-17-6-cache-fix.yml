@@ -1,0 +1,34 @@
+name: Round104.17.6 shared rule cache
+
+on:
+  push:
+    branches: ["round104-production-evidence-runtime"]
+    paths:
+      - ".github/workflows/round104-17-6-cache-fix.yml"
+      - "tools/round104_17_6_cache_fix.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: round104-production-evidence-runtime
+          fetch-depth: 0
+      - run: python tools/round104_17_6_cache_fix.py
+      - run: |
+          grep -q 'receipt-date-rules.js?v=104176' web-admin/index.html
+          grep -q 'ocr-simple.js?v=104176' web-admin/index.html
+          node tests/round10417-pos-terminal.test.js
+      - name: Commit cache fix
+        run: |
+          git config user.name "receiptocr-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add web-admin/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Round104.17.6 load shared POS rules from generation 104176"
+          git push origin HEAD:round104-production-evidence-runtime
