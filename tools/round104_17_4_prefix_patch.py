@@ -86,6 +86,7 @@ if extra.strip() not in s:
     if anchor not in s:
         raise SystemExit("JS test anchor not found")
     s = s.replace(anchor, anchor + extra, 1)
+s = s.replace("104173", "104174")
 s = s.replace(
     "Round104.17.3 native terminal POS core checks passed",
     "Round104.17.4 mapped-prefix precedence checks passed",
