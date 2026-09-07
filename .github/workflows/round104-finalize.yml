@@ -25,10 +25,12 @@ on:
       - "web-admin/review-evidence-direct-round104.css"
       - "web-admin/review-workspace-v2.css"
       - "web-admin/review-workspace-v2.js"
+      - "web-admin/ocr-terminal-pos-round10417.js"
       - "web-admin/storage.html"
       - "web-admin/storage.js"
       - "web-admin/storage-evidence-diagnostics-round104.js"
       - "tests/review-logic.test.js"
+      - "tests/round10417-pos-terminal.test.js"
       - "tools/round104_worker_runtime_patch.py"
       - "tools/round104_review_editor_patch.py"
       - "tools/round104_review_editor_preserve_pos_patch.py"
@@ -57,18 +59,25 @@ jobs:
       - name: Verify Round103 baseline
         run: git merge-base --is-ancestor ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 HEAD
 
-      - name: Verify Round104.2 Android version and direct evidence upload
+      - name: Verify Round104.17 Android version and direct evidence upload
         run: |
-          grep -q 'versionCode = 108' android-app/app/build.gradle.kts
-          grep -q 'versionName = "0.104.2"' android-app/app/build.gradle.kts
+          grep -q 'versionCode = 109' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.17"' android-app/app/build.gradle.kts
           grep -q 'X-Evidence-Kind' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'X-Evidence-Slot' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'setFixedLengthStreamingMode' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'Server ยังไม่ยืนยันการบันทึก' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
 
-      - name: Protect Round103 OCR baseline and evidence finalize flow
+      - name: Protect Round103 OCR baseline and allow Round104.17 terminal POS files
         run: |
-          git diff --exit-code ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 -- android-app/app/src/main/java/com/receiptocr/app/ocr
+          unexpected="$(git diff --name-only ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 -- android-app/app/src/main/java/com/receiptocr/app/ocr | grep -Ev '(^|/)(PosIdentityResolver|RealOcrPipeline)\.kt$' || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected OCR changes:"
+            echo "$unexpected"
+            exit 1
+          fi
+          grep -q 'useLastWorkPos' android-app/app/src/main/java/com/receiptocr/app/ocr/PosIdentityResolver.kt
+          grep -q 'runtimeLastWorkPos = expectedPosSet.maxOrNull() ?: 0' android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt
           grep -q 'syncEvidenceForLatestSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'finalizeSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'api/app/submissions/.*/finalize' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
@@ -77,7 +86,9 @@ jobs:
       - name: Office speed and Admin UI checks
         run: |
           node tests/review-logic.test.js
+          node tests/round10417-pos-terminal.test.js
           node --check web-admin/admin-spa.js
+          node --check web-admin/ocr-terminal-pos-round10417.js
           node --check web-admin/content-page.js
           node --check web-admin/dashboard.js
           node --check web-admin/reports.js
@@ -90,7 +101,8 @@ jobs:
           node --check web-admin/review-workspace-v2.js
           node --check web-admin/storage.js
           node --check web-admin/storage-evidence-diagnostics-round104.js
-          grep -q 'VERSION="104161"' web-admin/admin-spa.js
+          grep -q 'VERSION="104170"' web-admin/admin-spa.js
+          grep -q 'ocr-terminal-pos-round10417.js' web-admin/admin-spa.js
           grep -q 'review-workspace-v2.css?v=104161' web-admin/review.html
           grep -q 'review-workspace-v2.js?v=104161' web-admin/review.html
           grep -q 'data-review-round="104161"' web-admin/review.html
@@ -175,10 +187,10 @@ jobs:
         working-directory: android-app
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload Round104.2 debug APK
+      - name: Upload Round104.17 debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: ReceiptOCR-Round104-2-debug
+          name: ReceiptOCR-Round104-17-debug
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
           if-no-files-found: error
