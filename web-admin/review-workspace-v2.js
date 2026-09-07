@@ -1,5 +1,6 @@
-/* Round104.16 — Review Workspace production behavior.
-   Queue/history filters, compact evidence manager, POS visibility and report-ready blocks. */
+/* Round104.16.1 — Review Workspace production behavior.
+   Queue/history filters, compact evidence manager, POS visibility and report-ready blocks.
+   Fix: make detail enhancement idempotent and coalesce DOM mutation refreshes to prevent image-viewer flicker. */
 (()=>{
   const root=document.querySelector('.reviewPage');
   const queuePanel=document.querySelector('.reviewQueuePanel');
@@ -19,7 +20,7 @@
 
   root.classList.add('reviewWorkspaceV2');
   root.dataset.reviewWorkspace='v2';
-  root.dataset.reviewRound='10416';
+  root.dataset.reviewRound='104161';
 
   const norm=v=>String(v??'').trim().toLowerCase();
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
@@ -67,7 +68,8 @@
     const map=new Map();
     lastItems.forEach(item=>{const label=itemBrand(item),key=norm(label);if(key&&!map.has(key))map.set(key,label);});
     const items=[...map.entries()].sort((a,b)=>a[1].localeCompare(b[1],'th'));
-    brandSelect.innerHTML='<option value="">ทุกแบรนด์</option>'+items.map(([key,label])=>`<option value="${esc(key)}">${esc(label)}</option>`).join('');
+    const nextHtml='<option value="">ทุกแบรนด์</option>'+items.map(([key,label])=>`<option value="${esc(key)}">${esc(label)}</option>`).join('');
+    if(brandSelect.innerHTML!==nextHtml)brandSelect.innerHTML=nextHtml;
     brandSelect.value=items.some(([key])=>key===current)?current:'';
   }
 
@@ -157,18 +159,21 @@
 
   function syncNewBadge(){
     const n=Math.max(0,Number(newCount?.textContent||0)||0);
-    newBadge.textContent=n?`+${n} งานใหม่`:'';
+    const next=n?`+${n} งานใหม่`:'';
+    if(newBadge.textContent!==next)newBadge.textContent=next;
     newBadge.classList.toggle('show',n>0&&mode==='live');
   }
   function syncState(){
     const isLive=mode==='live';
     liveBtn.classList.toggle('active',isLive);historyBtn.classList.toggle('active',!isLive);
-    liveState.classList.toggle('history',!isLive);liveState.textContent=isLive?'Live · 15 วิ':'ดูย้อนหลัง';
+    liveState.classList.toggle('history',!isLive);
+    const nextLiveText=isLive?'Live · 15 วิ':'ดูย้อนหลัง';if(liveState.textContent!==nextLiveText)liveState.textContent=nextLiveText;
     historyDates.classList.toggle('show',!isLive);
     statusRow.querySelectorAll('[data-queue-status]').forEach(b=>b.classList.toggle('active',String(b.dataset.queueStatus)===String(status.value||'')));
     clearSearch.style.visibility=search.value?'visible':'hidden';
     const caption=$('reviewQueueCaption');
-    if(caption)caption.textContent=isLive?'งานใหม่เข้าคิวอัตโนมัติ · เลือกร้านเพื่อตรวจ':'ดูงานย้อนหลัง · กรองวัน พนักงาน แบรนด์ หรือร้าน';
+    const nextCaption=isLive?'งานใหม่เข้าคิวอัตโนมัติ · เลือกร้านเพื่อตรวจ':'ดูงานย้อนหลัง · กรองวัน พนักงาน แบรนด์ หรือร้าน';
+    if(caption&&caption.textContent!==nextCaption)caption.textContent=nextCaption;
     syncNewBadge();
   }
 
@@ -179,7 +184,8 @@
       card.dataset.rv2Status=String(item.status||'');card.dataset.rv2Brand=norm(itemBrand(item));card.dataset.reviewStoreBlock='queue-card';
       let meta=card.querySelector('.queueMetaV2');if(!meta){meta=document.createElement('div');meta.className='queueMetaV2';card.appendChild(meta);}
       const evidence=ReviewLogic.evidenceState(item);const count=evidence.receiptCount+evidence.storeCount;const p=expectedPos(item);
-      meta.innerHTML=`<span>POS ${p||'-'}</span><span class="${evidence.known?(evidence.ready?'ready':'missing'):''}">${evidence.known?`ภาพ ${count}`:'กำลังตรวจภาพ'}</span>`;
+      const nextMeta=`<span>POS ${p||'-'}</span><span class="${evidence.known?(evidence.ready?'ready':'missing'):''}">${evidence.known?`ภาพ ${count}`:'กำลังตรวจภาพ'}</span>`;
+      if(meta.innerHTML!==nextMeta)meta.innerHTML=nextMeta;
     });
   }
 
@@ -196,7 +202,7 @@
     const head=manager.querySelector('.reviewEvidenceManagerHead');if(!head)return;
     const toggle=document.createElement('button');
     toggle.type='button';toggle.className='rv216EvidenceToggle';toggle.textContent='จัดการภาพ';toggle.setAttribute('aria-expanded','false');
-    toggle.onclick=()=>{const expanded=manager.classList.toggle('rv216-expanded');toggle.textContent=expanded?'ซ่อนการจัดการ':'จัดการภาพ';toggle.setAttribute('aria-expanded',expanded?'true':'false');};
+    toggle.onclick=()=>{const expanded=manager.classList.toggle('rv216-expanded');const next=expanded?'ซ่อนการจัดการ':'จัดการภาพ';if(toggle.textContent!==next)toggle.textContent=next;toggle.setAttribute('aria-expanded',expanded?'true':'false');};
     head.appendChild(toggle);
   }
 
@@ -205,20 +211,23 @@
     detail.dataset.reportReady='store-block';
     [...detail.querySelectorAll('.sectionTitle')].forEach(title=>{
       const strong=title.querySelector('strong');const text=String(strong?.textContent||'');
-      if(/ข้อมูลจากบิล/.test(text)){strong.textContent='ข้อมูลจากบิล (POS)';title.classList.add('rv216PosTitle');}
+      if(/ข้อมูลจากบิล/.test(text)){if(strong&&strong.textContent!=='ข้อมูลจากบิล (POS)')strong.textContent='ข้อมูลจากบิล (POS)';title.classList.add('rv216PosTitle');}
       if(/ประวัติการตรวจ/.test(text))title.classList.add('rv216HistoryTitle');
     });
     const rows=detail.querySelectorAll('.reviewRecordTable tbody tr').length;
     const wrap=detail.querySelector('.recordTableWrap');
-    if(wrap){wrap.classList.toggle('rv216-many-pos',rows>5);wrap.dataset.posRows=String(rows);}
-    const editor=detail.querySelector('.reviewEditorBar strong');if(editor)editor.textContent='ข้อมูลร้านและงานตรวจ';
+    if(wrap){wrap.classList.toggle('rv216-many-pos',rows>5);if(wrap.dataset.posRows!==String(rows))wrap.dataset.posRows=String(rows);}
+    const editor=detail.querySelector('.reviewEditorBar strong');
+    if(editor&&editor.textContent!=='ข้อมูลร้านและงานตรวจ')editor.textContent='ข้อมูลร้านและงานตรวจ';
 
     const tabs=detail.querySelectorAll('.evidenceTabs button');const counts={bill:0,store:0,other:0};
     tabs.forEach(btn=>{
       const text=String(btn.textContent||'');btn.classList.remove('rv2BillTab','rv2StoreTab');
-      if(/ภาพบิล|บิล/.test(text)){counts.bill++;btn.classList.add('rv2BillTab');btn.textContent=`บิล · ${counts.bill}`;}
-      else if(/ภาพร้าน|ร้าน/.test(text)){counts.store++;btn.classList.add('rv2StoreTab');btn.textContent=`ร้าน · ${counts.store}`;}
-      else{counts.other++;btn.textContent=`ภาพอื่น · ${counts.other}`;}
+      let next='';
+      if(/ภาพบิล|บิล/.test(text)){counts.bill++;btn.classList.add('rv2BillTab');next=`บิล · ${counts.bill}`;}
+      else if(/ภาพร้าน|ร้าน/.test(text)){counts.store++;btn.classList.add('rv2StoreTab');next=`ร้าน · ${counts.store}`;}
+      else{counts.other++;next=`ภาพอื่น · ${counts.other}`;}
+      if(btn.textContent!==next)btn.textContent=next;
     });
 
     const img=detail.querySelector('#evidenceImage');
@@ -226,8 +235,21 @@
     setupEvidenceManager(detail);
   }
 
-  const qObserver=new MutationObserver(()=>{enhanceQueueCards();syncBrandOptions();});qObserver.observe(queue,{childList:true,subtree:false});
-  const detail=$('reviewDetail');const dObserver=detail?new MutationObserver(()=>requestAnimationFrame(enhanceDetail)):null;dObserver?.observe(detail,{childList:true,subtree:true});
+  let queueEnhanceQueued=false;
+  function scheduleQueueEnhance(){
+    if(queueEnhanceQueued)return;
+    queueEnhanceQueued=true;
+    requestAnimationFrame(()=>{queueEnhanceQueued=false;enhanceQueueCards();syncBrandOptions();});
+  }
+  let detailEnhanceQueued=false;
+  function scheduleDetailEnhance(){
+    if(detailEnhanceQueued)return;
+    detailEnhanceQueued=true;
+    requestAnimationFrame(()=>{detailEnhanceQueued=false;enhanceDetail();});
+  }
+
+  const qObserver=new MutationObserver(scheduleQueueEnhance);qObserver.observe(queue,{childList:true,subtree:false});
+  const detail=$('reviewDetail');const dObserver=detail?new MutationObserver(scheduleDetailEnhance):null;dObserver?.observe(detail,{childList:true,subtree:true});
   if(newCount)new MutationObserver(syncNewBadge).observe(newCount,{childList:true,characterData:true,subtree:true});
   ['input','change'].forEach(type=>{search.addEventListener(type,syncState);status.addEventListener(type,syncState);employee.addEventListener(type,syncState);sort.addEventListener(type,syncState);});
 
