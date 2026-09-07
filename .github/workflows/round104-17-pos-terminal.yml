@@ -1,0 +1,65 @@
+name: Round104.17 terminal POS mapping
+
+on:
+  push:
+    branches: ["round104-production-evidence-runtime"]
+    paths:
+      - "android-app/app/build.gradle.kts"
+      - "android-app/app/src/main/java/com/receiptocr/app/config/ReceiptRuleModels.kt"
+      - "android-app/app/src/main/java/com/receiptocr/app/data/remote/OcrTemplateRepository.kt"
+      - "android-app/app/src/main/java/com/receiptocr/app/ocr/PosIdentityResolver.kt"
+      - "android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt"
+      - "android-app/app/src/test/java/com/receiptocr/app/ocr/PosIdentityResolverRound10417Test.kt"
+      - "web-admin/admin.html"
+      - "web-admin/admin-spa.js"
+      - "web-admin/ocr-terminal-pos-round10417.js"
+      - "tests/round10417-pos-terminal.test.js"
+      - ".github/workflows/round104-17-pos-terminal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Admin terminal POS checks
+        run: |
+          node --check web-admin/admin-spa.js
+          node --check web-admin/ocr-terminal-pos-round10417.js
+          node --check tests/round10417-pos-terminal.test.js
+          node tests/round10417-pos-terminal.test.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
