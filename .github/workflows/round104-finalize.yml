@@ -104,11 +104,13 @@ jobs:
           node --check web-admin/review-workspace-v2.js
           node --check web-admin/storage.js
           node --check web-admin/storage-evidence-diagnostics-round104.js
-          grep -q 'VERSION="104174"' web-admin/admin-spa.js
-          grep -q 'admin-spa.js?v=104174' web-admin/admin.html
-          grep -q 'ocr-simple.js?v=104174' web-admin/index.html
+          grep -q 'VERSION="104175"' web-admin/admin-spa.js
+          grep -q 'admin-spa.js?v=104175' web-admin/admin.html
+          grep -q 'ocr-simple.js?v=104175' web-admin/index.html
           grep -q 'useLastWorkPos:true' web-admin/ocr-simple.js
           grep -q 'Math.max(...values)' web-admin/ocr-simple.js
+          grep -q 'function configuredPosMappingItems()' web-admin/ocr-simple.js
+          grep -q 'brandReceiptRule?.posIdentityRule?.mappings' web-admin/ocr-simple.js
           ! grep -q 'if(allowed.length&&!allowed.includes(prefix))return null' web-admin/ocr-simple.js
           ! grep -q 'if (allowed.isNotEmpty() && prefix !in allowed) return null' android-app/app/src/main/java/com/receiptocr/app/ocr/PosIdentityResolver.kt
           ! grep -q 'round10417TerminalPos' web-admin/admin-spa.js
