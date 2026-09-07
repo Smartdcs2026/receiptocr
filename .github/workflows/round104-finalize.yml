@@ -90,9 +90,19 @@ jobs:
           node --check web-admin/review-workspace-v2.js
           node --check web-admin/storage.js
           node --check web-admin/storage-evidence-diagnostics-round104.js
-          grep -q 'VERSION="104150"' web-admin/admin-spa.js
-          grep -q 'review-workspace-v2.css?v=104150' web-admin/review.html
-          grep -q 'review-workspace-v2.js?v=104150' web-admin/review.html
+          grep -q 'VERSION="104160"' web-admin/admin-spa.js
+          grep -q 'review-workspace-v2.css?v=104160' web-admin/review.html
+          grep -q 'review-workspace-v2.js?v=104160' web-admin/review.html
+          grep -q 'data-review-round="10416"' web-admin/review.html
+          ! grep -q 'review-modern.css' web-admin/review.html
+          ! grep -q 'review-round103.css' web-admin/review.html
+          ! grep -q 'review-round103-fix.css' web-admin/review.html
+          ! grep -q 'review-round104.css' web-admin/review.html
+          grep -q 'rv216-many-pos' web-admin/review-workspace-v2.js
+          grep -q 'rv216EvidenceToggle' web-admin/review-workspace-v2.js
+          grep -q 'reviewDateFrom' web-admin/review-workspace-v2.js
+          grep -q 'max-width:calc(100% - 20px)' web-admin/review-workspace-v2.css
+          grep -q 'reviewEvidenceManager:not(.rv216-expanded)' web-admin/review-workspace-v2.css
           ! grep -q 'review-queue-integrated-round10413.js' web-admin/review.html
           ! grep -q 'review-livequeue-round10414.js' web-admin/review.html
           grep -q 'summary=1' web-admin/admin-spa.js
