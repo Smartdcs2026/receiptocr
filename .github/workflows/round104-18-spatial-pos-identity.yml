@@ -1,0 +1,81 @@
+name: Round104.18 spatial POS identity parity
+
+on:
+  push:
+    branches: ["round104-production-evidence-runtime"]
+    paths:
+      - "tools/round104_18_spatial_pos_identity_patch.py"
+      - ".github/workflows/round104-18-spatial-pos-identity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout current Round104 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply Round104.18 spatial POS identity patch
+        run: python tools/round104_18_spatial_pos_identity_patch.py
+
+      - name: Verify 8 versus B fallback bridge
+        run: |
+          grep -q 'versionCode = 110' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.18"' android-app/app/build.gradle.kts
+          grep -q 'resolveSpatialPosCandidate' android-app/app/src/main/java/com/receiptocr/app/ocr/RuleDrivenOcrEngine.kt
+          grep -q 'PosIdentityResolver.resolve(raw, posIdentityRule, availableWorkPos)' android-app/app/src/main/java/com/receiptocr/app/ocr/RuleDrivenOcrEngine.kt
+          grep -q 'profile_fallback_801_recovers_b01_with_store_context' android-app/app/src/test/java/com/receiptocr/app/ocr/RuleDrivenPosIdentityRound10418Test.kt
+          grep -q 'profile_fallback_preserves_real_numeric_pos_8_and_801' android-app/app/src/test/java/com/receiptocr/app/ocr/RuleDrivenPosIdentityRound10418Test.kt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Round104.18 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReceiptOCR-Round104-18-debug-precommit
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Commit Round104.18
+        run: |
+          git config user.name "receiptocr-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add android-app/app/build.gradle.kts \
+                  android-app/app/src/main/java/com/receiptocr/app/ocr/RuleDrivenOcrEngine.kt \
+                  android-app/app/src/test/java/com/receiptocr/app/ocr/RuleDrivenPosIdentityRound10418Test.kt \
+                  .github/workflows/round104-finalize.yml
+          if git diff --cached --quiet; then
+            echo "Round104.18 already applied"
+          else
+            git commit -m "Round104.18 route spatial POS fallback through identity resolver"
+            git push origin HEAD:round104-production-evidence-runtime
+          fi
