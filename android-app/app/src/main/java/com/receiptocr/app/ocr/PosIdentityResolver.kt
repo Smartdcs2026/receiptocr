@@ -38,7 +38,9 @@ object PosIdentityResolver {
         } ?: return null
 
         val resolvedWorkPos = when {
-            mapping.useLastWorkPos -> availableWorkPos.filter { it > 0 }.maxOrNull() ?: return null
+            mapping.useLastWorkPos -> availableWorkPos.filter { it > 0 }.maxOrNull()
+                ?: rule.runtimeLastWorkPos.takeIf { it > 0 }
+                ?: return null
             mapping.workPos > 0 -> mapping.workPos
             else -> return null
         }
