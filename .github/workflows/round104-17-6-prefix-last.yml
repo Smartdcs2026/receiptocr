@@ -1,0 +1,79 @@
+name: Round104.17.6 B-prefix terminal POS
+
+on:
+  push:
+    branches: ["round104-production-evidence-runtime"]
+    paths:
+      - ".github/workflows/round104-17-6-prefix-last.yml"
+      - "tools/round104_17_6_prefix_last_patch.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout Round104
+        uses: actions/checkout@v4
+        with:
+          ref: round104-production-evidence-runtime
+          fetch-depth: 0
+
+      - name: Apply B-prefix terminal POS patch
+        run: python tools/round104_17_6_prefix_last_patch.py
+
+      - name: Admin behavior checks
+        run: |
+          node --check web-admin/receipt-date-rules.js
+          node --check web-admin/ocr-simple.js
+          node --check web-admin/admin-spa.js
+          node tests/round10417-pos-terminal.test.js
+          grep -q 'id="brandLastPosPrefixes"' web-admin/index.html
+          grep -q 'ocr-simple.js?v=104176' web-admin/index.html
+          grep -q 'VERSION="104176"' web-admin/admin-spa.js
+          grep -q 'admin-spa.js?v=104176' web-admin/admin.html
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Commit Round104.17.6
+        run: |
+          git config user.name "receiptocr-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            web-admin/receipt-date-rules.js \
+            web-admin/ocr-simple.js \
+            web-admin/index.html \
+            web-admin/admin-spa.js \
+            web-admin/admin.html \
+            tests/round10417-pos-terminal.test.js \
+            android-app/app/src/main/java/com/receiptocr/app/config/ReceiptRuleModels.kt \
+            android-app/app/src/main/java/com/receiptocr/app/data/remote/OcrTemplateRepository.kt \
+            android-app/app/src/main/java/com/receiptocr/app/ocr/PosIdentityResolver.kt \
+            android-app/app/src/test/java/com/receiptocr/app/ocr/PosIdentityResolverRound10417Test.kt
+          git diff --cached --quiet && exit 0
+          git commit -m "Round104.17.6 map B-prefix codes to store last POS"
+          git push origin HEAD:round104-production-evidence-runtime
