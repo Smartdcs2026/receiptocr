@@ -43,7 +43,9 @@ data class PosIdentityRule(
     /** จับคู่ เช่น N01 -> POS 1, B01 -> POS สุดท้ายของร้าน */
     val mappings: List<PosIdentityMapping> = emptyList(),
     /** ถ้าเจอรหัสใหม่ ห้ามเดา POS เอง; ให้แจ้งผู้ใช้/ผู้ดูแล */
-    val allowUnmappedUserChoice: Boolean = true
+    val allowUnmappedUserChoice: Boolean = true,
+    /** ค่า runtime จากแผนงานของร้าน ไม่ถูกบันทึกกลับ Admin/API */
+    val runtimeLastWorkPos: Int = 0
 )
 
 /**
