@@ -17,11 +17,14 @@ assert(core.includes('target:"LAST"'), 'Admin OCR core must preserve LAST target
 assert(core.includes('configuredTestPosValues'), 'Admin OCR core must read the current store POS list');
 assert(core.includes('Math.max(...values)'), 'Admin OCR core must resolve LAST to the highest current store POS');
 assert(core.includes('return `${receiptPos}=LAST`'), 'Admin OCR core must render saved LAST mappings back to the editor');
-assert(index.includes('ocr-simple.js?v=104173'), 'OCR core must use cache generation 104173');
-assert(spa.includes('VERSION="104173"'), 'Admin SPA cache version must be 104173');
+assert(!core.includes('if(allowed.length&&!allowed.includes(prefix))return null'), 'Explicit Admin mapping must not be rejected by a stale prefix list');
+assert(core.includes('normalizePosIdentityKey(item.receiptPos)?.match(/^[A-Z]+/)'), 'Admin must derive allowed prefixes from explicit mappings');
+assert(!resolver.includes('if (allowed.isNotEmpty() && prefix !in allowed) return null'), 'Android explicit mapping must win over a stale prefix list');
+assert(index.includes('ocr-simple.js?v=104174'), 'OCR core must use cache generation 104174');
+assert(spa.includes('VERSION="104174"'), 'Admin SPA cache version must be 104174');
 assert(!spa.includes('round10417TerminalPos'), 'Admin SPA must no longer depend on the legacy terminal helper');
-assert(adminHtml.includes('admin-spa.js?v=104173'), 'Admin shell must force the 104173 SPA asset');
-assert(adminHtml.includes('admin-auth.js?v=104173'), 'Admin shell auth asset must share the new cache generation');
+assert(adminHtml.includes('admin-spa.js?v=104174'), 'Admin shell must force the 104174 SPA asset');
+assert(adminHtml.includes('admin-auth.js?v=104174'), 'Admin shell auth asset must share the new cache generation');
 
 assert(model.includes('useLastWorkPos: Boolean = false'), 'Android model must support terminal mapping');
 assert(model.includes('runtimeLastWorkPos: Int = 0'), 'Android rule must carry runtime store terminal POS');
@@ -32,4 +35,4 @@ assert(pipeline.includes('runtimeLastWorkPos = expectedPosSet.maxOrNull() ?: 0')
 assert(gradle.includes('versionCode = 109'), 'Android versionCode remains Round104.17');
 assert(gradle.includes('versionName = "0.104.17"'), 'Android versionName remains 0.104.17');
 
-console.log('Round104.17.3 native terminal POS core checks passed');
+console.log('Round104.17.4 mapped-prefix precedence checks passed');

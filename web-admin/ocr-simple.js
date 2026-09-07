@@ -67,8 +67,8 @@ function resolveConfiguredPos(value){
   if(!key)return null;
   const prefix=(key.match(/^[A-Z]+/)||[""])[0];
   if(!prefix)return numeric;
-  const allowed=(rule.allowedPrefixes||[]).map(x=>String(x).toUpperCase());
-  if(allowed.length&&!allowed.includes(prefix))return null;
+  // Explicit mapping is authoritative. A saved B01=LAST / B01=3 must not be
+  // rejected just because an older allowed-prefix list has not been refreshed.
   const item=(rule.mappings||[]).find(x=>normalizePosIdentityKey(x.receiptPos)===key);
   if(!item)return null;
   const isLast=item.useLastWorkPos===true||String(item.target||"").toUpperCase()==="LAST";
@@ -132,7 +132,10 @@ function buildReceiptRule(){
     preventDuplicateReceiptData:true,
     posIdentityRule:{
       enabled:$("posIdentityMode").value==="PREFIX_MAPPING",
-      allowedPrefixes:String($("brandPosPrefixes").value||"").split(/[,;\s]+/).map(x=>x.trim().toUpperCase()).filter(Boolean),
+      allowedPrefixes:[...new Set([
+        ...String($("brandPosPrefixes").value||"").split(/[,;\s]+/).map(x=>x.trim().toUpperCase()).filter(Boolean),
+        ...parseBrandPosMappings($("brandPosMappings").value).map(item=>(normalizePosIdentityKey(item.receiptPos)?.match(/^[A-Z]+/)||[""])[0]).filter(Boolean)
+      ])],
       mappings:parseBrandPosMappings($("brandPosMappings").value),
       allowUnmappedUserChoice:$("allowUnmappedPosChoice").checked
     },

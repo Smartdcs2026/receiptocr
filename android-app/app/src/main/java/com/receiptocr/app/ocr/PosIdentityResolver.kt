@@ -29,9 +29,8 @@ object PosIdentityResolver {
             return ResolvedPosIdentity(display, key, numeric, mappedByBrandRule = false)
         }
 
-        val allowed = rule.allowedPrefixes.map { it.trim().uppercase() }.filter { it.isNotBlank() }.toSet()
-        if (allowed.isNotEmpty() && prefix !in allowed) return null
-
+        // Explicit mapping wins over a stale allowedPrefixes list. The mapping itself
+        // is the brand-specific authorization for this receipt identity.
         val mapping = rule.mappings.firstOrNull { item ->
             OcrTextNormalizer.normalizePosIdentity(item.receiptPos) == key &&
                 (item.workPos > 0 || item.useLastWorkPos)

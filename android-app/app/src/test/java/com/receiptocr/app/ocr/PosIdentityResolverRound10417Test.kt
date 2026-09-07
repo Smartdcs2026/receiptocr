@@ -37,6 +37,15 @@ class PosIdentityResolverRound10417Test {
         assertEquals(5, PosIdentityResolver.resolve("B01", r)?.workPos)
     }
 
+    @Test fun explicit_mapping_wins_when_allowed_prefix_list_is_stale() {
+        val r = PosIdentityRule(
+            enabled = true,
+            allowedPrefixes = listOf("N"),
+            mappings = listOf(PosIdentityMapping("B01", useLastWorkPos = true))
+        )
+        assertEquals(3, PosIdentityResolver.resolve("B01", r, listOf(1, 2, 3))?.workPos)
+    }
+
     @Test fun last_mapping_does_not_guess_when_store_plan_is_unknown() {
         assertNull(PosIdentityResolver.resolve("B01", rule()))
     }
