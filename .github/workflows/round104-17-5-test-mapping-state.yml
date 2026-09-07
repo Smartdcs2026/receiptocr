@@ -58,7 +58,7 @@ jobs:
         run: |
           git config user.name "receiptocr-actions"
           git config user.email "actions@users.noreply.github.com"
-          git add web-admin/ocr-simple.js web-admin/admin-spa.js web-admin/admin.html web-admin/index.html tests/round10417-pos-terminal.test.js .github/workflows/round104-finalize.yml
+          git add web-admin/ocr-simple.js web-admin/admin-spa.js web-admin/admin.html web-admin/index.html tests/round10417-pos-terminal.test.js
           git diff --cached --quiet && exit 0
           git commit -m "Round104.17.5 make tester use direct POS mapping state"
           git push origin HEAD:round104-production-evidence-runtime
