@@ -59,25 +59,43 @@ function configuredTestPosValues(){
   return String($("testAllowedPos")?.value||"")
     .split(/[,;\s]+/).map(Number).filter(value=>Number.isInteger(value)&&value>0);
 }
+function configuredPosMappingItems(){
+  const byKey=new Map();
+  const saved=brandReceiptRule?.posIdentityRule?.mappings||[];
+  saved.forEach(item=>{
+    const key=normalizePosIdentityKey(item?.receiptPos);
+    if(key)byKey.set(key,item);
+  });
+  const draft=parseBrandPosMappings($("brandPosMappings")?.value||"");
+  draft.forEach(item=>{
+    const key=normalizePosIdentityKey(item?.receiptPos);
+    if(key)byKey.set(key,item);
+  });
+  return [...byKey.values()];
+}
 function resolveConfiguredPos(value){
   const numeric=posNumberValue(value);
-  const rule=buildReceiptRule().posIdentityRule||{};
-  if(!rule.enabled)return numeric;
   const key=normalizePosIdentityKey(value);
   if(!key)return null;
   const prefix=(key.match(/^[A-Z]+/)||[""])[0];
   if(!prefix)return numeric;
-  // Explicit mapping is authoritative. A saved B01=LAST / B01=3 must not be
-  // rejected just because an older allowed-prefix list has not been refreshed.
-  const item=(rule.mappings||[]).find(x=>normalizePosIdentityKey(x.receiptPos)===key);
-  if(!item)return null;
-  const isLast=item.useLastWorkPos===true||String(item.target||"").toUpperCase()==="LAST";
-  if(isLast){
-    const values=configuredTestPosValues();
-    return values.length?Math.max(...values):null;
+
+  // The test must use the mapping the admin can actually see/edit.  Read the
+  // current textarea first and fall back to the last rule loaded from storage.
+  // This avoids losing B01=LAST through an intermediate normalized rule state.
+  const item=configuredPosMappingItems().find(x=>normalizePosIdentityKey(x.receiptPos)===key);
+  if(item){
+    const isLast=item.useLastWorkPos===true||String(item.target||"").toUpperCase()==="LAST";
+    if(isLast){
+      const values=configuredTestPosValues();
+      return values.length?Math.max(...values):null;
+    }
+    const workPos=Number(item.workPos);
+    return Number.isInteger(workPos)&&workPos>0?workPos:null;
   }
-  const workPos=Number(item.workPos);
-  return Number.isInteger(workPos)&&workPos>0?workPos:null;
+
+  const rule=buildReceiptRule().posIdentityRule||{};
+  return rule.enabled?null:numeric;
 }
 
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
@@ -115,7 +133,7 @@ function renderDateRule(){
     ?"แบรนด์นี้ห้ามใช้วันที่บิลข้ามเดือน แม้อยู่ในช่วงจำนวนวันที่กำหนด"
     :"แบรนด์นี้ใช้วันที่ข้ามเดือนได้ตามช่วงจำนวนวันที่กำหนด";
   const p=brandReceiptRule.posIdentityRule||{enabled:false,allowedPrefixes:[],mappings:[],allowUnmappedUserChoice:true};
-  $("posIdentityMode").value=p.enabled?"PREFIX_MAPPING":"NORMAL";
+  $("posIdentityMode").value=(p.enabled||(p.mappings||[]).length)?"PREFIX_MAPPING":"NORMAL";
   $("brandPosPrefixes").value=(p.allowedPrefixes||[]).join(",");
   $("brandPosMappings").value=formatBrandPosMappings(p.mappings);
   $("allowUnmappedPosChoice").checked=p.allowUnmappedUserChoice!==false;
@@ -125,18 +143,19 @@ function renderDateRule(){
 }
 function buildReceiptRule(){
   const mode=$("dateCountingMode").value;
+  const posMappings=parseBrandPosMappings($("brandPosMappings").value);
   return ReceiptDateRules.normalize({
     brandId:$("brandId").value,
     customerCounterMode:mode,
     preventDuplicateImage:true,
     preventDuplicateReceiptData:true,
     posIdentityRule:{
-      enabled:$("posIdentityMode").value==="PREFIX_MAPPING",
+      enabled:$("posIdentityMode").value==="PREFIX_MAPPING"||posMappings.length>0,
       allowedPrefixes:[...new Set([
         ...String($("brandPosPrefixes").value||"").split(/[,;\s]+/).map(x=>x.trim().toUpperCase()).filter(Boolean),
         ...parseBrandPosMappings($("brandPosMappings").value).map(item=>(normalizePosIdentityKey(item.receiptPos)?.match(/^[A-Z]+/)||[""])[0]).filter(Boolean)
       ])],
-      mappings:parseBrandPosMappings($("brandPosMappings").value),
+      mappings:posMappings,
       allowUnmappedUserChoice:$("allowUnmappedPosChoice").checked
     },
     groupDateRule:{
