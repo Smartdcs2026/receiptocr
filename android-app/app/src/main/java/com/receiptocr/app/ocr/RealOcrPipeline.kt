@@ -57,6 +57,12 @@ object RealOcrPipeline {
             )
         }
 
+        // Round104.17: LAST ต้องอ้างอิง POS จริงของร้าน ไม่ใช่เลขท้ายของรหัสเครื่อง
+        val expectedPosSet = records.map { it.posNumber }.filter { it > 0 }.toSet()
+        val runtimePosIdentityRule = receiptRule.posIdentityRule.copy(
+            runtimeLastWorkPos = expectedPosSet.maxOrNull() ?: 0
+        )
+
         val strictTemplateResult = UniversalTemplateInterpreter.apply(
             mlTexts = mlTexts,
             imageWidth = imageWidth,
@@ -66,12 +72,11 @@ object RealOcrPipeline {
             workDate = workDate,
             imagePath = imagePath,
             templates = templates,
-            posIdentityRule = receiptRule.posIdentityRule
+            posIdentityRule = runtimePosIdentityRule
         )
 
         // Round94: อ่านทุก Template ที่ตรงในภาพเดียวก่อน แล้วใช้ Round93 strict เป็นผลหลัก
         // ตัวรวบรวมใหม่นี้เติมเฉพาะ POS ที่ strict ยังขาด/ยังอ่อน จึงไม่เขียนทับผลที่ผ่านแล้ว
-        val expectedPosSet = records.map { it.posNumber }.toSet()
         val multiTemplateResult = if (templates.isNotEmpty()) {
             MultiTemplateSequenceCollector.apply(
                 rawTexts = mlTexts.map { it.text },
@@ -80,7 +85,7 @@ object RealOcrPipeline {
                 workDate = workDate,
                 imagePath = imagePath,
                 templates = templates,
-                receiptRule = receiptRule
+                receiptRule = receiptRule.copy(posIdentityRule = runtimePosIdentityRule)
             )
         } else null
         val afterMultiTemplate = mergeUniversalTemplateResults(records, strictTemplateResult, multiTemplateResult)
@@ -112,13 +117,14 @@ object RealOcrPipeline {
         val unmappedPosIdentities = PosIdentityResolver.findUnmappedIdentities(
             rawTexts = mlTexts.map { it.text },
             templates = templates,
-            rule = receiptRule.posIdentityRule
+            rule = runtimePosIdentityRule,
+            availableWorkPos = expectedPosSet
         )
         val duplicatePosWarnings = DuplicatePosEvidenceDetector.detect(
             rawTexts = mlTexts.map { it.text },
             templates = templates,
             allowedPos = expectedPosSet,
-            posIdentityRule = receiptRule.posIdentityRule
+            posIdentityRule = runtimePosIdentityRule
         )
 
         // เมื่อรูปแบบจาก Admin จับข้อมูลได้แล้ว ห้าม profile แบบตำแหน่งเก่ามาผสมลูกค้า/วันที่/เวลา
@@ -139,7 +145,7 @@ object RealOcrPipeline {
                     workDate = workDate,
                     imagePath = imagePath,
                     profile = profile,
-                    receiptRule = receiptRule
+                    receiptRule = receiptRule.copy(posIdentityRule = runtimePosIdentityRule)
                 )
             }
             combineProfilePasses(records, passResults)
@@ -194,9 +200,6 @@ object RealOcrPipeline {
                     templateName = record.ocrTemplateName,
                     templates = templates,
                     referenceDate = workDate,
-                    // All OCR parsers are required to store accepted values internally as dd/MM/yyyy.
-                    // Therefore a canonical value from OCR-TEMPLATE/OCR-SEQUENCE/OCR-EVIDENCE
-                    // must pass the second stage without being reinterpreted as source MDY/YMD.
                     allowCanonicalInput = record.source.startsWith("OCR", ignoreCase = true)
                 )
             } else null
@@ -261,8 +264,6 @@ object RealOcrPipeline {
             val activeTemplates = templates.filter { it.active }
             val profileHasStore = profileResult != null && profile.regions.any { it.fieldType == OcrFieldType.STORE_ID }
 
-            // ถ้ารู้แน่ชัดว่าจับด้วยรูปแบบใด ให้ใช้กฎของรูปแบบนั้นเท่านั้น
-            // ถ้ามีรูปแบบที่ระบุว่าไม่มี STORE_ID จะไม่เอา STORE_ID จาก profile หรือรูปแบบอื่นมาบังคับ
             val expectsStoreId = when {
                 matchedTemplates.isNotEmpty() -> matchedTemplates.all(::templateHasStoreId)
                 else -> activeTemplates.any(::templateHasStoreId) || profileHasStore
@@ -336,7 +337,6 @@ object RealOcrPipeline {
                 } else if (missingStorePos.isNotEmpty() && requiresStoreMatch) {
                     add("ยังยืนยันรหัสร้านไม่ได้ใน POS ${missingStorePos.joinToString(", ")}")
                 }
-                // ถ้า Admin กำหนดรูปแบบนี้ว่าไม่มีรหัสร้าน ถือเป็นกติกาที่ตั้งใจไว้ ไม่เตือนว่าอ่านรหัสร้านไม่ได้
                 if (!expectsStoreId && !explicitNoStoreTemplate && work.expectedReceiptStoreId.isNotBlank()) {
                     add("รูปแบบบิลนี้ไม่มีรหัสร้านสำหรับตรวจอัตโนมัติ • กรุณาตรวจข้อมูลร้านจากหลักฐานประกอบ")
                 }
