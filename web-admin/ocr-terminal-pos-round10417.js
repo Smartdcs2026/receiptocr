@@ -1,9 +1,9 @@
 (function(){
   "use strict";
-  if(window.__ocrTerminalPos104171)return;
-  window.__ocrTerminalPos104171=true;
+  if(window.__ocrTerminalPos104172)return;
+  window.__ocrTerminalPos104172=true;
 
-  const VERSION="104.17.1";
+  const VERSION="104.17.2";
   const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const savedLastByBrand=new Map();
   const draftLastByBrand=new Map();
@@ -62,7 +62,7 @@
     if(!brand||!box)return;
     const items=parseLastLines(box.value);
     if(items.length)draftLastByBrand.set(brand,items);
-    else draftLastByBrand.delete(brand);
+    else if(box.dataset.lastTestMirror!=="1")draftLastByBrand.delete(brand);
   }
 
   function enhanceHelp(){
@@ -151,6 +151,36 @@
     return values.length?Math.max(...values):null;
   }
 
+  function mergeRuntimeTerminalMappings(rule,brand){
+    const terminals=mergedTerminals(brand);
+    if(!terminals.length)return rule;
+    const source=terminals.map(item=>`${item.receiptPos}=LAST`).join("\n");
+    const merged=mergeTerminalMappings(rule,source);
+    const max=maxTestPos();
+    const posRule={...(merged.posIdentityRule||{})};
+    posRule.mappings=(posRule.mappings||[]).map(item=>{
+      const isLast=item?.useLastWorkPos===true || String(item?.target||"").toUpperCase()==="LAST";
+      return isLast?{...item,workPos:max||0,useLastWorkPos:true,target:"LAST"}:item;
+    });
+    return {...merged,posIdentityRule:posRule};
+  }
+
+  function installReceiptRuleBridge(){
+    if(window.__ocrTerminalPos104172NormalizeWrapped)return;
+    const api=window.ReceiptDateRules;
+    if(!api||typeof api.normalize!=="function"){
+      setTimeout(installReceiptRuleBridge,25);
+      return;
+    }
+    window.__ocrTerminalPos104172NormalizeWrapped=true;
+    const previousNormalize=api.normalize.bind(api);
+    api.normalize=function(raw={},brandId=""){
+      const normalized=previousNormalize(raw,brandId);
+      const brand=String(normalized?.brandId||brandId||currentBrand()).trim();
+      return brand?mergeRuntimeTerminalMappings(normalized,brand):normalized;
+    };
+  }
+
   function prepareTest(){
     const box=mappingBox();
     if(!box)return false;
@@ -176,23 +206,24 @@
       box.value=original;
       enhanceHelp();
       updateSummary();
-    },120);
+    },180);
     return true;
   }
 
   function installDelegatedTestBridge(){
-    if(window.__ocrTerminalPos104171Delegated)return;
-    window.__ocrTerminalPos104171Delegated=true;
+    if(window.__ocrTerminalPos104172Delegated)return;
+    window.__ocrTerminalPos104172Delegated=true;
     document.addEventListener("click",event=>{
       const button=event.target?.closest?.("#runPatternTestBtn");
       if(!button)return;
+      captureDraft();
       prepareTest();
     },true);
   }
 
   function installDraftProtection(){
-    if(window.__ocrTerminalPos104171Draft)return;
-    window.__ocrTerminalPos104171Draft=true;
+    if(window.__ocrTerminalPos104172Draft)return;
+    window.__ocrTerminalPos104172Draft=true;
     document.addEventListener("input",event=>{
       if(event.target?.id==="brandPosMappings"){
         captureDraft();
@@ -210,16 +241,16 @@
     },true);
   }
 
-  installDelegatedTestBridge();
   installDraftProtection();
+  installReceiptRuleBridge();
+  installDelegatedTestBridge();
 
   async function install(){
-    // Wait for the safe-save wrapper, but keep the delegated test bridge active immediately.
     for(let i=0;i<80&&!window.__ocrSaveReliability104162;i++)await sleep(25);
     const auth=window.AdminAuth;
     if(!auth||typeof auth.json!=="function")return;
-    if(window.__ocrTerminalPos104171AuthWrapped)return;
-    window.__ocrTerminalPos104171AuthWrapped=true;
+    if(window.__ocrTerminalPos104172AuthWrapped)return;
+    window.__ocrTerminalPos104172AuthWrapped=true;
     const previousJson=auth.json.bind(auth);
 
     auth.json=async function(path,opts={}){
@@ -255,8 +286,8 @@
     };
 
     const brandSelect=document.getElementById("brandId");
-    if(brandSelect&&!brandSelect.dataset.terminalPos104171Bound){
-      brandSelect.dataset.terminalPos104171Bound="1";
+    if(brandSelect&&!brandSelect.dataset.terminalPos104172Bound){
+      brandSelect.dataset.terminalPos104172Bound="1";
       brandSelect.addEventListener("change",()=>{
         const brand=currentBrand();
         if(!brand)return;
@@ -289,7 +320,8 @@
       parseLastLines,
       maxTestPos,
       prepareTest,
-      mergeTerminalMappings
+      mergeTerminalMappings,
+      mergeRuntimeTerminalMappings
     };
   }
 
