@@ -16,8 +16,25 @@ object PosIdentityResolver {
         rule: PosIdentityRule,
         availableWorkPos: Collection<Int> = emptyList()
     ): ResolvedPosIdentity? {
-        val display = OcrTextNormalizer.displayPosIdentity(raw) ?: return null
-        val key = OcrTextNormalizer.normalizePosIdentity(raw) ?: return null
+        val terminalPrefixes = rule.lastWorkPosPrefixes
+            .map { it.trim().uppercase() }
+            .filter { it.isNotBlank() }
+            .toSet()
+
+        // Round104.17.7: ตัว B บนบิลบางแบบมีรูปทรงใกล้เลข 8 มาก
+        // ห้ามแทน 8 -> B แบบทั่วระบบ เพราะ POS 8/88/801 อาจเป็นเลขจริงได้
+        // จึงแก้เฉพาะช่อง POS เมื่อแบรนด์กำหนด B เป็น terminal prefix,
+        // มีข้อมูล POS ของร้านให้เทียบ และเลขที่ OCR อ่านตรง ๆ ไม่ใช่ POS จริงของร้าน
+        val recoveredLeadingB = recoverAmbiguousLeadingB(
+            raw = raw,
+            terminalPrefixes = terminalPrefixes,
+            availableWorkPos = availableWorkPos,
+            runtimeLastWorkPos = rule.runtimeLastWorkPos
+        )
+
+        val identityRaw = recoveredLeadingB ?: raw
+        val display = OcrTextNormalizer.displayPosIdentity(identityRaw) ?: return null
+        val key = OcrTextNormalizer.normalizePosIdentity(identityRaw) ?: return null
         val numeric = OcrTextNormalizer.parsePosNumber(display) ?: return null
 
         val active = rule.enabled || rule.mappings.isNotEmpty() || rule.lastWorkPosPrefixes.isNotEmpty()
@@ -30,7 +47,6 @@ object PosIdentityResolver {
             return ResolvedPosIdentity(display, key, numeric, mappedByBrandRule = false)
         }
 
-        val terminalPrefixes = rule.lastWorkPosPrefixes.map { it.trim().uppercase() }.filter { it.isNotBlank() }.toSet()
         if (prefix in terminalPrefixes) {
             val lastPos = availableWorkPos.filter { it > 0 }.maxOrNull()
                 ?: rule.runtimeLastWorkPos.takeIf { it > 0 }
@@ -53,6 +69,43 @@ object PosIdentityResolver {
         }
 
         return ResolvedPosIdentity(display, key, resolvedWorkPos, mappedByBrandRule = true)
+    }
+
+    /**
+     * แก้เฉพาะความกำกวมตัวแรก 8/B ในรหัส POS เช่น OCR อ่าน B01 เป็น 801 หรือ 8O1
+     * โดยต้องมีหลักฐานจากกฎแบรนด์และแผน POS ร้านก่อนเสมอ
+     */
+    private fun recoverAmbiguousLeadingB(
+        raw: String,
+        terminalPrefixes: Set<String>,
+        availableWorkPos: Collection<Int>,
+        runtimeLastWorkPos: Int
+    ): String? {
+        if ("B" !in terminalPrefixes) return null
+
+        val knownWorkPos = availableWorkPos.filter { it > 0 }.toSet()
+        val hasStoreContext = knownWorkPos.isNotEmpty() || runtimeLastWorkPos > 0
+        if (!hasStoreContext) return null
+
+        var compact = raw.trim().uppercase().replace(Regex("\\s+"), "")
+        compact = compact.removePrefix("POS").trimStart(':', '#', '=', '-')
+        compact = OcrTextNormalizer.normalizeDigits(compact)
+
+        // ต้องเป็นเลข 8 นำหน้าตามด้วยอย่างน้อย 1 หลักเท่านั้น
+        // เลข 8 เดี่ยว ๆ จึงยังเป็น POS 8 เสมอ
+        if (!Regex("^8[0-9]{1,3}$").matches(compact)) return null
+
+        val numericAsRead = compact.toIntOrNull() ?: return null
+
+        // ถ้าร้านมี POS เลขนี้จริง ให้เชื่อเลขจริงก่อน ไม่เปลี่ยนเป็น B
+        if (numericAsRead in knownWorkPos) return null
+        if (knownWorkPos.isEmpty() && runtimeLastWorkPos == numericAsRead) return null
+
+        val candidate = "B${compact.drop(1)}"
+        return candidate.takeIf {
+            OcrTextNormalizer.displayPosIdentity(it) != null &&
+                OcrTextNormalizer.normalizePosIdentity(it) != null
+        }
     }
 
     fun findUnmappedIdentities(
