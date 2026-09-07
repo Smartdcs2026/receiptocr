@@ -11,7 +11,11 @@ data class ResolvedPosIdentity(
 )
 
 object PosIdentityResolver {
-    fun resolve(raw: String, rule: PosIdentityRule): ResolvedPosIdentity? {
+    fun resolve(
+        raw: String,
+        rule: PosIdentityRule,
+        availableWorkPos: Collection<Int> = emptyList()
+    ): ResolvedPosIdentity? {
         val display = OcrTextNormalizer.displayPosIdentity(raw) ?: return null
         val key = OcrTextNormalizer.normalizePosIdentity(raw) ?: return null
         val numeric = OcrTextNormalizer.parsePosNumber(display) ?: return null
@@ -29,16 +33,24 @@ object PosIdentityResolver {
         if (allowed.isNotEmpty() && prefix !in allowed) return null
 
         val mapping = rule.mappings.firstOrNull { item ->
-            OcrTextNormalizer.normalizePosIdentity(item.receiptPos) == key && item.workPos > 0
+            OcrTextNormalizer.normalizePosIdentity(item.receiptPos) == key &&
+                (item.workPos > 0 || item.useLastWorkPos)
         } ?: return null
 
-        return ResolvedPosIdentity(display, key, mapping.workPos, mappedByBrandRule = true)
+        val resolvedWorkPos = when {
+            mapping.useLastWorkPos -> availableWorkPos.filter { it > 0 }.maxOrNull() ?: return null
+            mapping.workPos > 0 -> mapping.workPos
+            else -> return null
+        }
+
+        return ResolvedPosIdentity(display, key, resolvedWorkPos, mappedByBrandRule = true)
     }
 
     fun findUnmappedIdentities(
         rawTexts: List<String>,
         templates: List<UniversalOcrTemplate>,
-        rule: PosIdentityRule
+        rule: PosIdentityRule,
+        availableWorkPos: Collection<Int> = emptyList()
     ): List<String> {
         if (!rule.enabled) return emptyList()
         val found = linkedSetOf<String>()
@@ -48,7 +60,7 @@ object PosIdentityResolver {
                     val value = fields["POS_NUMBER"].orEmpty()
                     val display = OcrTextNormalizer.displayPosIdentity(value) ?: return@forEach
                     val key = OcrTextNormalizer.normalizePosIdentity(value) ?: return@forEach
-                    if (key.any(Char::isLetter) && resolve(value, rule) == null) found += display
+                    if (key.any(Char::isLetter) && resolve(value, rule, availableWorkPos) == null) found += display
                 }
             }
         }
