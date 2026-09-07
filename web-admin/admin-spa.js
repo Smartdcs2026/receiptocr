@@ -1,6 +1,6 @@
 (async()=>{
   if(!await AdminAuth.guard()) return;
-  const VERSION="104170",allRoles=["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"];
+  const VERSION="104171",allRoles=["ADMIN","SUPERVISOR","DEPARTMENT_HEAD"];
   const routes={
     home:{title:"ภาพรวมการปฏิบัติงาน",sub:"สถานะงาน การตรวจสอบ และรายการที่ต้องดำเนินการ",url:"dashboard.html",roles:allRoles,group:"งานประจำวัน",icon:"grid"},
     review:{title:"ศูนย์ตรวจสอบงาน",sub:"ตรวจภาพบิล ภาพร้าน และข้อมูลยอดลูกค้าราย POS",url:"review.html",roles:allRoles,group:"งานประจำวัน",icon:"check"},
@@ -17,7 +17,7 @@
   };
   const icons={grid:'<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>',check:'<path d="M9 11l2 2 4-4M4 5h16v14H4z"/>',approve:'<path d="M7 3h10v4H7zM5 5H3v16h18V5h-2M8 14l3 3 6-7"/>',calendar:'<path d="M5 3v3M19 3v3M4 8h16M4 5h16v16H4zM8 12h3M13 12h3M8 16h3"/>',map:'<path d="M9 18l-5 3V6l5-3 6 3 5-3v15l-5 3zM9 3v15M15 6v15"/>',chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',store:'<path d="M4 10v10h16V10M3 10l2-6h14l2 6M8 20v-6h8v6"/>',scan:'<path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M8 12h8"/>',users:'<path d="M16 20v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 10a4 4 0 100-8 4 4 0 000 8zM17 11a4 4 0 010-8M22 20v-2a4 4 0 00-3-3.87"/>',cloud:'<path d="M5 18h13a4 4 0 00.8-7.92A7 7 0 005.4 8.5 4.8 4.8 0 005 18z"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19 15l2 2-4 4-2-2-3 1-1 3H7l-1-3-3-1v-4l3-1 1-3-2-2 4-4 2 2 3-1 1-3h4l1 3 3 1v4l-3 1z"/>',history:'<path d="M3 12a9 9 0 109-9 9 9 0 00-6.36 2.64L3 8M3 3v5h5M12 7v5l3 2"/>'};
   const icon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name]||icons.grid}</svg>`;
-  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
   const root=document.getElementById("spaRoot"),u=AdminAuth.user()||{},role=String(u.role||"ADMIN").toUpperCase();
   const entries=Object.entries(routes).filter(([,r])=>r.roles.includes(role)),groups=[...new Set(entries.map(([,r])=>r.group))];
   const roleLabel={ADMIN:"ผู้ดูแลระบบ",SUPERVISOR:"หัวหน้างาน",DEPARTMENT_HEAD:"หัวหน้าฝ่าย"}[role]||"ผู้ใช้งาน";
