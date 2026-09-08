@@ -8,6 +8,7 @@ import com.receiptocr.app.config.NormalizedRect
 import com.receiptocr.app.config.OcrFieldType
 import com.receiptocr.app.config.OcrMatchMode
 import com.receiptocr.app.config.OcrRegionRule
+import com.receiptocr.app.config.PosIdentityRule
 import com.receiptocr.app.model.PosRecord
 import com.receiptocr.app.model.WorkItem
 import java.time.LocalDate
@@ -94,7 +95,13 @@ object RuleDrivenOcrEngine {
 
         val rules = profile.regions.sortedBy { it.priority }
         val posRules = rules.filter { it.fieldType == OcrFieldType.POS_NUMBER }
-        val posCandidates = findPosCandidates(items, posRules)
+        val availableWorkPos = records.map { it.posNumber }.filter { it > 0 }.toSet()
+        val posCandidates = findPosCandidates(
+            items = items,
+            rules = posRules,
+            posIdentityRule = receiptRule.posIdentityRule,
+            availableWorkPos = availableWorkPos
+        )
             .filter { candidate -> records.any { it.posNumber == candidate.posNumber } }
             .groupBy { it.posNumber }
             .mapNotNull { (_, anchors) -> anchors.minByOrNull { it.sourceOrder } }
@@ -256,9 +263,33 @@ object RuleDrivenOcrEngine {
             bottom = (bottom + originY).toFloat() / height
         ).normalized()
 
+    /**
+     * Round104.18: profile/ROI fallback resolves POS identity with the same
+     * brand rule as the universal-template path. Ambiguous 801/8O1 can map to
+     * B01 only when store/POS context supports it; real POS 8/801 stay numeric.
+     */
+    internal fun resolveSpatialPosCandidate(
+        raw: String,
+        posIdentityRule: PosIdentityRule,
+        availableWorkPos: Collection<Int>
+    ): Int? = PosIdentityResolver.resolve(raw, posIdentityRule, availableWorkPos)?.workPos
+
+    internal fun spatialPosIdentityCandidates(value: String): List<String> {
+        val prefixed = Regex("(?i)\\b[NB]\\s*[0-9OoIl|]{1,3}\\b")
+            .findAll(value)
+            .map { it.value }
+            .toList()
+        if (prefixed.isNotEmpty()) return prefixed.distinct()
+
+        OcrTextNormalizer.displayPosIdentity(value)?.let { return listOf(it) }
+        return OcrTextNormalizer.findPosNumbers(value).map(Int::toString).distinct()
+    }
+
     private fun findPosCandidates(
         items: List<SpatialOcrItem>,
-        rules: List<OcrRegionRule>
+        rules: List<OcrRegionRule>,
+        posIdentityRule: PosIdentityRule,
+        availableWorkPos: Collection<Int>
     ): List<PosAnchor> {
         val result = mutableListOf<PosAnchor>()
         val activeRules = if (rules.isEmpty()) emptyList() else rules
@@ -270,18 +301,21 @@ object RuleDrivenOcrEngine {
             regionItems.forEach { item ->
                 regex?.findAll(item.text)?.forEach { match ->
                     val captured = match.groupValues.getOrNull(1).orEmpty().ifBlank { match.value }
-                    OcrTextNormalizer.parsePosNumber(captured)?.let { number ->
+                    resolveSpatialPosCandidate(captured, posIdentityRule, availableWorkPos)?.let { number ->
                         result += PosAnchor(number, item.centerX, item.centerY, item.lineIndex)
                     }
                 }
 
-                OcrTextNormalizer.findPosNumbers(item.text).forEach { number ->
-                    result += PosAnchor(number, item.centerX, item.centerY, item.lineIndex)
+                val identityCandidates = spatialPosIdentityCandidates(item.text)
+                identityCandidates.forEach { rawIdentity ->
+                    resolveSpatialPosCandidate(rawIdentity, posIdentityRule, availableWorkPos)?.let { number ->
+                        result += PosAnchor(number, item.centerX, item.centerY, item.lineIndex)
+                    }
                 }
 
                 val isLabel = rule.labelHints.any { item.text.contains(it, ignoreCase = true) } ||
                     Regex("(?i)P\\s*\\.?\\s*O\\s*\\.?\\s*S|TERMINAL|เครื่อง").containsMatchIn(item.text)
-                if (isLabel && OcrTextNormalizer.findPosNumbers(item.text).isEmpty()) {
+                if (isLabel && identityCandidates.isEmpty()) {
                     regionItems.asSequence()
                         .filter { candidate -> candidate !== item }
                         .filter { candidate ->
@@ -291,7 +325,8 @@ object RuleDrivenOcrEngine {
                             abs(candidate.centerY - item.centerY) + abs(candidate.centerX - item.centerX) * 0.35f
                         }
                         .mapNotNull { candidate ->
-                            OcrTextNormalizer.parseStandalonePosNumber(candidate.text)?.let { it to candidate }
+                            resolveSpatialPosCandidate(candidate.text, posIdentityRule, availableWorkPos)
+                                ?.let { it to candidate }
                         }
                         .firstOrNull()
                         ?.let { (number, candidate) ->
