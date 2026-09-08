@@ -19,7 +19,11 @@ jobs:
           fetch-depth: 0
 
       - name: Apply Round104.19 parity patch
-        run: python tools/round104_19_pos_fallback_parity_patch.py
+        run: |
+          # Initial draft used an old local variable name in two guarded search blocks.
+          # Repair the patch source first, then execute the corrected/idempotent patch.
+          sed -i 's/imageFile\.absolutePath/imagePath/g' tools/round104_19_pos_fallback_parity_patch.py
+          python tools/round104_19_pos_fallback_parity_patch.py
 
       - name: Verify fallback identity bridge
         run: |
@@ -70,6 +74,7 @@ jobs:
           git config user.name "receiptocr-actions"
           git config user.email "actions@users.noreply.github.com"
           git add \
+            tools/round104_19_pos_fallback_parity_patch.py \
             android-app/app/build.gradle.kts \
             android-app/app/src/main/java/com/receiptocr/app/ocr/PosEvidenceFusion.kt \
             android-app/app/src/main/java/com/receiptocr/app/ocr/TemplateSequenceFallback.kt \
