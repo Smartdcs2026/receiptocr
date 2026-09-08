@@ -1,6 +1,7 @@
 package com.receiptocr.app.ocr
 
 import com.receiptocr.app.config.OcrTemplateField
+import com.receiptocr.app.config.PosIdentityRule
 import com.receiptocr.app.config.UniversalOcrTemplate
 import com.receiptocr.app.model.PosRecord
 import com.receiptocr.app.model.WorkItem
@@ -73,19 +74,28 @@ object PosEvidenceFusion {
         work: WorkItem,
         workDate: LocalDate,
         imagePath: String,
-        templates: List<UniversalOcrTemplate>
+        templates: List<UniversalOcrTemplate>,
+        posIdentityRule: PosIdentityRule = PosIdentityRule()
     ): UniversalTemplateResult {
         if (rawTexts.none { it.isNotBlank() } || templates.none { it.active }) {
             return failed(records)
         }
 
-        val allowedPos = records.map { it.posNumber }.toSet()
+        val allowedPos = records.map { it.posNumber }.filter { it > 0 }.toSet()
         val candidates = buildLocalCandidates(rawTexts)
         if (candidates.isEmpty()) return failed(records)
 
         val evidence = templates
             .filter { it.active }
-            .flatMap { template -> collectTemplateEvidence(template, candidates, allowedPos, workDate) }
+            .flatMap { template ->
+                collectTemplateEvidence(
+                    template = template,
+                    candidates = candidates,
+                    allowedPos = allowedPos,
+                    referenceDate = workDate,
+                    posIdentityRule = posIdentityRule
+                )
+            }
 
         if (evidence.isEmpty()) return failed(records)
 
@@ -172,15 +182,31 @@ object PosEvidenceFusion {
         )
     }
 
+    /** Round104.19: one resolver for every OCR fallback path. */
+    internal fun resolveEvidencePosIdentity(
+        raw: String,
+        posIdentityRule: PosIdentityRule,
+        allowedPos: Collection<Int>
+    ): Int? = PosIdentityResolver.resolve(raw, posIdentityRule, allowedPos)
+        ?.workPos
+        ?.takeIf { it > 0 && it in allowedPos }
+
     /** Pure helper for unit tests. */
     internal fun fuseTextPasses(
         rawTexts: List<String>,
         template: UniversalOcrTemplate,
         allowedPos: Set<Int>,
-        referenceDate: LocalDate
+        referenceDate: LocalDate,
+        posIdentityRule: PosIdentityRule = PosIdentityRule()
     ): Map<Int, Map<String, String>> {
         val candidates = buildLocalCandidates(rawTexts)
-        val evidence = collectTemplateEvidence(template, candidates, allowedPos, referenceDate)
+        val evidence = collectTemplateEvidence(
+            template = template,
+            candidates = candidates,
+            allowedPos = allowedPos,
+            referenceDate = referenceDate,
+            posIdentityRule = posIdentityRule
+        )
         val passCount = rawTexts.count { it.isNotBlank() }
         return evidence.groupBy { it.pos }.mapNotNull { (pos, all) ->
             val resolved = resolvePosCandidate(all, passCount) ?: return@mapNotNull null
@@ -198,7 +224,8 @@ object PosEvidenceFusion {
         template: UniversalOcrTemplate,
         candidates: List<LocalCandidate>,
         allowedPos: Set<Int>,
-        referenceDate: LocalDate
+        referenceDate: LocalDate,
+        posIdentityRule: PosIdentityRule
     ): List<Evidence> {
         val ordered = orderedFields(template)
         if (ordered.isEmpty()) return emptyList()
@@ -235,9 +262,9 @@ object PosEvidenceFusion {
             compiled.forEach { prefix ->
                 prefix.regex.findAll(candidate.text).forEach { match ->
                     val fields = extract(prefix.captureTypes, match)
-                    val pos = fields["POS_NUMBER"]?.let(OcrTextNormalizer::parsePosNumber)
+                    val rawPos = fields["POS_NUMBER"].orEmpty()
+                    val pos = resolveEvidencePosIdentity(rawPos, posIdentityRule, allowedPos)
                         ?: return@forEach
-                    if (pos <= 0 || pos !in allowedPos) return@forEach
 
                     // ถ้า CUSTOMER อยู่ใน prefix ที่เราพยายามอ่านแล้ว แต่จับไม่ได้ ไม่รับ anchor นี้
                     if (customerIndex >= 0 && prefix.depth > customerIndex && fields["CUSTOMER_VALUE"].isNullOrBlank()) {
@@ -794,7 +821,7 @@ object PosEvidenceFusion {
     private fun normalizeCaptured(type: String, raw: String): String {
         val compact = raw.replace(Regex("\\s+"), "")
         return when (type) {
-            "POS_NUMBER" -> OcrTextNormalizer.normalizeDigits(compact).filter(Char::isDigit)
+            "POS_NUMBER" -> OcrTextNormalizer.displayPosIdentity(compact) ?: compact
             "CUSTOMER_VALUE", "STORE_ID", "YEAR_VALUE", "MONTH_VALUE", "DAY_VALUE" ->
                 normalizeDigits(compact).filter(Char::isDigit)
             "BILL_DATE" -> normalizeDate(compact)

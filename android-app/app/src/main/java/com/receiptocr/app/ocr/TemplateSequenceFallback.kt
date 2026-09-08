@@ -2,6 +2,7 @@ package com.receiptocr.app.ocr
 
 import com.receiptocr.app.config.OcrTemplateComposite
 import com.receiptocr.app.config.OcrTemplateField
+import com.receiptocr.app.config.PosIdentityRule
 import com.receiptocr.app.config.OcrTemplateSegment
 import com.receiptocr.app.config.UniversalOcrTemplate
 import com.receiptocr.app.model.PosRecord
@@ -33,6 +34,7 @@ object TemplateSequenceFallback {
     private data class Candidate(
         val template: UniversalOcrTemplate,
         val fields: Map<String, String>,
+        val workPos: Int,
         val score: Int
     )
 
@@ -41,15 +43,25 @@ object TemplateSequenceFallback {
         val field: OcrTemplateField
     )
 
+    /** Round104.19: keep sequence fallback aligned with every other OCR path. */
+    internal fun resolveSequencePosIdentity(
+        raw: String,
+        posIdentityRule: PosIdentityRule,
+        allowedPos: Collection<Int>
+    ): Int? = PosIdentityResolver.resolve(raw, posIdentityRule, allowedPos)
+        ?.workPos
+        ?.takeIf { it > 0 && it in allowedPos }
+
     fun apply(
         rawTexts: List<String>,
         records: List<PosRecord>,
         work: WorkItem,
         workDate: LocalDate,
         imagePath: String,
-        templates: List<UniversalOcrTemplate>
+        templates: List<UniversalOcrTemplate>,
+        posIdentityRule: PosIdentityRule = PosIdentityRule()
     ): UniversalTemplateResult {
-        val allowedPos = records.map { it.posNumber }.toSet()
+        val allowedPos = records.map { it.posNumber }.filter { it > 0 }.toSet()
         val textCandidates = buildTextCandidates(rawTexts)
         if (textCandidates.isEmpty()) return failed(records)
 
@@ -60,7 +72,8 @@ object TemplateSequenceFallback {
                 textCandidates.asSequence().flatMap { text ->
                     compiled.regex.findAll(text).mapNotNull { result ->
                         val fields = extract(compiled, result)
-                        val pos = fields["POS_NUMBER"]?.let(OcrTextNormalizer::parsePosNumber)
+                        val rawPos = fields["POS_NUMBER"].orEmpty()
+                        val pos = resolveSequencePosIdentity(rawPos, posIdentityRule, allowedPos)
                             ?: return@mapNotNull null
                         if (compiled.template.validation.pos.mustExistInStorePlan && pos !in allowedPos) {
                             return@mapNotNull null
@@ -70,6 +83,7 @@ object TemplateSequenceFallback {
                         Candidate(
                             template = compiled.template,
                             fields = fields,
+                            workPos = pos,
                             score = compiled.template.priority +
                                 compiled.anchorCount * 25 +
                                 fields.values.count { it.isNotBlank() } * 10
@@ -84,9 +98,7 @@ object TemplateSequenceFallback {
         // เลือกชุดข้อมูลที่ซ้ำกันจากหลายรอบอ่านภาพมากที่สุด
         // ไม่ผสมค่าคนละ candidate เข้าด้วยกัน เพื่อป้องกัน POS/ลูกค้า/เวลาไขว้กัน
         val bestByPos = matches
-            .mapNotNull { candidate ->
-                OcrTextNormalizer.parsePosNumber(candidate.fields["POS_NUMBER"].orEmpty())?.let { it to candidate }
-            }
+            .map { candidate -> candidate.workPos to candidate }
             .groupBy({ it.first }, { it.second })
             .mapValues { (_, candidates) -> chooseWholeRecordConsensus(candidates) }
             .filterValues { it != null }

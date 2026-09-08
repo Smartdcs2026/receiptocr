@@ -1,0 +1,102 @@
+name: Round104.19 POS fallback identity parity
+
+on:
+  push:
+    branches: ["round10419-pos-fallback-parity"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Round104.19 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply Round104.19 parity patch
+        run: |
+          # Repair two stale source-boundary literals in the draft patch before execution.
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tools/round104_19_pos_fallback_parity_patch.py')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('imageFile.absolutePath', 'imagePath')
+          s = s.replace(
+              r'                    imagePath = imagePath,\n                    templates = templates\n                )\n',
+              r'                imagePath = imagePath,\n                templates = templates\n            )\n'
+          )
+          s = s.replace(
+              r'                    imagePath = imagePath,\n                    templates = templates,\n                    posIdentityRule = runtimePosIdentityRule\n                )\n',
+              r'                imagePath = imagePath,\n                templates = templates,\n                posIdentityRule = runtimePosIdentityRule\n            )\n'
+          )
+          p.write_text(s, encoding='utf-8')
+          PY
+          python tools/round104_19_pos_fallback_parity_patch.py
+
+      - name: Verify fallback identity bridge
+        run: |
+          grep -q 'versionCode = 111' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.19"' android-app/app/build.gradle.kts
+          grep -q 'resolveEvidencePosIdentity' android-app/app/src/main/java/com/receiptocr/app/ocr/PosEvidenceFusion.kt
+          grep -q 'PosIdentityResolver.resolve(raw, posIdentityRule, allowedPos)' android-app/app/src/main/java/com/receiptocr/app/ocr/PosEvidenceFusion.kt
+          grep -q 'resolveSequencePosIdentity' android-app/app/src/main/java/com/receiptocr/app/ocr/TemplateSequenceFallback.kt
+          grep -q 'PosIdentityResolver.resolve(raw, posIdentityRule, allowedPos)' android-app/app/src/main/java/com/receiptocr/app/ocr/TemplateSequenceFallback.kt
+          test "$(grep -c 'posIdentityRule = runtimePosIdentityRule' android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt)" -ge 3
+          grep -q 'class PosFallbackIdentityRound10419Test' android-app/app/src/test/java/com/receiptocr/app/ocr/PosFallbackIdentityRound10419Test.kt
+          node tests/round10417-pos-terminal.test.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Round104.19 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReceiptOCR-Round104-19-debug-premerge
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Commit Round104.19 source
+        run: |
+          git config user.name "receiptocr-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            tools/round104_19_pos_fallback_parity_patch.py \
+            android-app/app/build.gradle.kts \
+            android-app/app/src/main/java/com/receiptocr/app/ocr/PosEvidenceFusion.kt \
+            android-app/app/src/main/java/com/receiptocr/app/ocr/TemplateSequenceFallback.kt \
+            android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt \
+            android-app/app/src/test/java/com/receiptocr/app/ocr/PosFallbackIdentityRound10419Test.kt \
+            tests/round10417-pos-terminal.test.js
+          if git diff --cached --quiet; then
+            echo "Round104.19 source already committed"
+            exit 0
+          fi
+          git commit -m "Round104.19 route all POS fallbacks through identity resolver"
+          git push origin HEAD:round10419-pos-fallback-parity
