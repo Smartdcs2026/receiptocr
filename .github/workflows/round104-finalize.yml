@@ -62,18 +62,18 @@ jobs:
       - name: Verify Round103 baseline
         run: git merge-base --is-ancestor ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 HEAD
 
-      - name: Verify Round104.17 Android version and direct evidence upload
+      - name: Verify Round104.18 Android version and direct evidence upload
         run: |
-          grep -q 'versionCode = 109' android-app/app/build.gradle.kts
-          grep -q 'versionName = "0.104.17"' android-app/app/build.gradle.kts
+          grep -q 'versionCode = 110' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.18"' android-app/app/build.gradle.kts
           grep -q 'X-Evidence-Kind' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'X-Evidence-Slot' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'setFixedLengthStreamingMode' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'Server ยังไม่ยืนยันการบันทึก' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
 
-      - name: Protect Round103 OCR baseline and allow Round104.17 POS identity files
+      - name: Protect Round103 OCR baseline and allow Round104.18 POS identity files
         run: |
-          unexpected="$(git diff --name-only ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 -- android-app/app/src/main/java/com/receiptocr/app/ocr | grep -Ev '(^|/)(PosIdentityResolver|RealOcrPipeline)\.kt$' || true)"
+          unexpected="$(git diff --name-only ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 -- android-app/app/src/main/java/com/receiptocr/app/ocr | grep -Ev '(^|/)(PosIdentityResolver|RealOcrPipeline|RuleDrivenOcrEngine)\.kt$' || true)"
           if [ -n "$unexpected" ]; then
             echo "Unexpected OCR changes:"
             echo "$unexpected"
@@ -84,6 +84,8 @@ jobs:
           grep -q 'legacyLastPrefixes' android-app/app/src/main/java/com/receiptocr/app/data/remote/OcrTemplateRepository.kt
           grep -q 'prefix in terminalPrefixes' android-app/app/src/main/java/com/receiptocr/app/ocr/PosIdentityResolver.kt
           grep -q 'runtimeLastWorkPos = expectedPosSet.maxOrNull() ?: 0' android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt
+          grep -q 'resolveSpatialPosCandidate' android-app/app/src/main/java/com/receiptocr/app/ocr/RuleDrivenOcrEngine.kt
+          grep -q 'PosIdentityResolver.resolve(raw, posIdentityRule, availableWorkPos)' android-app/app/src/main/java/com/receiptocr/app/ocr/RuleDrivenOcrEngine.kt
           grep -q 'syncEvidenceForLatestSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'finalizeSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'api/app/submissions/.*/finalize' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
@@ -203,10 +205,10 @@ jobs:
         working-directory: android-app
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload Round104.17 debug APK
+      - name: Upload Round104.18 debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: ReceiptOCR-Round104-17-debug
+          name: ReceiptOCR-Round104-18-debug
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
           if-no-files-found: error
