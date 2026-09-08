@@ -127,8 +127,9 @@ function renderDateRule(){
   $("brandLastPosPrefixes").value=lastPrefixes.join(",");
   $("brandPosMappings").value=formatBrandPosMappings(visibleMappings);
   $("allowUnmappedPosChoice").checked=p.allowUnmappedUserChoice!==false;
-  $("posIdentityRuleExample").textContent=(p.enabled||lastPrefixes.length||visibleMappings.length)
-    ?`กติกาหมายเลขเครื่อง • POS สุดท้าย: ${lastPrefixes.length?lastPrefixes.join(", "):"ไม่มี"} • จับคู่เฉพาะ ${visibleMappings.length} รายการ`
+  $("fallbackUnknownToLastWorkPos").checked=p.fallbackUnknownToLastWorkPos===true;
+  $("posIdentityRuleExample").textContent=(p.enabled||lastPrefixes.length||visibleMappings.length||p.fallbackUnknownToLastWorkPos)
+    ?`กติกาหมายเลขเครื่อง • POS สุดท้าย: ${lastPrefixes.length?lastPrefixes.join(", "):"ไม่มี"} • จับคู่เฉพาะ ${visibleMappings.length} รายการ${p.fallbackUnknownToLastWorkPos?" • รหัสอ่านเพี้ยนใช้ POS สุดท้าย":""}`
     :"ค่าเริ่มต้น: ใช้เลข POS แบบเดิม จึงไม่กระทบแบรนด์ที่ใช้งานอยู่";
 }
 function buildReceiptRule(){
@@ -142,7 +143,7 @@ function buildReceiptRule(){
     preventDuplicateImage:true,
     preventDuplicateReceiptData:true,
     posIdentityRule:{
-      enabled:$("posIdentityMode").value==="PREFIX_MAPPING"||posMappings.length>0||lastWorkPosPrefixes.length>0,
+      enabled:$("posIdentityMode").value==="PREFIX_MAPPING"||posMappings.length>0||lastWorkPosPrefixes.length>0||$("fallbackUnknownToLastWorkPos")?.checked===true,
       allowedPrefixes:[...new Set([
         ...String($("brandPosPrefixes").value||"").split(/[,;\s]+/).map(x=>x.trim().toUpperCase()).filter(Boolean),
         ...lastWorkPosPrefixes,
@@ -150,7 +151,8 @@ function buildReceiptRule(){
       ])],
       lastWorkPosPrefixes,
       mappings:posMappings,
-      allowUnmappedUserChoice:$("allowUnmappedPosChoice").checked
+      allowUnmappedUserChoice:$("allowUnmappedPosChoice").checked,
+      fallbackUnknownToLastWorkPos:$("fallbackUnknownToLastWorkPos")?.checked===true
     },
     groupDateRule:{
       enabled:true,

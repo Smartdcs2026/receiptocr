@@ -1,0 +1,126 @@
+name: Round104.20 CJ terminal fallback and simple POS UI
+
+on:
+  push:
+    branches: ["round10420-cj-terminal-simple-pos-ui"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout Round104.20 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate patch script syntax
+        run: python -m py_compile tools/round104_20_cj_terminal_simple_ui_patch.py
+
+      - name: Apply Round104.20 patch
+        run: python tools/round104_20_cj_terminal_simple_ui_patch.py
+
+      - name: Normalize generated UI boundary and Admin cache generation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          ui = Path('android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt')
+          s = ui.read_text(encoding='utf-8')
+          marker = '    if (ocrReadDetailsOpen) {'
+          first = s.find(marker)
+          second = s.find(marker, first + len(marker)) if first >= 0 else -1
+          if second >= 0:
+              s = s[:first] + s[second:]
+              ui.write_text(s, encoding='utf-8')
+          if s.count(marker) != 1:
+              raise SystemExit(f'Expected exactly one OCR details dialog boundary, found {s.count(marker)}')
+
+          index = Path('web-admin/index.html')
+          text = index.read_text(encoding='utf-8')
+          text = text.replace('receipt-date-rules.js?v=104176', 'receipt-date-rules.js?v=104200')
+          text = text.replace('ocr-simple.js?v=104176', 'ocr-simple.js?v=104200')
+          index.write_text(text, encoding='utf-8')
+
+          legacy = Path('tests/round10417-pos-terminal.test.js')
+          text = legacy.read_text(encoding='utf-8')
+          text = text.replace("ocr-simple.js?v=104176", "ocr-simple.js?v=104200")
+          legacy.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Verify CJ fallback and simple UI bridge
+        run: |
+          grep -q 'versionCode = 112' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.20"' android-app/app/build.gradle.kts
+          grep -q 'fallbackUnknownToLastWorkPos: Boolean = false' android-app/app/src/main/java/com/receiptocr/app/config/ReceiptRuleModels.kt
+          grep -q 'fallbackUnknownToLastWorkPos = root.optBoolean' android-app/app/src/main/java/com/receiptocr/app/data/remote/OcrTemplateRepository.kt
+          grep -q 'prefix !in allowedPrefixes' android-app/app/src/main/java/com/receiptocr/app/ocr/PosIdentityResolver.kt
+          grep -q 'id="fallbackUnknownToLastWorkPos"' web-admin/index.html
+          grep -q 'fallbackUnknownToLastWorkPos' web-admin/ocr-simple.js
+          grep -q 'receipt-date-rules.js?v=104200' web-admin/index.html
+          grep -q 'ocr-simple.js?v=104200' web-admin/index.html
+          grep -q 'POS("POS")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'RECEIPTS("รูปบิล")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'NOTES("หมายเหตุ")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'DatePickerDialog(' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'TimePickerDialog(' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          node tests/round10420-cj-terminal-fallback.test.js
+          node tests/round10417-pos-terminal.test.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Round104.20 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReceiptOCR-Round104-20-debug-premerge
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Commit tested Round104.20 source
+        run: |
+          git config user.name "receiptocr-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            android-app/app/build.gradle.kts \
+            android-app/app/src/main/java/com/receiptocr/app/config/ReceiptRuleModels.kt \
+            android-app/app/src/main/java/com/receiptocr/app/data/remote/OcrTemplateRepository.kt \
+            android-app/app/src/main/java/com/receiptocr/app/ocr/PosIdentityResolver.kt \
+            android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt \
+            android-app/app/src/test/java/com/receiptocr/app/ocr/CjTerminalFallbackRound10420Test.kt \
+            web-admin/index.html \
+            web-admin/ocr-simple.js \
+            web-admin/receipt-date-rules.js \
+            tests/round10417-pos-terminal.test.js \
+            tests/round10420-cj-terminal-fallback.test.js
+          if git diff --cached --quiet; then
+            echo "Round104.20 source already committed"
+            exit 0
+          fi
+          git commit -m "Round104.20 add CJ terminal fallback and simple POS workflow"
+          git push origin HEAD:round10420-cj-terminal-simple-pos-ui

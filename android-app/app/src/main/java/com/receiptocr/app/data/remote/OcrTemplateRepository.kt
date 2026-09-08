@@ -174,7 +174,8 @@ object OcrTemplateRepository {
             allowedPrefixes = allowed,
             lastWorkPosPrefixes = terminalPrefixes,
             mappings = parsedMappings,
-            allowUnmappedUserChoice = root.optBoolean("allowUnmappedUserChoice", true)
+            allowUnmappedUserChoice = root.optBoolean("allowUnmappedUserChoice", true),
+            fallbackUnknownToLastWorkPos = root.optBoolean("fallbackUnknownToLastWorkPos", false)
         )
     }
 
