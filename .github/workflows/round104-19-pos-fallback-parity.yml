@@ -20,9 +20,18 @@ jobs:
 
       - name: Apply Round104.19 parity patch
         run: |
-          # Initial draft used an old local variable name in two guarded search blocks.
-          # Repair the patch source first, then execute the corrected/idempotent patch.
-          sed -i 's/imageFile\.absolutePath/imagePath/g' tools/round104_19_pos_fallback_parity_patch.py
+          # Repair two stale source-boundary literals in the draft patch before execution.
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tools/round104_19_pos_fallback_parity_patch.py')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('imageFile.absolutePath', 'imagePath')
+          s = s.replace(
+              '"""                    imagePath = imagePath,\n                    templates = templates\n                )\n"""',
+              '"""                imagePath = imagePath,\n                templates = templates\n            )\n"""'
+          )
+          p.write_text(s, encoding='utf-8')
+          PY
           python tools/round104_19_pos_fallback_parity_patch.py
 
       - name: Verify fallback identity bridge
