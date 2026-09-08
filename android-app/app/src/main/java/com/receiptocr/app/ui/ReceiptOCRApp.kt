@@ -1,6 +1,8 @@
 package com.receiptocr.app.ui
 
 import android.Manifest
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.pm.PackageManager
 import android.net.Uri
 import com.google.mlkit.vision.text.TextRecognition
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Image
@@ -36,6 +39,7 @@ import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PointOfSale
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Save
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Storefront
@@ -90,6 +94,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -118,8 +123,10 @@ private val DateAfterOrange = Color(0xFFC66A05)
 private val ErrorSoft = CriticalSoft
 
 private enum class WorkTab(val title: String) {
-    BILL_AND_DATA("งานบิล"),
-    STORE_PHOTOS("ภาพร้าน")
+    POS("POS"),
+    RECEIPTS("รูปบิล"),
+    STORE_PHOTOS("ภาพร้าน"),
+    NOTES("หมายเหตุ")
 }
 
 private data class PhotoPreviewTarget(
@@ -998,7 +1005,7 @@ private fun StoreWorkScreen(
     var message by remember(work.id, work.reviewStatus, work.returnReason) {
         mutableStateOf(if (work.reviewStatus.equals("RETURNED", true)) "ส่งกลับแก้ไข: ${work.returnReason}" else "")
     }
-    var activeTab by remember { mutableStateOf(WorkTab.BILL_AND_DATA) }
+    var activeTab by remember { mutableStateOf(WorkTab.POS) }
 
     var loadedOcrConfig by remember(work.brand, work.brandAbbr) {
         mutableStateOf(OcrProfileRepository.loadCachedOrFallback(context, work.brand, work.brandAbbr))
@@ -1417,7 +1424,38 @@ private fun StoreWorkScreen(
             }
 
             when (activeTab) {
-                WorkTab.BILL_AND_DATA -> {
+                WorkTab.POS -> {
+                    itemsIndexed(records) { index, record ->
+                        PosCard(
+                            record = record,
+                            dateWarningText = individualDateWarningsByPos[record.posNumber],
+                            ocrBusy = ocrBusy,
+                            noteOptions = loadedNoteOptions.labels(NoteOptionCategory.POS_NOTE),
+                            noReceiptReasons = loadedNoteOptions.labels(NoteOptionCategory.NO_RECEIPT_REASON),
+                            expectedStoreId = work.expectedReceiptStoreId,
+                            user = user,
+                            onOcr = {
+                                val availableImages = receipts.mapIndexedNotNull { imageIndex, path ->
+                                    path?.let { imageIndex to it }
+                                }
+                                when {
+                                    availableImages.isEmpty() -> {
+                                        message = "กรุณาเพิ่มภาพบิลก่อนอ่านข้อมูล"
+                                        activeTab = WorkTab.RECEIPTS
+                                    }
+                                    availableImages.size == 1 -> runRealOcrForWholeImage(availableImages.first().second)
+                                    else -> ocrImagePickerOpen = true
+                                }
+                            },
+                            onChange = {
+                                records[index] = it
+                                saveDraft()
+                            }
+                        )
+                    }
+                }
+
+                WorkTab.RECEIPTS -> {
                     item {
                         ReceiptPhotoSection(
                             receipts = receipts,
@@ -1437,54 +1475,9 @@ private fun StoreWorkScreen(
                             onImageClick = { index, path -> previewTarget = PhotoPreviewTarget("R", index, path) }
                         )
                     }
-
-                    itemsIndexed(records) { index, record ->
-                        PosCard(
-                            record = record,
-                            dateWarningText = individualDateWarningsByPos[record.posNumber],
-                            ocrBusy = ocrBusy,
-                            noteOptions = loadedNoteOptions.labels(NoteOptionCategory.POS_NOTE),
-                            noReceiptReasons = loadedNoteOptions.labels(NoteOptionCategory.NO_RECEIPT_REASON),
-                            expectedStoreId = work.expectedReceiptStoreId,
-                            user = user,
-                            onOcr = {
-                                val availableImages = receipts.mapIndexedNotNull { imageIndex, path ->
-                                    path?.let { imageIndex to it }
-                                }
-
-                                when {
-                                    availableImages.isEmpty() -> {
-                                        message = "กรุณาเพิ่มภาพบิลก่อนอ่านข้อมูล"
-                                    }
-                                    availableImages.size == 1 -> {
-                                        runRealOcrForWholeImage(availableImages.first().second)
-                                    }
-                                    else -> {
-                                        ocrImagePickerOpen = true
-                                    }
-                                }
-                            },
-                            onChange = {
-                                records[index] = it
-                                saveDraft()
-                            }
-                        )
-                    }
                 }
 
                 WorkTab.STORE_PHOTOS -> {
-                    item {
-                        CollapsibleAdminNoteField(
-                            value = storeWorkNote,
-                            options = loadedNoteOptions.labels(NoteOptionCategory.STORE_NOTE),
-                            title = "หมายเหตุข้อมูลร้าน",
-                            onValueChange = {
-                                storeWorkNote = it
-                                DemoRepository.saveStoreWorkNote(context, work.id, selectedDate, it)
-                                DemoRepository.saveStatus(context, work.id, selectedDate, WorkStatus.DRAFT)
-                            }
-                        )
-                    }
                     item {
                         StorePhotoSection(
                             stores = stores,
@@ -1500,6 +1493,21 @@ private fun StoreWorkScreen(
                                 }
                             },
                             onImageClick = { index, path -> previewTarget = PhotoPreviewTarget("S", index, path) }
+                        )
+                    }
+                }
+
+                WorkTab.NOTES -> {
+                    item {
+                        CollapsibleAdminNoteField(
+                            value = storeWorkNote,
+                            options = loadedNoteOptions.labels(NoteOptionCategory.STORE_NOTE),
+                            title = "หมายเหตุข้อมูลร้าน",
+                            onValueChange = {
+                                storeWorkNote = it
+                                DemoRepository.saveStoreWorkNote(context, work.id, selectedDate, it)
+                                DemoRepository.saveStatus(context, work.id, selectedDate, WorkStatus.DRAFT)
+                            }
                         )
                     }
                 }
@@ -1905,6 +1913,7 @@ private fun StoreWorkScreen(
                             hasDateWarning -> "เก็บข้อมูลแล้ว • แก้วันที่ก่อนส่ง"
                             else -> "บันทึกข้อมูลจากบิลแล้ว"
                         }
+                        activeTab = WorkTab.POS
                         pendingOcrResult = null
                     },
                     enabled = !hasHardIntegrityBlock,
@@ -2090,7 +2099,8 @@ private fun WorkTabBar(activeTab: WorkTab, onTabSelected: (WorkTab) -> Unit) {
                 val selected = activeTab == tab
                 val shape = when (index) {
                     0 -> RoundedCornerShape(topStart = 15.dp, bottomStart = 15.dp)
-                    else -> RoundedCornerShape(topEnd = 15.dp, bottomEnd = 15.dp)
+                    WorkTab.entries.lastIndex -> RoundedCornerShape(topEnd = 15.dp, bottomEnd = 15.dp)
+                    else -> RoundedCornerShape(0.dp)
                 }
                 Surface(
                     modifier = Modifier
@@ -2110,7 +2120,12 @@ private fun WorkTabBar(activeTab: WorkTab, onTabSelected: (WorkTab) -> Unit) {
                         verticalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = if (tab == WorkTab.BILL_AND_DATA) Icons.Outlined.ReceiptLong else Icons.Outlined.Storefront,
+                            imageVector = when (tab) {
+                                WorkTab.POS -> Icons.Outlined.PointOfSale
+                                WorkTab.RECEIPTS -> Icons.Outlined.ReceiptLong
+                                WorkTab.STORE_PHOTOS -> Icons.Outlined.Storefront
+                                WorkTab.NOTES -> Icons.Outlined.EditNote
+                            },
                             contentDescription = tab.title,
                             tint = if (selected) Primary else TextSub,
                             modifier = Modifier.size(20.dp)
@@ -2304,14 +2319,52 @@ private fun PosCard(
     onOcr: () -> Unit,
     onChange: (PosRecord) -> Unit
 ) {
+    val context = LocalContext.current
     var reasonExpanded by remember { mutableStateOf(false) }
-    var expanded by remember(record.posNumber) {
-        mutableStateOf(
-            record.customerNo.isNotBlank() ||
-                record.note.isNotBlank() ||
-                record.noReceipt ||
-                record.source.startsWith("OCR")
+    var expanded by remember(record.posNumber) { mutableStateOf(true) }
+
+    fun manualRecordUpdate(customerNo: String = record.customerNo, billDate: String = record.billDate, billTime: String = record.billTime): PosRecord =
+        record.copy(
+            customerNo = customerNo,
+            billDate = billDate,
+            billTime = billTime,
+            noReceipt = false,
+            source = "MANUAL",
+            ocrSourceImagePath = "",
+            ocrConfidence = "",
+            ocrTemplateName = "",
+            ocrWarnings = "",
+            ocrCounterCycle = "CONTINUOUS"
         )
+
+    fun openDatePicker() {
+        if (record.noReceipt) return
+        val zone = ZoneId.of("Asia/Bangkok")
+        val current = runCatching { LocalDate.parse(record.billDate, DateTimeFormatter.ofPattern("dd/MM/yyyy")) }
+            .getOrElse { LocalDate.now(zone) }
+        DatePickerDialog(
+            context,
+            { _, year, month, day ->
+                val value = LocalDate.of(year, month + 1, day).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                onChange(manualRecordUpdate(billDate = value))
+            },
+            current.year, current.monthValue - 1, current.dayOfMonth
+        ).show()
+    }
+
+    fun openTimePicker() {
+        if (record.noReceipt) return
+        val zone = ZoneId.of("Asia/Bangkok")
+        val current = runCatching { LocalTime.parse(record.billTime, DateTimeFormatter.ofPattern("HH:mm")) }
+            .getOrElse { LocalTime.now(zone) }
+        TimePickerDialog(
+            context,
+            { _, hour, minute ->
+                val value = LocalTime.of(hour, minute).format(DateTimeFormatter.ofPattern("HH:mm"))
+                onChange(manualRecordUpdate(billTime = value))
+            },
+            current.hour, current.minute, true
+        ).show()
     }
 
     val customerMissing = !record.noReceipt && record.customerNo.isBlank()
@@ -2475,6 +2528,11 @@ private fun PosCard(
                                 supportingText = if (dateMissing || dateWarning) {
                                     { Text(if (dateMissing) "ยังอ่านไม่พบหรือยังไม่ได้กรอก" else dateWarningText.orEmpty(), fontSize = 10.sp) }
                                 } else null,
+                                trailingIcon = {
+                                    IconButton(onClick = { openDatePicker() }, enabled = !record.noReceipt) {
+                                        Icon(Icons.Outlined.CalendarMonth, contentDescription = "เลือกวันที่", tint = Primary)
+                                    }
+                                },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     errorBorderColor = MaterialTheme.colorScheme.error,
                                     errorLabelColor = MaterialTheme.colorScheme.error,
@@ -2494,6 +2552,11 @@ private fun PosCard(
                             supportingText = if (timeMissing) {
                                 { Text("ยังอ่านไม่พบหรือยังไม่ได้กรอก", fontSize = 10.sp) }
                             } else null,
+                            trailingIcon = {
+                                IconButton(onClick = { openTimePicker() }, enabled = !record.noReceipt) {
+                                    Icon(Icons.Outlined.Schedule, contentDescription = "เลือกเวลา", tint = Primary)
+                                }
+                            },
                             singleLine = true
                         )
                     }

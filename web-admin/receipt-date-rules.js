@@ -36,11 +36,12 @@
     const allowedPrefixes=uniquePrefixes([...(raw.allowedPrefixes||[]),...lastWorkPosPrefixes,...mappingPrefixes]);
     return {
       ...raw,
-      enabled:raw.enabled===true||mappings.length>0||lastWorkPosPrefixes.length>0,
+      enabled:raw.enabled===true||mappings.length>0||lastWorkPosPrefixes.length>0||raw.fallbackUnknownToLastWorkPos===true,
       allowedPrefixes,
       lastWorkPosPrefixes,
       mappings,
       allowUnmappedUserChoice:raw.allowUnmappedUserChoice!==false,
+      fallbackUnknownToLastWorkPos:raw.fallbackUnknownToLastWorkPos===true,
       runtimeLastWorkPos:Math.max(0,Number(raw.runtimeLastWorkPos)||0)
     };
   }
@@ -50,20 +51,24 @@
     const numeric=Number((key.match(/(\d+)$/)||[])[1]||0)||null;
     const rule=normalizePosIdentityRule(rawRule);
     const prefix=posPrefix(key);
-    const active=rule.enabled||rule.mappings.length>0||rule.lastWorkPosPrefixes.length>0;
-    if(!prefix)return numeric;
+    const active=rule.enabled||rule.mappings.length>0||rule.lastWorkPosPrefixes.length>0||rule.fallbackUnknownToLastWorkPos===true;
+    const known=(availableWorkPos||[]).map(Number).filter(x=>Number.isInteger(x)&&x>0);
+    const last=()=>known.slice().sort((a,b)=>b-a)[0]||(rule.runtimeLastWorkPos>0?rule.runtimeLastWorkPos:null);
     if(!active)return numeric;
+    if(!prefix){
+      if(known.includes(numeric)||(known.length===0&&rule.runtimeLastWorkPos===numeric))return numeric;
+      return rule.fallbackUnknownToLastWorkPos?(last()||null):numeric;
+    }
 
     // Brand rule has priority: every code beginning with this prefix uses the
     // store's actual last POS; the digits after the letter are not the POS number.
-    if(rule.lastWorkPosPrefixes.includes(prefix)){
-      const last=(availableWorkPos||[]).map(Number).filter(x=>Number.isInteger(x)&&x>0).sort((a,b)=>b-a)[0]
-        ||(rule.runtimeLastWorkPos>0?rule.runtimeLastWorkPos:null);
-      return last||null;
-    }
+    if(rule.lastWorkPosPrefixes.includes(prefix))return last()||null;
 
     const mapping=rule.mappings.find(x=>normalizePosIdentity(x.receiptPos)===key);
-    if(!mapping)return null;
+    if(!mapping){
+      if(rule.fallbackUnknownToLastWorkPos&&!rule.allowedPrefixes.includes(prefix))return last()||null;
+      return null;
+    }
     if(mapping.useLastWorkPos){
       const last=(availableWorkPos||[]).map(Number).filter(x=>Number.isInteger(x)&&x>0).sort((a,b)=>b-a)[0]
         ||(rule.runtimeLastWorkPos>0?rule.runtimeLastWorkPos:null);
@@ -71,7 +76,7 @@
     }
     return mapping.workPos>0?mapping.workPos:null;
   }
-  function defaultRule(brandId=""){return{brandId,customerCounterMode:"CONTINUOUS",preventDuplicateImage:true,preventDuplicateReceiptData:true,posIdentityRule:{enabled:false,allowedPrefixes:[],lastWorkPosPrefixes:[],mappings:[],allowUnmappedUserChoice:true},groupDateRule:{enabled:true,resetAtMonthEnd:false,maxBeforeDays:2,afterDaysWhenOldestIsMaxBefore:0,afterDaysWhenOldestIsOneDayBefore:2,afterDaysWhenOldestIsWorkDay:2,action:"BLOCK",warningText:"วันที่บิลไม่อยู่ในช่วงที่ใช้ได้"}}}
+  function defaultRule(brandId=""){return{brandId,customerCounterMode:"CONTINUOUS",preventDuplicateImage:true,preventDuplicateReceiptData:true,posIdentityRule:{enabled:false,allowedPrefixes:[],lastWorkPosPrefixes:[],mappings:[],allowUnmappedUserChoice:true,fallbackUnknownToLastWorkPos:false},groupDateRule:{enabled:true,resetAtMonthEnd:false,maxBeforeDays:2,afterDaysWhenOldestIsMaxBefore:0,afterDaysWhenOldestIsOneDayBefore:2,afterDaysWhenOldestIsWorkDay:2,action:"BLOCK",warningText:"วันที่บิลไม่อยู่ในช่วงที่ใช้ได้"}}}
   function normalize(raw={},brandId=""){
     const base=defaultRule(brandId),g=raw.groupDateRule||{};
     const number=(v,fallback)=>Number.isFinite(Number(v))?Math.max(0,Math.min(31,Number(v))):fallback;

@@ -32,10 +32,10 @@ assert(repo.includes('lastWorkPosPrefixes'), 'Android cloud parser must read ter
 assert(repo.includes('legacyLastPrefixes'), 'Android parser must migrate legacy exact LAST mappings');
 assert(resolver.includes('prefix in terminalPrefixes'), 'Android resolver must apply prefix-wide terminal mapping');
 assert(pipeline.includes('runtimeLastWorkPos = expectedPosSet.maxOrNull() ?: 0'), 'Pipeline must bind terminal prefixes to the actual store plan');
-assert(index.includes('ocr-simple.js?v=104176'), 'OCR core must use cache generation 104176');
+assert(index.includes('ocr-simple.js?v=104200'), 'OCR core must use cache generation 104176');
 assert(spa.includes('VERSION="104176"'), 'Admin SPA cache version must be 104176');
 assert(adminHtml.includes('admin-spa.js?v=104176'), 'Admin shell must force the 104176 SPA asset');
-assert(gradle.includes('versionCode = 111'), 'Android versionCode must be Round104.19');
-assert(gradle.includes('versionName = "0.104.19"'), 'Android versionName must be 0.104.19');
+assert(gradle.includes('versionCode = 112'), 'Android versionCode must be Round104.20');
+assert(gradle.includes('versionName = "0.104.20"'), 'Android versionName must be 0.104.19');
 
-console.log('Round104.19 terminal POS behavior checks passed');
+console.log('Round104.20 terminal POS behavior checks passed');

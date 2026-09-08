@@ -37,20 +37,35 @@ object PosIdentityResolver {
         val key = OcrTextNormalizer.normalizePosIdentity(identityRaw) ?: return null
         val numeric = OcrTextNormalizer.parsePosNumber(display) ?: return null
 
-        val active = rule.enabled || rule.mappings.isNotEmpty() || rule.lastWorkPosPrefixes.isNotEmpty()
+        val active = rule.enabled || rule.mappings.isNotEmpty() || rule.lastWorkPosPrefixes.isNotEmpty() ||
+            rule.fallbackUnknownToLastWorkPos
         if (!active) {
             return ResolvedPosIdentity(display, key, numeric, mappedByBrandRule = false)
         }
 
+        val knownWorkPos = availableWorkPos.filter { it > 0 }.toSet()
+        fun lastWorkPos(): Int? = knownWorkPos.maxOrNull()
+            ?: rule.runtimeLastWorkPos.takeIf { it > 0 }
+        val allowedPrefixes = rule.allowedPrefixes
+            .map { it.trim().uppercase() }
+            .filter { it.isNotBlank() }
+            .toSet()
+
         val prefix = key.takeWhile(Char::isLetter)
         if (prefix.isBlank()) {
-            return ResolvedPosIdentity(display, key, numeric, mappedByBrandRule = false)
+            // A real numeric POS in this store always wins. If the OCR value is not
+            // an actual POS and this brand enables recovery, use the store's last POS.
+            val isRealNumericPos = numeric in knownWorkPos ||
+                (knownWorkPos.isEmpty() && rule.runtimeLastWorkPos == numeric)
+            if (isRealNumericPos || !rule.fallbackUnknownToLastWorkPos) {
+                return ResolvedPosIdentity(display, key, numeric, mappedByBrandRule = false)
+            }
+            val lastPos = lastWorkPos() ?: return null
+            return ResolvedPosIdentity(display, key, lastPos, mappedByBrandRule = true)
         }
 
         if (prefix in terminalPrefixes) {
-            val lastPos = availableWorkPos.filter { it > 0 }.maxOrNull()
-                ?: rule.runtimeLastWorkPos.takeIf { it > 0 }
-                ?: return null
+            val lastPos = lastWorkPos() ?: return null
             return ResolvedPosIdentity(display, key, lastPos, mappedByBrandRule = true)
         }
 
@@ -58,7 +73,16 @@ object PosIdentityResolver {
         val mapping = rule.mappings.firstOrNull { item ->
             OcrTextNormalizer.normalizePosIdentity(item.receiptPos) == key &&
                 (item.workPos > 0 || item.useLastWorkPos)
-        } ?: return null
+        }
+        if (mapping == null) {
+            // Do not silently convert a missing mapping inside an allowed family
+            // (for example N04 when N is configured). Unknown OCR prefixes may recover.
+            if (rule.fallbackUnknownToLastWorkPos && prefix !in allowedPrefixes) {
+                val lastPos = lastWorkPos() ?: return null
+                return ResolvedPosIdentity(display, key, lastPos, mappedByBrandRule = true)
+            }
+            return null
+        }
 
         val resolvedWorkPos = when {
             mapping.useLastWorkPos -> availableWorkPos.filter { it > 0 }.maxOrNull()
@@ -114,7 +138,8 @@ object PosIdentityResolver {
         rule: PosIdentityRule,
         availableWorkPos: Collection<Int> = emptyList()
     ): List<String> {
-        if (!rule.enabled && rule.mappings.isEmpty() && rule.lastWorkPosPrefixes.isEmpty()) return emptyList()
+        if (!rule.enabled && rule.mappings.isEmpty() && rule.lastWorkPosPrefixes.isEmpty() &&
+            !rule.fallbackUnknownToLastWorkPos) return emptyList()
         val found = linkedSetOf<String>()
         templates.filter { it.active }.forEach { template ->
             rawTexts.filter { it.isNotBlank() }.forEach { raw ->

@@ -46,6 +46,8 @@ data class PosIdentityRule(
     val mappings: List<PosIdentityMapping> = emptyList(),
     /** ถ้าเจอรหัสใหม่ ห้ามเดา POS เอง; ให้แจ้งผู้ใช้/ผู้ดูแล */
     val allowUnmappedUserChoice: Boolean = true,
+    /** ถ้ารหัสเครื่องอ่านเพี้ยนและไม่ตรง mapping/ไม่ใช่ POS จริง ให้ใช้ POS สุดท้ายของร้าน */
+    val fallbackUnknownToLastWorkPos: Boolean = false,
     /** ค่า runtime จากแผนงานของร้าน ไม่ถูกบันทึกกลับ Admin/API */
     val runtimeLastWorkPos: Int = 0
 )
