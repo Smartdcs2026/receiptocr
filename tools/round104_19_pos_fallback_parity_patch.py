@@ -153,8 +153,8 @@ pipeline = pipeline_path.read_text(encoding="utf-8")
 
 pipeline = replace_once(
     pipeline,
-    """                imagePath = imageFile.absolutePath,\n                templates = templates\n            )\n""",
-    """                imagePath = imageFile.absolutePath,\n                templates = templates,\n                posIdentityRule = runtimePosIdentityRule\n            )\n""",
+    """                imagePath = imagePath,\n                templates = templates\n            )\n""",
+    """                imagePath = imagePath,\n                templates = templates,\n                posIdentityRule = runtimePosIdentityRule\n            )\n""",
     "pipeline evidence fusion identity rule",
 )
 
@@ -162,8 +162,8 @@ pipeline = replace_once(
 # replace the remaining sequence-fallback call tail once.
 pipeline = replace_once(
     pipeline,
-    """                    imagePath = imageFile.absolutePath,\n                    templates = templates\n                )\n""",
-    """                    imagePath = imageFile.absolutePath,\n                    templates = templates,\n                    posIdentityRule = runtimePosIdentityRule\n                )\n""",
+    """                imagePath = imagePath,\n                templates = templates\n            )\n""",
+    """                imagePath = imagePath,\n                templates = templates,\n                posIdentityRule = runtimePosIdentityRule\n            )\n""",
     "pipeline sequence fallback identity rule",
 )
 

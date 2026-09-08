@@ -98,7 +98,8 @@ object RealOcrPipeline {
                 work = work,
                 workDate = workDate,
                 imagePath = imagePath,
-                templates = templates
+                templates = templates,
+                posIdentityRule = runtimePosIdentityRule
             )
         } else null
         val afterFusion = mergeUniversalTemplateResults(records, afterMultiTemplate, evidenceFusion)
