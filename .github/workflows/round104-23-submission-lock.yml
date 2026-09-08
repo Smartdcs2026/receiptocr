@@ -1,0 +1,88 @@
+name: Round104.23 submission lock until returned
+
+on:
+  push:
+    branches: ["round10423-submission-lock-until-return"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Round104.23 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate patch syntax
+        run: python -m py_compile tools/round104_23_submission_lock_patch.py
+
+      - name: Apply Round104.23 submission lock
+        run: python tools/round104_23_submission_lock_patch.py
+
+      - name: Verify lock policy and UI guards
+        run: |
+          grep -q 'versionCode = 115' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.23"' android-app/app/build.gradle.kts
+          grep -q 'object SubmissionEditPolicy' android-app/app/src/main/java/com/receiptocr/app/validation/SubmissionEditPolicy.kt
+          grep -q 'review == "RETURNED"' android-app/app/src/main/java/com/receiptocr/app/validation/SubmissionEditPolicy.kt
+          grep -q 'work.status == WorkStatus.SUBMITTED' android-app/app/src/main/java/com/receiptocr/app/validation/SubmissionEditPolicy.kt
+          grep -q 'งานนี้ส่งแล้ว • ไม่สามารถส่งซ้ำได้จนกว่าผู้ตรวจจะส่งกลับ' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'submittedThisSession = true' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'enabled = !workLocked' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'allowDelete = !workLocked' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'ดูข้อมูลได้ แต่แก้ไขหรือลบไม่ได้' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'class SubmissionEditPolicyTest' android-app/app/src/test/java/com/receiptocr/app/validation/SubmissionEditPolicyTest.kt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Round104.23 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReceiptOCR-Round104-23-debug-premerge
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Commit tested Round104.23 source
+        run: |
+          git config user.name "receiptocr-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            tools/round104_23_submission_lock_patch.py \
+            android-app/app/build.gradle.kts \
+            android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt \
+            android-app/app/src/main/java/com/receiptocr/app/validation/SubmissionEditPolicy.kt \
+            android-app/app/src/test/java/com/receiptocr/app/validation/SubmissionEditPolicyTest.kt
+          if git diff --cached --quiet; then
+            echo "Round104.23 source already committed"
+            exit 0
+          fi
+          git commit -m "Round104.23 lock submitted work until returned"
+          git push origin HEAD:round10423-submission-lock-until-return
