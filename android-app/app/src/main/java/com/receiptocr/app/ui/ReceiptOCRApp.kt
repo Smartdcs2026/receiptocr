@@ -1600,24 +1600,9 @@ private fun StoreWorkScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .imePadding(),
-            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 100.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 88.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (workLocked) {
-                item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = SuccessSoft,
-                        border = BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.35f))
-                    ) {
-                        Column(Modifier.padding(11.dp)) {
-                            Text("ส่งข้อมูลแล้ว", color = SuccessGreen, fontWeight = FontWeight.Bold)
-                            Text("ดูข้อมูลได้ แต่แก้ไขหรือลบไม่ได้ • หากผู้ตรวจส่งกลับ ระบบจะเปิดให้แก้ไขและส่งใหม่", color = TextSub, fontSize = 11.sp, lineHeight = 16.sp)
-                        }
-                    }
-                }
-            }
             item {
                 WorkTabBar(activeTab = activeTab, onTabSelected = { activeTab = it })
             }
@@ -2533,56 +2518,62 @@ private fun PosCard(
 ) {
     val context = LocalContext.current
     var reasonExpanded by remember { mutableStateOf(false) }
-    var expanded by remember(record.posNumber) { mutableStateOf(true) }
+    var noteVisible by remember(record.posNumber, record.note) { mutableStateOf(record.note.isNotBlank()) }
 
-    fun manualRecordUpdate(customerNo: String = record.customerNo, billDate: String = record.billDate, billTime: String = record.billTime): PosRecord =
-        record.copy(
-            customerNo = customerNo,
-            billDate = billDate,
-            billTime = billTime,
-            noReceipt = false,
-            source = "MANUAL",
-            ocrSourceImagePath = "",
-            ocrConfidence = "",
-            ocrTemplateName = "",
-            ocrWarnings = "",
-            ocrCounterCycle = "CONTINUOUS"
-        )
+    fun manualRecordUpdate(
+        customerNo: String = record.customerNo,
+        billDate: String = record.billDate,
+        billTime: String = record.billTime
+    ): PosRecord = record.copy(
+        customerNo = customerNo,
+        billDate = billDate,
+        billTime = billTime,
+        noReceipt = false,
+        source = "MANUAL",
+        ocrSourceImagePath = "",
+        ocrConfidence = "",
+        ocrTemplateName = "",
+        ocrWarnings = "",
+        ocrCounterCycle = "CONTINUOUS"
+    )
 
     fun openDatePicker() {
-        if (record.noReceipt) return
+        if (!enabled || record.noReceipt) return
         val zone = ZoneId.of("Asia/Bangkok")
-        val current = runCatching { LocalDate.parse(record.billDate, DateTimeFormatter.ofPattern("dd/MM/yyyy")) }
-            .getOrElse { LocalDate.now(zone) }
+        val current = runCatching {
+            LocalDate.parse(record.billDate, DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+        }.getOrElse { LocalDate.now(zone) }
         DatePickerDialog(
             context,
             { _, year, month, day ->
-                val value = LocalDate.of(year, month + 1, day).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                val value = LocalDate.of(year, month + 1, day)
+                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                 onChange(manualRecordUpdate(billDate = value))
             },
-            current.year, current.monthValue - 1, current.dayOfMonth
+            current.year,
+            current.monthValue - 1,
+            current.dayOfMonth
         ).show()
     }
 
     fun openTimePicker() {
-        if (record.noReceipt) return
+        if (!enabled || record.noReceipt) return
         val zone = ZoneId.of("Asia/Bangkok")
-        val current = runCatching { LocalTime.parse(record.billTime, DateTimeFormatter.ofPattern("HH:mm")) }
-            .getOrElse { LocalTime.now(zone) }
+        val current = runCatching {
+            LocalTime.parse(record.billTime, DateTimeFormatter.ofPattern("HH:mm"))
+        }.getOrElse { LocalTime.now(zone) }
         TimePickerDialog(
             context,
             { _, hour, minute ->
                 val value = LocalTime.of(hour, minute).format(DateTimeFormatter.ofPattern("HH:mm"))
                 onChange(manualRecordUpdate(billTime = value))
             },
-            current.hour, current.minute, true
+            current.hour,
+            current.minute,
+            true
         ).show()
     }
 
-    val customerMissing = !record.noReceipt && record.customerNo.isBlank()
-    val dateMissing = !record.noReceipt && record.billDate.isBlank()
-    val timeMissing = !record.noReceipt && record.billTime.isBlank()
-    val dateWarning = !record.noReceipt && !dateWarningText.isNullOrBlank()
     val storeReviewValid = StoreReceiptReview.isValid(record, expectedStoreId)
     val storeMismatch = StoreReceiptReview.isMismatch(record, expectedStoreId)
     val warningForUser = if (storeReviewValid) {
@@ -2592,338 +2583,246 @@ private fun PosCard(
         }.joinToString(" • ")
     } else record.ocrWarnings
     val visibleOcrWarning = UserFacingOcrMessages.warning(warningForUser)
+        .split(" • ")
+        .filterNot { it.contains("ยังอ่านรหัสร้านไม่ได้") || it == "ตรวจภาพบิล" }
+        .joinToString(" • ")
     val criticalOcrWarning = UserFacingOcrMessages.isCritical(warningForUser)
-    val dateInfoText = UserFacingOcrMessages.dateInfo(record.ocrRawBillDate, record.billDate)
-    val hasValidationWarning = customerMissing || dateMissing || timeMissing || dateWarning || visibleOcrWarning.isNotBlank()
-    val hasCriticalWarning = dateWarning || criticalOcrWarning || (storeMismatch && !storeReviewValid)
-
-    val hasData = record.customerNo.isNotBlank() || record.noReceipt
-    val summaryText = when {
-        record.noReceipt -> if (record.noReceiptReason.isBlank()) "ไม่ได้บิล" else record.noReceiptReason
-        record.customerNo.isNotBlank() -> buildString {
-            append(record.customerNo)
-            if (record.billDate.isNotBlank()) append(" • ${record.billDate}")
-            if (record.billTime.isNotBlank()) append(" ${record.billTime}")
-        }
-        else -> "ยังไม่มีข้อมูล"
-    }
+    val hasDateWarning = !record.noReceipt && !dateWarningText.isNullOrBlank()
+    val hasCriticalWarning = hasDateWarning || criticalOcrWarning || (storeMismatch && !storeReviewValid)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceWhite),
         border = BorderStroke(
-            width = if (hasValidationWarning) 1.5.dp else 1.dp,
-            color = when {
-                hasCriticalWarning -> CriticalRed
-                hasValidationWarning -> WarningBorder
-                else -> Border
-            }
+            if (hasCriticalWarning) 1.5.dp else 1.dp,
+            if (hasCriticalWarning) CriticalRed else Border
         )
     ) {
-        Column {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Color(0xFFE7E7E7)
+        ) {
+            Text(
+                "POS${record.posNumber}",
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                color = Color(0xFF4E5968),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = record.customerNo,
+                onValueChange = {
+                    if (enabled) onChange(
+                        manualRecordUpdate(customerNo = it.filter(Char::isDigit))
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("เลข/ยอดลูกค้า") },
+                enabled = enabled && !record.noReceipt,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = record.billDate,
+                    onValueChange = {
+                        if (enabled) onChange(manualRecordUpdate(billDate = it))
+                    },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("วันที่") },
+                    enabled = enabled && !record.noReceipt,
+                    singleLine = true,
+                    isError = hasDateWarning,
+                    trailingIcon = {
+                        IconButton(onClick = { openDatePicker() }, enabled = enabled && !record.noReceipt) {
+                            Icon(Icons.Outlined.CalendarMonth, contentDescription = "เลือกวันที่", tint = Primary)
+                        }
+                    }
+                )
+                OutlinedTextField(
+                    value = record.billTime,
+                    onValueChange = {
+                        if (enabled) onChange(manualRecordUpdate(billTime = it))
+                    },
+                    modifier = Modifier.weight(0.78f),
+                    placeholder = { Text("เวลา") },
+                    enabled = enabled && !record.noReceipt,
+                    singleLine = true,
+                    trailingIcon = {
+                        IconButton(onClick = { openTimePicker() }, enabled = enabled && !record.noReceipt) {
+                            Icon(Icons.Outlined.Schedule, contentDescription = "เลือกเวลา", tint = Primary)
+                        }
+                    }
+                )
+            }
+
+            if (hasDateWarning) {
+                Text(
+                    dateWarningText.orEmpty(),
+                    color = CriticalRed,
+                    fontSize = 10.5.sp,
+                    lineHeight = 14.sp
+                )
+            }
+
+            if (storeMismatch) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (storeReviewValid) SuccessSoft else CriticalSoft,
+                    border = BorderStroke(1.dp, if (storeReviewValid) SuccessGreen else CriticalBorder)
+                ) {
+                    Column(
+                        Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Text(
+                            if (storeReviewValid) "ยืนยันรหัสร้านแล้ว" else "รหัสร้านไม่ตรง",
+                            color = if (storeReviewValid) SuccessGreen else CriticalRed,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                        Text(
+                            "งาน ${expectedStoreId.ifBlank { "-" }} • บิล ${record.ocrStoreId.ifBlank { "อ่านไม่พบ" }}",
+                            color = TextMain,
+                            fontSize = 10.5.sp
+                        )
+                        if (!storeReviewValid) {
+                            Button(
+                                onClick = {
+                                    val now = LocalDateTime.now(ZoneId.of("Asia/Bangkok"))
+                                        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
+                                    onChange(
+                                        record.copy(
+                                            storeReviewConfirmed = true,
+                                            storeReviewReadId = record.ocrStoreId,
+                                            storeReviewExpectedId = expectedStoreId,
+                                            storeReviewConfirmedId = expectedStoreId,
+                                            storeReviewConfirmedAt = now,
+                                            storeReviewConfirmedBy = listOf(user.employeeCode, user.fullName)
+                                                .filter { it.isNotBlank() }.joinToString(" ")
+                                        )
+                                    )
+                                },
+                                enabled = enabled && expectedStoreId.isNotBlank() && record.ocrStoreId.isNotBlank(),
+                                modifier = Modifier.fillMaxWidth().height(38.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                            ) {
+                                Text("ยืนยันรหัสร้าน $expectedStoreId", fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (visibleOcrWarning.isNotBlank() && !storeMismatch) {
+                Text(
+                    visibleOcrWarning,
+                    color = if (criticalOcrWarning) CriticalRed else WarningOrange,
+                    fontSize = 10.5.sp,
+                    lineHeight = 14.sp
+                )
+            }
+
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded }
-                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    modifier = Modifier.size(34.dp),
-                    shape = RoundedCornerShape(9.dp),
-                    color = PrimarySoft
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Outlined.PointOfSale,
-                            contentDescription = null,
-                            tint = Primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.width(9.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "POS ${record.posNumber}",
-                            color = TextMain,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
-                    }
-                    Text(
-                        summaryText,
-                        color = if (hasData) TextSub else Color(0xFF98A2B3),
-                        fontSize = 10.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                FilledTonalButton(
-                    onClick = {
-                        onOcr()
-                        expanded = true
+                Checkbox(
+                    checked = record.noReceipt,
+                    onCheckedChange = { checked ->
+                        if (enabled) {
+                            onChange(
+                                record.copy(
+                                    noReceipt = checked,
+                                    customerNo = if (checked) "" else record.customerNo,
+                                    billDate = if (checked) "" else record.billDate,
+                                    billTime = if (checked) "" else record.billTime,
+                                    source = if (checked) "NO_RECEIPT" else "MANUAL",
+                                    ocrSourceImagePath = "",
+                                    ocrConfidence = "",
+                                    ocrTemplateName = "",
+                                    ocrWarnings = "",
+                                    ocrCounterCycle = "CONTINUOUS"
+                                )
+                            )
+                        }
                     },
-                    enabled = enabled && !ocrBusy,
-                    modifier = Modifier.height(36.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = PrimarySoft,
-                        contentColor = Primary
-                    )
-                ) {
-                    if (ocrBusy) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(15.dp),
-                            strokeWidth = 2.dp,
-                            color = Primary
+                    enabled = enabled
+                )
+                Text("ไม่ได้บิล", color = TextMain, fontSize = 13.sp)
+                Spacer(Modifier.width(6.dp))
+
+                Box(Modifier.weight(1f)) {
+                    OutlinedButton(
+                        onClick = { reasonExpanded = true },
+                        enabled = enabled && record.noReceipt,
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            if (record.noReceiptReason.isBlank()) "เลือกเหตุผล" else record.noReceiptReason,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontSize = 11.sp
                         )
-                        Spacer(Modifier.width(5.dp))
-                        Text("กำลังอ่าน", fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                    } else {
-                        Icon(Icons.Outlined.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text("อ่านบิล", fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    DropdownMenu(
+                        expanded = reasonExpanded,
+                        onDismissRequest = { reasonExpanded = false }
+                    ) {
+                        (noReceiptReasons + "อื่น ๆ").distinct().forEach { reason ->
+                            DropdownMenuItem(
+                                text = { Text(reason) },
+                                onClick = {
+                                    reasonExpanded = false
+                                    if (enabled) {
+                                        onChange(
+                                            record.copy(
+                                                noReceipt = true,
+                                                noReceiptReason = reason,
+                                                source = "NO_RECEIPT",
+                                                ocrSourceImagePath = "",
+                                                ocrConfidence = "",
+                                                ocrTemplateName = "",
+                                                ocrWarnings = "",
+                                                ocrCounterCycle = "CONTINUOUS"
+                                            )
+                                        )
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
 
                 IconButton(
-                    onClick = { expanded = !expanded },
-                    modifier = Modifier.size(34.dp)
+                    onClick = { noteVisible = !noteVisible },
+                    enabled = enabled,
+                    modifier = Modifier.size(40.dp)
                 ) {
-                    Icon(
-                        if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                        contentDescription = if (expanded) "ย่อ" else "ขยาย",
-                        tint = TextSub
-                    )
+                    Icon(Icons.Outlined.Add, contentDescription = "หมายเหตุ", tint = Primary)
                 }
             }
 
-            if (expanded) {
-                HorizontalDivider(color = Border)
-                Column(modifier = Modifier.padding(12.dp)) {
-                    OutlinedTextField(
-                        value = record.customerNo,
-                        onValueChange = {
-                            onChange(record.copy(customerNo = it.filter(Char::isDigit), noReceipt = false, source = "MANUAL", ocrSourceImagePath = "", ocrConfidence = "", ocrTemplateName = "", ocrWarnings = "", ocrCounterCycle = "CONTINUOUS"))
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("เลข/ยอดลูกค้า") },
-                        enabled = enabled && !record.noReceipt,
-                        isError = customerMissing,
-                        supportingText = if (customerMissing) {
-                            { Text("ยังอ่านไม่พบหรือยังไม่ได้กรอก", fontSize = 10.sp) }
-                        } else null,
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            OutlinedTextField(
-                                value = record.billDate,
-                                onValueChange = {
-                                    onChange(record.copy(billDate = it, noReceipt = false, source = "MANUAL", ocrSourceImagePath = "", ocrConfidence = "", ocrTemplateName = "", ocrWarnings = "", ocrCounterCycle = "CONTINUOUS"))
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("วันที่") },
-                                enabled = enabled && !record.noReceipt,
-                                singleLine = true,
-                                isError = dateMissing || dateWarning,
-                                supportingText = if (dateMissing || dateWarning) {
-                                    { Text(if (dateMissing) "ยังอ่านไม่พบหรือยังไม่ได้กรอก" else dateWarningText.orEmpty(), fontSize = 10.sp) }
-                                } else null,
-                                trailingIcon = {
-                                    IconButton(onClick = { openDatePicker() }, enabled = enabled && !record.noReceipt) {
-                                        Icon(Icons.Outlined.CalendarMonth, contentDescription = "เลือกวันที่", tint = Primary)
-                                    }
-                                },
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    errorBorderColor = MaterialTheme.colorScheme.error,
-                                    errorLabelColor = MaterialTheme.colorScheme.error,
-                                    errorSupportingTextColor = MaterialTheme.colorScheme.error
-                                )
-                            )
-                        }
-                        OutlinedTextField(
-                            value = record.billTime,
-                            onValueChange = {
-                                onChange(record.copy(billTime = it, noReceipt = false, source = "MANUAL", ocrSourceImagePath = "", ocrConfidence = "", ocrTemplateName = "", ocrWarnings = "", ocrCounterCycle = "CONTINUOUS"))
-                            },
-                            modifier = Modifier.weight(0.8f),
-                            label = { Text("เวลา") },
-                            enabled = enabled && !record.noReceipt,
-                            isError = timeMissing,
-                            supportingText = if (timeMissing) {
-                                { Text("ยังอ่านไม่พบหรือยังไม่ได้กรอก", fontSize = 10.sp) }
-                            } else null,
-                            trailingIcon = {
-                                IconButton(onClick = { openTimePicker() }, enabled = enabled && !record.noReceipt) {
-                                    Icon(Icons.Outlined.Schedule, contentDescription = "เลือกเวลา", tint = Primary)
-                                }
-                            },
-                            singleLine = true
-                        )
-                    }
-
-                    if (storeMismatch) {
-                        Spacer(Modifier.height(8.dp))
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (storeReviewValid) SuccessSoft else CriticalSoft,
-                            border = BorderStroke(1.5.dp, if (storeReviewValid) SuccessGreen else CriticalBorder)
-                        ) {
-                            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                Text(
-                                    if (storeReviewValid) "ยืนยันรหัสร้านแล้ว" else "บิลไม่ตรงร้าน",
-                                    color = if (storeReviewValid) SuccessGreen else CriticalRed,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text("รหัสร้านในงาน: ${expectedStoreId.ifBlank { "ไม่พบ" }}", color = TextMain, fontSize = 12.sp)
-                                Text("รหัสที่อ่านจากบิล: ${record.ocrStoreId.ifBlank { "อ่านไม่พบ" }}", color = TextMain, fontSize = 12.sp)
-                                if (!storeReviewValid) {
-                                    Text(
-                                        "ตรวจรหัสจากภาพก่อนยืนยัน",
-                                        color = TextMain, fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold
-                                    )
-                                    Button(
-                                        onClick = {
-                                            val now = LocalDateTime.now(ZoneId.of("Asia/Bangkok"))
-                                                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
-                                            onChange(
-                                                record.copy(
-                                                    storeReviewConfirmed = true,
-                                                    storeReviewReadId = record.ocrStoreId,
-                                                    storeReviewExpectedId = expectedStoreId,
-                                                    storeReviewConfirmedId = expectedStoreId,
-                                                    storeReviewConfirmedAt = now,
-                                                    storeReviewConfirmedBy = listOf(user.employeeCode, user.fullName)
-                                                        .filter { it.isNotBlank() }.joinToString(" ")
-                                                )
-                                            )
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        enabled = enabled && expectedStoreId.isNotBlank() && record.ocrStoreId.isNotBlank(),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Primary)
-                                    ) {
-                                        Text("ยืนยันรหัสร้าน $expectedStoreId", textAlign = TextAlign.Center)
-                                    }
-                                    Text("ถ้าเป็นร้านอื่น ให้เปลี่ยนภาพบิลก่อนส่ง", color = CriticalRed, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
-                                } else {
-                                    Text(
-                                        "ยืนยันโดย ${record.storeReviewConfirmedBy.ifBlank { "ผู้ใช้งาน" }} • ${record.storeReviewConfirmedAt}",
-                                        color = SuccessGreen, fontSize = 10.5.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    if (dateInfoText.isNotBlank()) {
-                        Spacer(Modifier.height(8.dp))
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(9.dp),
-                            color = PrimarySoft,
-                            border = BorderStroke(1.dp, Primary.copy(alpha = 0.22f))
-                        ) {
-                            Text(dateInfoText, modifier = Modifier.padding(9.dp), color = Primary, fontSize = 10.5.sp)
-                        }
-                    }
-                    if (visibleOcrWarning.isNotBlank()) {
-                        Spacer(Modifier.height(8.dp))
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(9.dp),
-                            color = if (criticalOcrWarning) CriticalSoft else WarningSoft,
-                            border = BorderStroke(1.dp, if (criticalOcrWarning) CriticalBorder else WarningBorder)
-                        ) {
-                            Text(
-                                visibleOcrWarning, modifier = Modifier.padding(9.dp),
-                                color = if (criticalOcrWarning) CriticalRed else WarningOrange,
-                                fontSize = 10.5.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    CollapsibleAdminNoteField(
-                        value = record.note,
-                        options = noteOptions,
-                        title = "หมายเหตุข้อมูลบิล",
-                        enabled = enabled,
-                        onValueChange = { onChange(record.copy(note = it)) }
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = record.noReceipt,
-                            enabled = enabled,
-                            onCheckedChange = { checked ->
-                                onChange(
-                                    record.copy(
-                                        noReceipt = checked,
-                                        customerNo = if (checked) "" else record.customerNo,
-                                        billDate = if (checked) "" else record.billDate,
-                                        billTime = if (checked) "" else record.billTime,
-                                        source = if (checked) "NO_RECEIPT" else "MANUAL",
-                                        ocrSourceImagePath = "",
-                                        ocrConfidence = "",
-                                        ocrTemplateName = "",
-                                        ocrWarnings = "",
-                                        ocrCounterCycle = "CONTINUOUS"
-                                    )
-                                )
-                            }
-                        )
-                        Text("ไม่ได้บิล", color = TextMain, modifier = Modifier.width(86.dp))
-
-                        Box(Modifier.weight(1f)) {
-                            OutlinedButton(
-                                onClick = { if (record.noReceipt) reasonExpanded = true },
-                                enabled = enabled && record.noReceipt,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Text(
-                                    if (record.noReceiptReason.isBlank()) "เลือกเหตุผล" else record.noReceiptReason,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    fontSize = 12.sp
-                                )
-                            }
-
-                            DropdownMenu(
-                                expanded = reasonExpanded,
-                                onDismissRequest = { reasonExpanded = false }
-                            ) {
-                                (noReceiptReasons + "อื่น ๆ").distinct().forEach { reason ->
-                                    DropdownMenuItem(
-                                        text = { Text(reason) },
-                                        onClick = {
-                                            reasonExpanded = false
-                                            onChange(record.copy(noReceipt = true, noReceiptReason = reason, source = "NO_RECEIPT", ocrSourceImagePath = "", ocrConfidence = "", ocrTemplateName = "", ocrWarnings = "", ocrCounterCycle = "CONTINUOUS"))
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+            if (noteVisible || record.note.isNotBlank()) {
+                CollapsibleAdminNoteField(
+                    value = record.note,
+                    options = noteOptions,
+                    title = "หมายเหตุข้อมูลบิล",
+                    enabled = enabled,
+                    onValueChange = { onChange(record.copy(note = it)) }
+                )
             }
         }
     }
