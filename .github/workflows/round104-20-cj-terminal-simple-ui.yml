@@ -24,6 +24,22 @@ jobs:
       - name: Apply Round104.20 patch
         run: python tools/round104_20_cj_terminal_simple_ui_patch.py
 
+      - name: Normalize generated work-tab boundary
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt')
+          s = p.read_text(encoding='utf-8')
+          marker = '    if (ocrReadDetailsOpen) {'
+          first = s.find(marker)
+          second = s.find(marker, first + len(marker)) if first >= 0 else -1
+          if second >= 0:
+              s = s[:first] + s[second:]
+              p.write_text(s, encoding='utf-8')
+          if s.count(marker) != 1:
+              raise SystemExit(f'Expected exactly one OCR details dialog boundary, found {s.count(marker)}')
+          PY
+
       - name: Verify CJ fallback and simple UI bridge
         run: |
           grep -q 'versionCode = 112' android-app/app/build.gradle.kts
