@@ -27,8 +27,12 @@ jobs:
           s = p.read_text(encoding='utf-8')
           s = s.replace('imageFile.absolutePath', 'imagePath')
           s = s.replace(
-              '"""                    imagePath = imagePath,\n                    templates = templates\n                )\n"""',
-              '"""                imagePath = imagePath,\n                templates = templates\n            )\n"""'
+              r'                    imagePath = imagePath,\n                    templates = templates\n                )\n',
+              r'                imagePath = imagePath,\n                templates = templates\n            )\n'
+          )
+          s = s.replace(
+              r'                    imagePath = imagePath,\n                    templates = templates,\n                    posIdentityRule = runtimePosIdentityRule\n                )\n',
+              r'                imagePath = imagePath,\n                templates = templates,\n                posIdentityRule = runtimePosIdentityRule\n            )\n'
           )
           p.write_text(s, encoding='utf-8')
           PY
