@@ -84,6 +84,7 @@ import com.receiptocr.app.model.*
 import com.receiptocr.app.util.*
 import com.receiptocr.app.validation.ReceiptValidationEngine
 import com.receiptocr.app.validation.StoreReceiptReview
+import com.receiptocr.app.validation.SubmissionEditPolicy
 import com.receiptocr.app.ocr.OcrConfidence
 import com.receiptocr.app.ocr.MultiPassOcrReader
 import com.receiptocr.app.ocr.RealOcrPipeline
@@ -810,8 +811,13 @@ private fun StoreInfoScreen(
     var locationBusy by remember { mutableStateOf(false) }
     var locationMessage by remember { mutableStateOf("") }
     var pendingLocation by remember { mutableStateOf<CapturedStoreLocation?>(null) }
+    val workLocked = SubmissionEditPolicy.isLocked(work)
 
     fun saveLocation(location: CapturedStoreLocation) {
+        if (workLocked) {
+            locationMessage = "งานนี้ส่งแล้ว • แก้ไขได้เมื่อผู้ตรวจส่งกลับ"
+            return
+        }
         StoreLocationRepository.save(context, work, location)
         effectiveWork = work.copy(latitude = location.latitudeText, longitude = location.longitudeText)
         onLocationSaved(location.latitudeText, location.longitudeText)
@@ -917,7 +923,7 @@ private fun StoreInfoScreen(
                                 if (fine || coarse) captureNow()
                                 else locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                             },
-                            enabled = !locationBusy,
+                            enabled = !locationBusy && !workLocked,
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = Primary)
                         ) {
@@ -953,6 +959,7 @@ private fun StoreInfoScreen(
                 value = storeWorkNote,
                 options = noteOptions.labels(NoteOptionCategory.STORE_NOTE),
                 title = "หมายเหตุข้อมูลร้าน",
+                enabled = !workLocked,
                 onValueChange = {
                     storeWorkNote = it
                     DemoRepository.saveStoreWorkNote(context, effectiveWork.id, selectedDate, it)
@@ -969,7 +976,7 @@ private fun StoreInfoScreen(
             ) {
                 Icon(Icons.Outlined.Storefront, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("เริ่มทำงานร้านนี้", fontWeight = FontWeight.Bold)
+                Text(if (workLocked) "ดูข้อมูลที่ส่งแล้ว" else "เริ่มทำงานร้านนี้", fontWeight = FontWeight.Bold)
             }
 
             Spacer(Modifier.height(22.dp))
@@ -1171,6 +1178,8 @@ private fun StoreWorkScreen(
     var message by remember(work.id, work.reviewStatus, work.returnReason) {
         mutableStateOf(if (work.reviewStatus.equals("RETURNED", true)) "ส่งกลับแก้ไข: ${work.returnReason}" else "")
     }
+    var submittedThisSession by remember(work.id, selectedDate) { mutableStateOf(false) }
+    val workLocked = SubmissionEditPolicy.isLocked(work, submittedThisSession)
     var activeTab by remember { mutableStateOf(WorkTab.POS) }
 
     var loadedOcrConfig by remember(work.brand, work.brandAbbr) {
@@ -1225,6 +1234,10 @@ private fun StoreWorkScreen(
     }
 
     fun saveDraft() {
+        if (workLocked) {
+            message = "งานนี้ส่งแล้ว • แก้ไขได้เมื่อผู้ตรวจส่งกลับ"
+            return
+        }
         DemoRepository.savePosRecords(context, work, selectedDate, records)
         DemoRepository.savePhotoDraft(
             context = context,
@@ -1238,6 +1251,10 @@ private fun StoreWorkScreen(
     }
 
     fun submitData() {
+        if (workLocked) {
+            message = "งานนี้ส่งแล้ว • ไม่สามารถส่งซ้ำได้จนกว่าผู้ตรวจจะส่งกลับ"
+            return
+        }
         val validation = ReceiptValidationEngine.validateBeforeSubmit(
             context = context,
             work = work,
@@ -1280,7 +1297,8 @@ private fun StoreWorkScreen(
             result.onSuccess {
                 ReceiptValidationEngine.markSubmissionAccepted(context = context, work = work, records = records, receiptPaths = receipts.toList())
                 DemoRepository.saveStatus(context, work.id, selectedDate, WorkStatus.SUBMITTED)
-                message = "ส่งข้อมูลแล้ว รอผู้ดูแลตรวจสอบ"
+                submittedThisSession = true
+                message = "ส่งข้อมูลแล้ว • ล็อกการแก้ไขจนกว่าผู้ตรวจจะส่งกลับ"
             }.onFailure {
                 DemoRepository.saveStatus(context, work.id, selectedDate, WorkStatus.FAILED)
                 message = it.message ?: "ส่งข้อมูลไม่สำเร็จ"
@@ -1553,7 +1571,8 @@ private fun StoreWorkScreen(
                                 message = "บันทึกร่างแล้ว"
                             },
                             modifier = Modifier.weight(1f).height(50.dp),
-                            shape = RoundedCornerShape(14.dp)
+                            shape = RoundedCornerShape(14.dp),
+                            enabled = !workLocked
                         ) {
                             Icon(Icons.Outlined.Save, contentDescription = null)
                             Spacer(Modifier.width(7.dp))
@@ -1564,6 +1583,7 @@ private fun StoreWorkScreen(
                             onClick = { submitData() },
                             modifier = Modifier.weight(1f).height(50.dp),
                             shape = RoundedCornerShape(14.dp),
+                            enabled = !workLocked,
                             colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
                         ) {
                             Icon(Icons.Outlined.Send, contentDescription = null)
@@ -1583,6 +1603,21 @@ private fun StoreWorkScreen(
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (workLocked) {
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = SuccessSoft,
+                        border = BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.35f))
+                    ) {
+                        Column(Modifier.padding(11.dp)) {
+                            Text("ส่งข้อมูลแล้ว", color = SuccessGreen, fontWeight = FontWeight.Bold)
+                            Text("ดูข้อมูลได้ แต่แก้ไขหรือลบไม่ได้ • หากผู้ตรวจส่งกลับ ระบบจะเปิดให้แก้ไขและส่งใหม่", color = TextSub, fontSize = 11.sp, lineHeight = 16.sp)
+                        }
+                    }
+                }
+            }
             item {
                 WorkTabBar(activeTab = activeTab, onTabSelected = { activeTab = it })
             }
@@ -1594,6 +1629,7 @@ private fun StoreWorkScreen(
                             record = record,
                             dateWarningText = individualDateWarningsByPos[record.posNumber],
                             ocrBusy = ocrBusy,
+                            enabled = !workLocked,
                             noteOptions = loadedNoteOptions.labels(NoteOptionCategory.POS_NOTE),
                             noReceiptReasons = loadedNoteOptions.labels(NoteOptionCategory.NO_RECEIPT_REASON),
                             expectedStoreId = work.expectedReceiptStoreId,
@@ -1624,6 +1660,7 @@ private fun StoreWorkScreen(
                         ReceiptPhotoSection(
                             receipts = receipts,
                             ocrBusy = ocrBusy,
+                            enabled = !workLocked,
                             onReadReceipt = {
                                 val availableImages = receipts.mapIndexedNotNull { imageIndex, path -> path?.let { imageIndex to it } }
                                 when {
@@ -1643,6 +1680,7 @@ private fun StoreWorkScreen(
                         StorePhotoSection(
                             stores = stores,
                             storeCount = storeCount,
+                            enabled = !workLocked,
                             onAdd = { index ->
                                 target = "S" to index
                                 sourceDialog = true
@@ -1664,6 +1702,7 @@ private fun StoreWorkScreen(
                             value = storeWorkNote,
                             options = loadedNoteOptions.labels(NoteOptionCategory.STORE_NOTE),
                             title = "หมายเหตุข้อมูลร้าน",
+                            enabled = !workLocked,
                             onValueChange = {
                                 storeWorkNote = it
                                 DemoRepository.saveStoreWorkNote(context, work.id, selectedDate, it)
@@ -2184,7 +2223,13 @@ private fun StoreWorkScreen(
         ZoomableImageDialog(
             path = preview.path,
             onClose = { previewTarget = null },
+            allowDelete = !workLocked,
             onDelete = {
+                if (workLocked) {
+                    message = "งานนี้ส่งแล้ว • ลบภาพไม่ได้จนกว่าผู้ตรวจจะส่งกลับ"
+                    previewTarget = null
+                    return@ZoomableImageDialog
+                }
                 val file = File(preview.path)
                 if (file.exists()) file.delete()
                 PhotoEvidenceManifest.remove(
@@ -2308,6 +2353,7 @@ private fun WorkTabBar(activeTab: WorkTab, onTabSelected: (WorkTab) -> Unit) {
 private fun ReceiptPhotoSection(
     receipts: List<String?>,
     ocrBusy: Boolean,
+    enabled: Boolean = true,
     onReadReceipt: () -> Unit,
     onAdd: (Int) -> Unit,
     onImageClick: (Int, String) -> Unit
@@ -2322,12 +2368,12 @@ private fun ReceiptPhotoSection(
             paths = receipts,
             count = 3,
             emptyLabelPrefix = "บิล",
-            onEmpty = onAdd,
+            onEmpty = { index -> if (enabled) onAdd(index) },
             onImage = onImageClick
         )
         Button(
             onClick = onReadReceipt,
-            enabled = !ocrBusy && receipts.any { !it.isNullOrBlank() },
+            enabled = enabled && !ocrBusy && receipts.any { !it.isNullOrBlank() },
             modifier = Modifier.fillMaxWidth().height(50.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Primary)
@@ -2349,6 +2395,7 @@ private fun ReceiptPhotoSection(
 private fun StorePhotoSection(
     stores: List<String?>,
     storeCount: Int,
+    enabled: Boolean = true,
     onAdd: (Int) -> Unit,
     onAddSlot: () -> Unit,
     onImageClick: (Int, String) -> Unit
@@ -2363,11 +2410,11 @@ private fun StorePhotoSection(
             paths = stores,
             count = storeCount,
             emptyLabelPrefix = "ร้าน",
-            onEmpty = onAdd,
+            onEmpty = { index -> if (enabled) onAdd(index) },
             onImage = onImageClick
         )
         if (storeCount < 10) {
-            OutlinedButton(onClick = onAddSlot, shape = RoundedCornerShape(12.dp)) {
+            OutlinedButton(onClick = onAddSlot, enabled = enabled, shape = RoundedCornerShape(12.dp)) {
                 Icon(Icons.Outlined.Image, contentDescription = null, tint = Primary)
                 Spacer(Modifier.width(6.dp))
                 Text("เพิ่มช่องภาพร้าน", color = Primary)
@@ -2381,6 +2428,7 @@ private fun CollapsibleAdminNoteField(
     value: String,
     options: List<String>,
     title: String,
+    enabled: Boolean = true,
     onValueChange: (String) -> Unit
 ) {
     var open by remember { mutableStateOf(false) }
@@ -2396,6 +2444,7 @@ private fun CollapsibleAdminNoteField(
     if (!open) {
         OutlinedButton(
             onClick = { open = true },
+            enabled = enabled,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(11.dp),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
@@ -2427,6 +2476,7 @@ private fun CollapsibleAdminNoteField(
             Box(Modifier.fillMaxWidth()) {
                 OutlinedButton(
                     onClick = { menuOpen = true },
+                    enabled = enabled,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp)
                 ) {
@@ -2455,13 +2505,14 @@ private fun CollapsibleAdminNoteField(
                 OutlinedTextField(
                     value = value.takeIf { it !in cleanOptions }.orEmpty(),
                     onValueChange = onValueChange,
+                    enabled = enabled,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("กรอกหมายเหตุ") },
                     minLines = 2
                 )
             }
             if (value.isNotBlank()) {
-                TextButton(onClick = { customMode = false; onValueChange("") }) { Text("ล้างหมายเหตุ") }
+                TextButton(onClick = { customMode = false; onValueChange("") }, enabled = enabled) { Text("ล้างหมายเหตุ") }
             }
         }
     }
@@ -2472,6 +2523,7 @@ private fun PosCard(
     record: PosRecord,
     dateWarningText: String?,
     ocrBusy: Boolean,
+    enabled: Boolean = true,
     noteOptions: List<String>,
     noReceiptReasons: List<String>,
     expectedStoreId: String,
@@ -2616,7 +2668,7 @@ private fun PosCard(
                         onOcr()
                         expanded = true
                     },
-                    enabled = !ocrBusy,
+                    enabled = enabled && !ocrBusy,
                     modifier = Modifier.height(36.dp),
                     shape = RoundedCornerShape(10.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp),
@@ -2662,7 +2714,7 @@ private fun PosCard(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("เลข/ยอดลูกค้า") },
-                        enabled = !record.noReceipt,
+                        enabled = enabled && !record.noReceipt,
                         isError = customerMissing,
                         supportingText = if (customerMissing) {
                             { Text("ยังอ่านไม่พบหรือยังไม่ได้กรอก", fontSize = 10.sp) }
@@ -2682,14 +2734,14 @@ private fun PosCard(
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 label = { Text("วันที่") },
-                                enabled = !record.noReceipt,
+                                enabled = enabled && !record.noReceipt,
                                 singleLine = true,
                                 isError = dateMissing || dateWarning,
                                 supportingText = if (dateMissing || dateWarning) {
                                     { Text(if (dateMissing) "ยังอ่านไม่พบหรือยังไม่ได้กรอก" else dateWarningText.orEmpty(), fontSize = 10.sp) }
                                 } else null,
                                 trailingIcon = {
-                                    IconButton(onClick = { openDatePicker() }, enabled = !record.noReceipt) {
+                                    IconButton(onClick = { openDatePicker() }, enabled = enabled && !record.noReceipt) {
                                         Icon(Icons.Outlined.CalendarMonth, contentDescription = "เลือกวันที่", tint = Primary)
                                     }
                                 },
@@ -2707,13 +2759,13 @@ private fun PosCard(
                             },
                             modifier = Modifier.weight(0.8f),
                             label = { Text("เวลา") },
-                            enabled = !record.noReceipt,
+                            enabled = enabled && !record.noReceipt,
                             isError = timeMissing,
                             supportingText = if (timeMissing) {
                                 { Text("ยังอ่านไม่พบหรือยังไม่ได้กรอก", fontSize = 10.sp) }
                             } else null,
                             trailingIcon = {
-                                IconButton(onClick = { openTimePicker() }, enabled = !record.noReceipt) {
+                                IconButton(onClick = { openTimePicker() }, enabled = enabled && !record.noReceipt) {
                                     Icon(Icons.Outlined.Schedule, contentDescription = "เลือกเวลา", tint = Primary)
                                 }
                             },
@@ -2759,7 +2811,7 @@ private fun PosCard(
                                             )
                                         },
                                         modifier = Modifier.fillMaxWidth(),
-                                        enabled = expectedStoreId.isNotBlank() && record.ocrStoreId.isNotBlank(),
+                                        enabled = enabled && expectedStoreId.isNotBlank() && record.ocrStoreId.isNotBlank(),
                                         colors = ButtonDefaults.buttonColors(containerColor = Primary)
                                     ) {
                                         Text("ยืนยันรหัสร้าน $expectedStoreId", textAlign = TextAlign.Center)
@@ -2808,6 +2860,7 @@ private fun PosCard(
                         value = record.note,
                         options = noteOptions,
                         title = "หมายเหตุข้อมูลบิล",
+                        enabled = enabled,
                         onValueChange = { onChange(record.copy(note = it)) }
                     )
 
@@ -2819,6 +2872,7 @@ private fun PosCard(
                     ) {
                         Checkbox(
                             checked = record.noReceipt,
+                            enabled = enabled,
                             onCheckedChange = { checked ->
                                 onChange(
                                     record.copy(
@@ -2841,7 +2895,7 @@ private fun PosCard(
                         Box(Modifier.weight(1f)) {
                             OutlinedButton(
                                 onClick = { if (record.noReceipt) reasonExpanded = true },
-                                enabled = record.noReceipt,
+                                enabled = enabled && record.noReceipt,
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(10.dp)
                             ) {
@@ -2988,6 +3042,7 @@ private fun PhotoGrid(
 private fun ZoomableImageDialog(
     path: String,
     onClose: () -> Unit,
+    allowDelete: Boolean = true,
     onDelete: () -> Unit
 ) {
     val context = LocalContext.current
@@ -3056,14 +3111,16 @@ private fun ZoomableImageDialog(
                         ) {
                             Text("1x", fontWeight = FontWeight.Bold)
                         }
-                        FilledTonalIconButton(
-                            onClick = { confirmDelete = true },
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = Color(0xCCFFFFFF),
-                                contentColor = Color(0xFFB42318)
-                            )
-                        ) {
-                            Icon(Icons.Outlined.DeleteOutline, contentDescription = "ลบภาพ")
+                        if (allowDelete) {
+                            FilledTonalIconButton(
+                                onClick = { confirmDelete = true },
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = Color(0xCCFFFFFF),
+                                    contentColor = Color(0xFFB42318)
+                                )
+                            ) {
+                                Icon(Icons.Outlined.DeleteOutline, contentDescription = "ลบภาพ")
+                            }
                         }
                         FilledTonalIconButton(
                             onClick = { shareLocalImage(context, path) },
