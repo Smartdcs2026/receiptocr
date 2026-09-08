@@ -2,17 +2,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-
-def replace_once(path: Path, old: str, new: str):
-    text = path.read_text(encoding="utf-8")
-    if new in text:
-        return False
-    if old not in text:
-        raise SystemExit(f"Expected block not found in {path}: {old[:120]!r}")
-    path.write_text(text.replace(old, new, 1), encoding="utf-8")
-    return True
-
-
 engine = ROOT / "android-app/app/src/main/java/com/receiptocr/app/ocr/RuleDrivenOcrEngine.kt"
 text = engine.read_text(encoding="utf-8")
 
@@ -44,58 +33,18 @@ if new_call not in text:
         raise SystemExit("RuleDriven apply POS call block not found")
     text = text.replace(old_call, new_call, 1)
 
-old_find = """    private fun findPosCandidates(
-        items: List<SpatialOcrItem>,
-        rules: List<OcrRegionRule>
-    ): List<PosAnchor> {
-        val result = mutableListOf<PosAnchor>()
-        val activeRules = if (rules.isEmpty()) emptyList() else rules
+if "internal fun resolveSpatialPosCandidate(" not in text:
+    start_marker = "    private fun findPosCandidates(\n"
+    end_marker = "    private fun buildPosBands("
+    start = text.find(start_marker)
+    end = text.find(end_marker, start + 1)
+    if start < 0 or end < 0:
+        raise SystemExit("RuleDriven findPosCandidates function boundary not found")
 
-        activeRules.forEach { rule ->
-            val regionItems = items.filter { inside(it.box, rule.region) }
-            val regex = rule.regexPattern?.let { safeRegex(it) }
-
-            regionItems.forEach { item ->
-                regex?.findAll(item.text)?.forEach { match ->
-                    val captured = match.groupValues.getOrNull(1).orEmpty().ifBlank { match.value }
-                    OcrTextNormalizer.parsePosNumber(captured)?.let { number ->
-                        result += PosAnchor(number, item.centerX, item.centerY, item.lineIndex)
-                    }
-                }
-
-                OcrTextNormalizer.findPosNumbers(item.text).forEach { number ->
-                    result += PosAnchor(number, item.centerX, item.centerY, item.lineIndex)
-                }
-
-                val isLabel = rule.labelHints.any { item.text.contains(it, ignoreCase = true) } ||
-                    Regex("(?i)P\\s*\\.?\\s*O\\s*\\.?\\s*S|TERMINAL|เครื่อง").containsMatchIn(item.text)
-                if (isLabel && OcrTextNormalizer.findPosNumbers(item.text).isEmpty()) {
-                    regionItems.asSequence()
-                        .filter { candidate -> candidate !== item }
-                        .filter { candidate ->
-                            abs(candidate.centerY - item.centerY) <= rule.searchRadiusY.coerceAtLeast(0.035f)
-                        }
-                        .sortedBy { candidate ->
-                            abs(candidate.centerY - item.centerY) + abs(candidate.centerX - item.centerX) * 0.35f
-                        }
-                        .mapNotNull { candidate ->
-                            OcrTextNormalizer.parseStandalonePosNumber(candidate.text)?.let { it to candidate }
-                        }
-                        .firstOrNull()
-                        ?.let { (number, candidate) ->
-                            result += PosAnchor(number, candidate.centerX, candidate.centerY, candidate.lineIndex)
-                        }
-                }
-            }
-        }
-        return result.distinctBy { "${it.posNumber}|${it.centerX}|${it.centerY}" }
-    }
-"""
-new_find = """    /**
-     * Round104.18: profile/ROI fallback must resolve POS identity with the same
-     * brand rule as the universal-template path. This closes the case where
-     * dot-matrix B01 is read as 801/8O1 after the strict template path misses.
-     * The resolver remains contextual and never performs a global 8 -> B swap.
+    new_find = r'''    /**
+     * Round104.18: profile/ROI fallback resolves POS identity with the same
+     * brand rule as the universal-template path. Ambiguous 801/8O1 can map to
+     * B01 only when store/POS context supports it; real POS 8/801 stay numeric.
      */
     internal fun resolveSpatialPosCandidate(
         raw: String,
@@ -166,15 +115,13 @@ new_find = """    /**
         }
         return result.distinctBy { "${it.posNumber}|${it.centerX}|${it.centerY}" }
     }
-"""
-if new_find not in text:
-    if old_find not in text:
-        raise SystemExit("RuleDriven findPosCandidates block not found")
-    text = text.replace(old_find, new_find, 1)
+
+'''
+    text = text[:start] + new_find + text[end:]
 
 engine.write_text(text, encoding="utf-8")
 
-# Add direct unit coverage for the legacy profile/ROI fallback bridge.
+# Direct unit coverage for the legacy profile/ROI fallback bridge.
 test_path = ROOT / "android-app/app/src/test/java/com/receiptocr/app/ocr/RuleDrivenPosIdentityRound10418Test.kt"
 test_path.write_text(
 '''package com.receiptocr.app.ocr
@@ -226,35 +173,13 @@ class RuleDrivenPosIdentityRound10418Test {
     encoding="utf-8",
 )
 
-# Bump APK so a field device can clearly install/identify the new fallback-parity build.
+# Bump APK so field devices can identify this fallback-parity build.
 gradle = ROOT / "android-app/app/build.gradle.kts"
 g = gradle.read_text(encoding="utf-8")
 g = g.replace("versionCode = 109", "versionCode = 110", 1)
 g = g.replace('versionName = "0.104.17"', 'versionName = "0.104.18"', 1)
 gradle.write_text(g, encoding="utf-8")
 
-# Keep the full regression guard aligned with the intentional new OCR file.
-# Recovery note: GitHub App used by Actions does not have workflows permission,
-# so this patch intentionally does not write .github/workflows/round104-finalize.yml.
-# The source/test/version changes below can still be committed and verified safely.
-workflow = ROOT / ".github/workflows/round104-finalize.yml"
-w = workflow.read_text(encoding="utf-8")
-w = w.replace("Verify Round104.17 Android version and direct evidence upload", "Verify Round104.18 Android version and direct evidence upload")
-w = w.replace("versionCode = 109", "versionCode = 110")
-w = w.replace('versionName = \\\"0.104.17\\\"', 'versionName = \\\"0.104.18\\\"')
-w = w.replace("Protect Round103 OCR baseline and allow Round104.17 POS identity files", "Protect Round103 OCR baseline and allow Round104.18 POS identity files")
-w = w.replace(
-    "(PosIdentityResolver|RealOcrPipeline)\\.kt$",
-    "(PosIdentityResolver|RealOcrPipeline|RuleDrivenOcrEngine)\\.kt$",
-)
-needle = "          grep -q 'runtimeLastWorkPos = expectedPosSet.maxOrNull() ?: 0' android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt\n"
-addition = needle + "          grep -q 'resolveSpatialPosCandidate' android-app/app/src/main/java/com/receiptocr/app/ocr/RuleDrivenOcrEngine.kt\n          grep -q 'PosIdentityResolver.resolve(raw, posIdentityRule, availableWorkPos)' android-app/app/src/main/java/com/receiptocr/app/ocr/RuleDrivenOcrEngine.kt\n"
-if "grep -q 'resolveSpatialPosCandidate'" not in w:
-    if needle not in w:
-        raise SystemExit("round104-finalize insertion point not found")
-    w = w.replace(needle, addition, 1)
-w = w.replace("Upload Round104.17 debug APK", "Upload Round104.18 debug APK")
-w = w.replace("name: ReceiptOCR-Round104-17-debug", "name: ReceiptOCR-Round104-18-debug")
-# workflow.write_text(w, encoding="utf-8")
-
+# Do not mutate .github/workflows here. The Actions token has Contents:write but
+# lacks workflows permission, and changing a workflow makes GitHub reject push.
 print("Round104.18 spatial POS identity patch applied")
