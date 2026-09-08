@@ -106,11 +106,13 @@ object UniversalTemplateInterpreter {
         val unmappedPos = linkedSetOf<String>()
         var acceptedStore: String? = null
 
+        val availableWorkPos = records.map { it.posNumber }.filter { it > 0 }.toSet()
         val bestMatches = templateMatches
             .mapNotNull { match ->
                 val rawPos = match.fields["POS_NUMBER"].orEmpty()
-                val resolved = PosIdentityResolver.resolve(rawPos, posIdentityRule) ?: return@mapNotNull null
-                resolved.workPos to match
+                val resolved = PosIdentityResolver.resolve(rawPos, posIdentityRule, availableWorkPos)
+                    ?: return@mapNotNull null
+                resolved.workPos.takeIf { it in availableWorkPos }?.let { it to match }
             }
             .groupBy({ it.first }, { it.second })
             .mapNotNull { (pos, candidates) -> fuseMatches(candidates)?.let { pos to it } }
@@ -118,19 +120,12 @@ object UniversalTemplateInterpreter {
 
         val assignedPositions = linkedSetOf<Int>()
         bestMatches.forEach { (pos, match) ->
-            var index = updated.indexOfFirst { it.posNumber == pos }
+            val index = updated.indexOfFirst { it.posNumber == pos }
             if (index < 0) {
-                index = updated.indexOfFirst { record ->
-                    record.posNumber !in assignedPositions &&
-                        record.customerNo.isBlank() && record.billDate.isBlank() && record.billTime.isBlank() &&
-                        !record.noReceipt && record.ocrSourceImagePath.isBlank()
-                }
-                if (index >= 0) {
-                    updated[index] = updated[index].copy(posNumber = pos)
-                } else {
-                    unmappedPos += pos.toString()
-                    return@forEach
-                }
+                // Work Plan is authoritative. Never mutate POS1/2/3/4 into an
+                // OCR hallucination such as POS8; keep it only as diagnostic evidence.
+                unmappedPos += pos.toString()
+                return@forEach
             }
             assignedPositions += pos
             val posWarnings = warningsByPos.getOrPut(pos) { mutableListOf() }
