@@ -1,0 +1,112 @@
+name: Round104.27 retain submitted work
+
+on:
+  push:
+    branches: ["round10427-retain-submitted-work"]
+    paths:
+      - "tools/round104_27_retain_submitted_work_patch.py"
+      - "android-app/app/src/test/java/com/receiptocr/app/validation/ReturnedSubmissionRetentionPolicyTest.kt"
+      - ".github/workflows/round104-27-retain-submitted-work.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Round104.27 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate retention patch syntax
+        run: python -m py_compile tools/round104_27_retain_submitted_work_patch.py
+
+      - name: Apply Round104.27 retention patch
+        run: python tools/round104_27_retain_submitted_work_patch.py
+
+      - name: Verify version and retained work behavior
+        run: |
+          grep -q 'versionCode = 119' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.27"' android-app/app/build.gradle.kts
+          grep -q 'fun retainSubmittedPhotoDraft' android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
+          grep -q 'submitted_photos/' android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
+          grep -q 'recoverArchivedSlot' android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
+          grep -q 'retainSubmittedPhotoDraft' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'recordsToSubmit' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'fun canReuseSubmittedEvidence' android-app/app/src/main/java/com/receiptocr/app/validation/SubmissionEditPolicy.kt
+          grep -q 'returnedCorrection = SubmissionEditPolicy.canReuseSubmittedEvidence(work)' android-app/app/src/main/java/com/receiptocr/app/validation/ReceiptValidationEngine.kt
+          grep -q 'checkSubmittedHistory = !returnedCorrection' android-app/app/src/main/java/com/receiptocr/app/validation/ReceiptValidationEngine.kt
+          grep -q 'checkSubmittedHistory && DemoRepository.isSubmittedImageHashUsed' android-app/app/src/main/java/com/receiptocr/app/validation/ReceiptValidationEngine.kt
+          grep -q 'returnedWorkCanReuseItsSubmittedEvidence' android-app/app/src/test/java/com/receiptocr/app/validation/ReturnedSubmissionRetentionPolicyTest.kt
+
+      - name: Protect simple field workflow
+        run: |
+          grep -q 'POS("POS")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'RECEIPTS("รูปบิล")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'NOTES("หมายเหตุ")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'STORE_PHOTOS("ภาพร้าน")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'SubmissionEditPolicy.isLocked' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'ดูข้อมูลได้ แต่แก้ไขหรือลบไม่ได้' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+
+      - name: Node and Admin regression checks
+        run: |
+          node tests/workplan-store-normalizer.test.js
+          node tests/ocr-pattern-engine.test.js
+          node tests/round10417-pos-terminal.test.js
+          node tests/round10420-cj-terminal-fallback.test.js
+          node --check web-admin/ocr-simple.js
+          node --check web-admin/receipt-date-rules.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Round104.27 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReceiptOCR-Round104-27-debug-premerge
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Commit tested Round104.27 source
+        run: |
+          git config user.name "receiptocr-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            android-app/app/build.gradle.kts \
+            android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt \
+            android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt \
+            android-app/app/src/main/java/com/receiptocr/app/validation/ReceiptValidationEngine.kt \
+            android-app/app/src/main/java/com/receiptocr/app/validation/SubmissionEditPolicy.kt \
+            android-app/app/src/test/java/com/receiptocr/app/validation/ReturnedSubmissionRetentionPolicyTest.kt
+          if git diff --cached --quiet; then
+            echo "Round104.27 source already committed"
+            exit 0
+          fi
+          git commit -m "Round104.27 retain submitted work for returned corrections"
+          git push origin HEAD:round10427-retain-submitted-work
