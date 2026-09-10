@@ -5,6 +5,7 @@ on:
     branches: ["round10427-retain-submitted-work"]
     paths:
       - "tools/round104_27_retain_submitted_work_patch.py"
+      - "tools/round104_27_terminal_version_patch.py"
       - "android-app/app/src/test/java/com/receiptocr/app/validation/ReturnedSubmissionRetentionPolicyTest.kt"
       - ".github/workflows/round104-27-retain-submitted-work.yml"
   workflow_dispatch:
@@ -22,16 +23,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate retention patch syntax
-        run: python -m py_compile tools/round104_27_retain_submitted_work_patch.py
+      - name: Validate Round104.27 patch syntax
+        run: |
+          python -m py_compile tools/round104_27_retain_submitted_work_patch.py
+          python -m py_compile tools/round104_27_terminal_version_patch.py
 
-      - name: Apply Round104.27 retention patch
-        run: python tools/round104_27_retain_submitted_work_patch.py
+      - name: Apply Round104.27 patches
+        run: |
+          python tools/round104_27_retain_submitted_work_patch.py
+          python tools/round104_27_terminal_version_patch.py
 
       - name: Verify version and retained work behavior
         run: |
           grep -q 'versionCode = 119' android-app/app/build.gradle.kts
           grep -q 'versionName = "0.104.27"' android-app/app/build.gradle.kts
+          grep -q 'versionCode = 119' tests/round10417-pos-terminal.test.js
+          grep -q 'versionName = "0.104.27"' tests/round10417-pos-terminal.test.js
           grep -q 'fun retainSubmittedPhotoDraft' android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
           grep -q 'submitted_photos/' android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
           grep -q 'recoverArchivedSlot' android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
@@ -103,7 +110,8 @@ jobs:
             android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt \
             android-app/app/src/main/java/com/receiptocr/app/validation/ReceiptValidationEngine.kt \
             android-app/app/src/main/java/com/receiptocr/app/validation/SubmissionEditPolicy.kt \
-            android-app/app/src/test/java/com/receiptocr/app/validation/ReturnedSubmissionRetentionPolicyTest.kt
+            android-app/app/src/test/java/com/receiptocr/app/validation/ReturnedSubmissionRetentionPolicyTest.kt \
+            tests/round10417-pos-terminal.test.js
           if git diff --cached --quiet; then
             echo "Round104.27 source already committed"
             exit 0
