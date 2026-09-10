@@ -1,0 +1,53 @@
+name: Round104.28 review fast mode
+
+on:
+  push:
+    branches: ["round10428-review-fast-mode"]
+    paths:
+      - "web-admin/review.html"
+      - "web-admin/review-fast-round10428.css"
+      - "web-admin/review-fast-round10428.js"
+      - "tests/review-fast-round10428.test.js"
+      - ".github/workflows/round104-28-review-fast-mode.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review-fast-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Round104.28 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify fast review assets
+        run: |
+          test -f web-admin/review-fast-round10428.css
+          test -f web-admin/review-fast-round10428.js
+          grep -q 'review-fast-round10428.css?v=104280' web-admin/review.html
+          grep -q 'review-fast-round10428.js?v=104280' web-admin/review.html
+          grep -q 'data-review-round="104280"' web-admin/review.html
+
+      - name: JavaScript syntax checks
+        run: |
+          node --check web-admin/review-fast-round10428.js
+          node --check web-admin/review-workspace-v2.js
+          node --check web-admin/review.js
+          node --check web-admin/review-logic.js
+
+      - name: Review regression checks
+        run: |
+          node tests/review-logic.test.js
+          node tests/review-fast-round10428.test.js
+          node tests/round10417-pos-terminal.test.js
+
+      - name: Protect retained submitted-work APK baseline
+        run: |
+          grep -q 'versionCode = 119' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.27"' android-app/app/build.gradle.kts
+          grep -q 'fun retainSubmittedPhotoDraft' android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
+          grep -q 'fun canReuseSubmittedEvidence' android-app/app/src/main/java/com/receiptocr/app/validation/SubmissionEditPolicy.kt
