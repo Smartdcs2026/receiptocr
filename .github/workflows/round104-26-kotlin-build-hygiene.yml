@@ -28,6 +28,8 @@ jobs:
         run: |
           grep -q 'versionCode = 118' android-app/app/build.gradle.kts
           grep -q 'versionName = "0.104.26"' android-app/app/build.gradle.kts
+          grep -q 'versionCode = 118' tests/round10417-pos-terminal.test.js
+          grep -q 'versionName = "0.104.26"' tests/round10417-pos-terminal.test.js
           grep -q 'POS("POS")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -q 'RECEIPTS("รูปบิล")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -q 'NOTES("หมายเหตุ")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
@@ -104,7 +106,8 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add \
             android-app/app/build.gradle.kts \
-            android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+            android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt \
+            tests/round10417-pos-terminal.test.js
           if git diff --cached --quiet; then
             echo "Round104.26 source already committed"
             exit 0
