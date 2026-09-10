@@ -4,6 +4,9 @@ import com.receiptocr.app.model.WorkItem
 import com.receiptocr.app.model.WorkStatus
 
 object SubmissionEditPolicy {
+    fun canReuseSubmittedEvidence(work: WorkItem): Boolean =
+        work.reviewStatus.trim().equals("RETURNED", ignoreCase = true)
+
     fun isLocked(work: WorkItem, submittedThisSession: Boolean = false): Boolean {
         val review = work.reviewStatus.trim().uppercase()
         if (review == "RETURNED") return false

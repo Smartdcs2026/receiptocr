@@ -128,12 +128,15 @@ object ReceiptValidationEngine {
         } else {
             validateDateWindow(records, workDate, rule.dateWindowRule, issues)
         }
+        val returnedCorrection = SubmissionEditPolicy.canReuseSubmittedEvidence(work)
         if (rule.preventDuplicateReceiptData) {
             validateDuplicateDataInsideCurrentWork(records, issues)
-            validatePreviouslySubmittedData(context, work, records, issues)
+            if (!returnedCorrection) {
+                validatePreviouslySubmittedData(context, work, records, issues)
+            }
         }
         if (rule.preventDuplicateImage) {
-            validateDuplicateImages(context, receiptPaths, issues)
+            validateDuplicateImages(context, receiptPaths, issues, checkSubmittedHistory = !returnedCorrection)
         }
         validateStoreIdentityWhenConfigured(context, work, workDate, receiptPaths, rule, issues)
 
@@ -486,7 +489,8 @@ object ReceiptValidationEngine {
     private fun validateDuplicateImages(
         context: Context,
         receiptPaths: List<String?>,
-        issues: MutableList<ValidationIssue>
+        issues: MutableList<ValidationIssue>,
+        checkSubmittedHistory: Boolean = true
     ) {
         val hashes = mutableMapOf<String, Int>()
         receiptPaths.forEachIndexed { index, path ->
@@ -501,7 +505,7 @@ object ReceiptValidationEngine {
             } else {
                 hashes[hash] = index
             }
-            if (DemoRepository.isSubmittedImageHashUsed(context, hash)) {
+            if (checkSubmittedHistory && DemoRepository.isSubmittedImageHashUsed(context, hash)) {
                 issues += block(
                     "DUPLICATE_IMAGE_HISTORY",
                     "ภาพบิล ${index + 1} เคยถูกใช้กับงานที่ส่งแล้ว กรุณาตรวจสอบว่าเป็นบิลเดิมหรือไม่"

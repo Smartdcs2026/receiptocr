@@ -1,6 +1,7 @@
 package com.receiptocr.app.data
 
 import android.content.Context
+import android.net.Uri
 import com.receiptocr.app.model.*
 import com.receiptocr.app.util.PhotoEvidenceManifest
 import java.io.File
@@ -167,6 +168,105 @@ object DemoRepository {
             .apply()
     }
 
+    private fun retainedPhotoDir(context: Context, workId: Int, date: LocalDate): File =
+        File(context.filesDir, "submitted_photos/$date/$workId").apply { mkdirs() }
+
+    private fun retainedSlotFile(
+        context: Context,
+        workId: Int,
+        date: LocalDate,
+        kind: String,
+        slot: Int
+    ): File? {
+        val prefix = "${kind}_${slot}."
+        return retainedPhotoDir(context, workId, date).listFiles()
+            ?.filter { it.isFile && it.name.startsWith(prefix) && it.length() > 0L }
+            ?.maxByOrNull { it.lastModified() }
+    }
+
+    private fun copyToRetainedSlot(
+        context: Context,
+        workId: Int,
+        date: LocalDate,
+        kind: String,
+        slot: Int,
+        source: File
+    ): String? {
+        if (!source.exists() || source.length() <= 0L) return null
+        val dir = retainedPhotoDir(context, workId, date)
+        val ext = source.extension.lowercase().takeIf { it in setOf("jpg", "jpeg", "png", "webp") } ?: "jpg"
+        val target = File(dir, "${kind}_${slot}.$ext")
+        if (source.absolutePath != target.absolutePath) {
+            source.copyTo(target, overwrite = true)
+        }
+        dir.listFiles()?.filter { it.isFile && it.name.startsWith("${kind}_${slot}.") && it.absolutePath != target.absolutePath }
+            ?.forEach { it.delete() }
+        return target.takeIf { it.exists() && it.length() > 0L }?.absolutePath
+    }
+
+    private fun recoverArchivedSlot(
+        context: Context,
+        workId: Int,
+        date: LocalDate,
+        kind: String,
+        slot: Int
+    ): String? {
+        retainedSlotFile(context, workId, date, kind, slot)?.let { return it.absolutePath }
+        val entry = PhotoEvidenceManifest.load(context, workId, date)
+            .firstOrNull { it.kind == kind && it.slot == slot } ?: return null
+        val privateFile = File(entry.privatePath)
+        if (privateFile.exists() && privateFile.length() > 0L) {
+            return copyToRetainedSlot(context, workId, date, kind, slot, privateFile)
+        }
+        if (entry.archiveUri.isBlank()) return null
+        return runCatching {
+            val temp = File.createTempFile("restore_${kind}_${slot}_", ".jpg", context.cacheDir)
+            try {
+                val uri = Uri.parse(entry.archiveUri)
+                val input = if (uri.scheme.equals("content", true)) {
+                    context.contentResolver.openInputStream(uri)
+                } else {
+                    File(entry.archiveUri).takeIf { it.exists() }?.inputStream()
+                } ?: return@runCatching null
+                input.use { source -> temp.outputStream().use { out -> source.copyTo(out) } }
+                copyToRetainedSlot(context, workId, date, kind, slot, temp)
+            } finally {
+                temp.delete()
+            }
+        }.getOrNull()
+    }
+
+    fun retainSubmittedPhotoDraft(
+        context: Context,
+        workId: Int,
+        date: LocalDate,
+        receipt: List<String?>,
+        store: List<String?>
+    ): PhotoDraft {
+        fun retain(kind: String, paths: List<String?>, max: Int): List<String?> {
+            val result = MutableList<String?>(max) { null }
+            for (slot in 0 until max) {
+                val path = paths.getOrNull(slot)
+                if (path.isNullOrBlank()) {
+                    val dir = retainedPhotoDir(context, workId, date)
+                    dir.listFiles()?.filter { it.isFile && it.name.startsWith("${kind}_${slot}.") }?.forEach { it.delete() }
+                    continue
+                }
+                result[slot] = copyToRetainedSlot(context, workId, date, kind, slot, File(path))
+                    ?: throw IllegalStateException(if (kind == "R") "ภาพบิล ${slot + 1} เปิดไม่ได้" else "ภาพร้าน ${slot + 1} เปิดไม่ได้")
+            }
+            val last = result.indexOfLast { !it.isNullOrBlank() }
+            return if (last < 0) emptyList() else result.take(last + 1)
+        }
+
+        val retained = PhotoDraft(
+            receiptPaths = retain("R", receipt, 3),
+            storePaths = retain("S", store, 10)
+        )
+        savePhotoDraft(context, workId, date, retained.receiptPaths, retained.storePaths)
+        return retained
+    }
+
     fun loadPhotoDraft(context: Context, workId: Int, date: LocalDate): PhotoDraft {
         val k = "${workId}_${date}"
         val prefs = context.getSharedPreferences("photo_drafts", Context.MODE_PRIVATE)
@@ -178,8 +278,17 @@ object DemoRepository {
                 .map { path -> path.takeIf { it.isNotBlank() && File(it).exists() } }
         }
 
-        val r = decodeSlots(prefs.getString("$k.receipts", "") ?: "", 3)
-        val s = decodeSlots(prefs.getString("$k.stores", "") ?: "", 10)
+        fun merge(kind: String, saved: List<String?>, max: Int): List<String?> {
+            val result = MutableList<String?>(max) { null }
+            for (slot in 0 until max) {
+                result[slot] = saved.getOrNull(slot) ?: recoverArchivedSlot(context, workId, date, kind, slot)
+            }
+            val last = result.indexOfLast { !it.isNullOrBlank() }
+            return if (last < 0) emptyList() else result.take(last + 1)
+        }
+
+        val r = merge("R", decodeSlots(prefs.getString("$k.receipts", "") ?: "", 3), 3)
+        val s = merge("S", decodeSlots(prefs.getString("$k.stores", "") ?: "", 10), 10)
         return PhotoDraft(r, s)
     }
 

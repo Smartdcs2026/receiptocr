@@ -1283,19 +1283,36 @@ private fun StoreWorkScreen(
             return
         }
         message = "กำลังส่งข้อมูล..."
+        val recordsToSubmit = records.toList()
+        val receiptPathsToSubmit = receipts.toList()
+        val storePathsToSubmit = stores.toList()
+        val noteToSubmit = storeWorkNote
         scope.launch {
-            val result = withContext(Dispatchers.IO) { runCatching { SubmissionRepository.submit(
+            val result = withContext(Dispatchers.IO) { runCatching {
+                val retained = DemoRepository.retainSubmittedPhotoDraft(
+                    context = context,
+                    workId = work.id,
+                    date = selectedDate,
+                    receipt = receiptPathsToSubmit,
+                    store = storePathsToSubmit
+                )
+                SubmissionRepository.submit(
                     context = context,
                     workPlanItemId = work.id,
-                    records = records.toList(),
-                    storeNote = storeWorkNote,
+                    records = recordsToSubmit,
+                    storeNote = noteToSubmit,
                     storeLatitude = work.latitude,
                     storeLongitude = work.longitude,
-                    receiptPaths = receipts.toList(),
-                    storePaths = stores.toList()
-                ) } }
-            result.onSuccess {
-                ReceiptValidationEngine.markSubmissionAccepted(context = context, work = work, records = records, receiptPaths = receipts.toList())
+                    receiptPaths = retained.receiptPaths,
+                    storePaths = retained.storePaths
+                )
+                retained
+            } }
+            result.onSuccess { retained ->
+                DemoRepository.savePosRecords(context, work, selectedDate, recordsToSubmit)
+                DemoRepository.saveStoreWorkNote(context, work.id, selectedDate, noteToSubmit)
+                DemoRepository.savePhotoDraft(context, work.id, selectedDate, retained.receiptPaths, retained.storePaths)
+                ReceiptValidationEngine.markSubmissionAccepted(context = context, work = work, records = recordsToSubmit, receiptPaths = retained.receiptPaths)
                 DemoRepository.saveStatus(context, work.id, selectedDate, WorkStatus.SUBMITTED)
                 submittedThisSession = true
                 message = "ส่งข้อมูลแล้ว"
