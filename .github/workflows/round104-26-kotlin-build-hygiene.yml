@@ -1,0 +1,113 @@
+name: Round104.26 Kotlin build hygiene
+
+on:
+  push:
+    branches: ["round10426-kotlin-build-hygiene"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout Round104.26 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate hygiene patch syntax
+        run: python -m py_compile tools/round104_26_kotlin_build_hygiene_patch.py
+
+      - name: Apply Round104.26 hygiene patch
+        run: python tools/round104_26_kotlin_build_hygiene_patch.py
+
+      - name: Verify version and protected field workflow
+        run: |
+          grep -q 'versionCode = 118' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.26"' android-app/app/build.gradle.kts
+          grep -q 'POS("POS")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'RECEIPTS("รูปบิล")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'NOTES("หมายเหตุ")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'STORE_PHOTOS("ภาพร้าน")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'SubmissionEditPolicy.isLocked' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'message = "ส่งข้อมูลแล้ว"' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+
+      - name: Verify deprecated Compose icon cleanup
+        run: |
+          grep -q 'import androidx.compose.material.icons.automirrored.outlined.ArrowBack' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'import androidx.compose.material.icons.automirrored.outlined.Send' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'import androidx.compose.material.icons.automirrored.outlined.ReceiptLong' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'Icons.Outlined.ArrowBack' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'Icons.Outlined.Send' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'Icons.Outlined.ReceiptLong' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'mixedBoundaryConflict && earliestProposalDate != null && latestProposalDate != null' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'val earliest = requireNotNull(earliestProposalDate)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'val latest = requireNotNull(latestProposalDate)' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+
+      - name: Node and Admin regression checks
+        run: |
+          node tests/workplan-store-normalizer.test.js
+          node tests/ocr-pattern-engine.test.js
+          node tests/round10417-pos-terminal.test.js
+          node tests/round10420-cj-terminal-fallback.test.js
+          node --check web-admin/ocr-simple.js
+          node --check web-admin/receipt-date-rules.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Compile Kotlin and reject known warnings
+        working-directory: android-app
+        run: |
+          set -o pipefail
+          ./gradlew compileDebugKotlin --stacktrace 2>&1 | tee /tmp/round10426-kotlin.log
+          ! grep -F "Icons.Outlined.ArrowBack" /tmp/round10426-kotlin.log
+          ! grep -F "Icons.Outlined.Send" /tmp/round10426-kotlin.log
+          ! grep -F "Icons.Outlined.ReceiptLong" /tmp/round10426-kotlin.log
+          ! grep -F "Condition is always 'true'." /tmp/round10426-kotlin.log
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Round104.26 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReceiptOCR-Round104-26-debug-premerge
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Commit tested Round104.26 source
+        run: |
+          git config user.name "receiptocr-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            android-app/app/build.gradle.kts \
+            android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          if git diff --cached --quiet; then
+            echo "Round104.26 source already committed"
+            exit 0
+          fi
+          git commit -m "Round104.26 clean Kotlin build warnings"
+          git push origin HEAD:round10426-kotlin-build-hygiene
