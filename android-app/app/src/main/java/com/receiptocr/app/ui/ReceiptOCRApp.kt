@@ -23,7 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -37,10 +37,10 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PointOfSale
-import androidx.compose.material.icons.outlined.ReceiptLong
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Send
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.*
@@ -504,7 +504,7 @@ private fun AppTopBar(
                         contentColor = Primary
                     )
                 ) {
-                    Icon(Icons.Outlined.ArrowBack, contentDescription = "กลับ", modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "กลับ", modifier = Modifier.size(18.dp))
                 }
                 Spacer(Modifier.width(8.dp))
             }
@@ -1586,7 +1586,7 @@ private fun StoreWorkScreen(
                             enabled = !workLocked,
                             colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
                         ) {
-                            Icon(Icons.Outlined.Send, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = null)
                             Spacer(Modifier.width(7.dp))
                             Text("ส่งข้อมูล", fontWeight = FontWeight.Bold)
                         }
@@ -1779,10 +1779,12 @@ private fun StoreWorkScreen(
             }
         } == true
         val dateSummaryWarnings = buildList {
-            if (mixedBoundaryConflict && earliestProposalDate != null && latestProposalDate != null) {
+            if (mixedBoundaryConflict) {
+                val earliest = requireNotNull(earliestProposalDate)
+                val latest = requireNotNull(latestProposalDate)
                 add(
-                    "${earliestProposalDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))} กับ " +
-                        "${latestProposalDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))} ใช้ร่วมกันไม่ได้"
+                    "${earliest.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))} กับ " +
+                        "${latest.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))} ใช้ร่วมกันไม่ได้"
                 )
             }
             proposalDateWarnings.values.distinct().forEach { warning ->
@@ -2139,7 +2141,7 @@ private fun StoreWorkScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Icon(Icons.Outlined.ReceiptLong, contentDescription = null)
+                                Icon(Icons.AutoMirrored.Outlined.ReceiptLong, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
                                 Text("อ่านภาพบิล ${imageIndex + 1} ทั้งภาพ")
                             }
@@ -2313,7 +2315,7 @@ private fun WorkTabBar(activeTab: WorkTab, onTabSelected: (WorkTab) -> Unit) {
                         Icon(
                             imageVector = when (tab) {
                                 WorkTab.POS -> Icons.Outlined.PointOfSale
-                                WorkTab.RECEIPTS -> Icons.Outlined.ReceiptLong
+                                WorkTab.RECEIPTS -> Icons.AutoMirrored.Outlined.ReceiptLong
                                 WorkTab.NOTES -> Icons.Outlined.EditNote
                             },
                             contentDescription = tab.title,
@@ -2347,7 +2349,7 @@ private fun ReceiptPhotoSection(
         SectionHeader(
             title = "ภาพบิล",
             subtitle = "สูงสุด 3 ภาพ • แตะเพื่อดู / ซูม / แชร์",
-            icon = Icons.Outlined.ReceiptLong
+            icon = Icons.AutoMirrored.Outlined.ReceiptLong
         )
         PhotoGrid(
             paths = receipts,
@@ -2368,7 +2370,7 @@ private fun ReceiptPhotoSection(
                 Spacer(Modifier.width(7.dp))
                 Text("กำลังอ่านข้อมูลจากบิล")
             } else {
-                Icon(Icons.Outlined.ReceiptLong, contentDescription = null)
+                Icon(Icons.AutoMirrored.Outlined.ReceiptLong, contentDescription = null)
                 Spacer(Modifier.width(7.dp))
                 Text("อ่านข้อมูลจากบิล", fontWeight = FontWeight.Bold)
             }
