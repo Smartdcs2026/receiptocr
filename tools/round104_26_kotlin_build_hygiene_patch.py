@@ -2,6 +2,7 @@ from pathlib import Path
 
 BUILD = Path("android-app/app/build.gradle.kts")
 UI = Path("android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt")
+TERMINAL_TEST = Path("tests/round10417-pos-terminal.test.js")
 
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
@@ -67,4 +68,13 @@ if "mixedBoundaryConflict && earliestProposalDate != null && latestProposalDate 
     raise SystemExit("redundant mixed-boundary null condition still present")
 
 UI.write_text(ui, encoding="utf-8")
+
+test = TERMINAL_TEST.read_text(encoding="utf-8")
+test = replace_once(test, "versionCode = 117", "versionCode = 118", "terminal test versionCode")
+test = replace_once(test, "Android versionCode must be Round104.25", "Android versionCode must be Round104.26", "terminal test versionCode label")
+test = replace_once(test, 'versionName = \\\"0.104.25\\\"', 'versionName = \\\"0.104.26\\\"', "terminal test versionName")
+test = replace_once(test, "Android versionName must be 0.104.25", "Android versionName must be 0.104.26", "terminal test versionName label")
+test = replace_once(test, "Round104.25 terminal POS behavior checks passed", "Round104.26 terminal POS behavior checks passed", "terminal test success label")
+TERMINAL_TEST.write_text(test, encoding="utf-8")
+
 print("Round104.26 Kotlin build hygiene patch applied")
