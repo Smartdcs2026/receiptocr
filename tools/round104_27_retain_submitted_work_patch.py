@@ -1,0 +1,66 @@
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def replace_once(path: Path, old: str, new: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    if old not in text:
+        raise SystemExit(f"Expected text not found in {path}: {old[:120]!r}")
+    if text.count(old) != 1:
+        raise SystemExit(f"Expected exactly one match in {path}, found {text.count(old)}")
+    path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+# Version
+build = ROOT / "android-app/app/build.gradle.kts"
+replace_once(build, 'versionCode = 118\n        versionName = "0.104.26"', 'versionCode = 119\n        versionName = "0.104.27"')
+
+# Returned work is editable and may reuse its own previously submitted evidence.
+policy = ROOT / "android-app/app/src/main/java/com/receiptocr/app/validation/SubmissionEditPolicy.kt"
+replace_once(
+    policy,
+    '''object SubmissionEditPolicy {\n    fun isLocked(work: WorkItem, submittedThisSession: Boolean = false): Boolean {''',
+    '''object SubmissionEditPolicy {\n    fun canReuseSubmittedEvidence(work: WorkItem): Boolean =\n        work.reviewStatus.trim().equals("RETURNED", ignoreCase = true)\n\n    fun isLocked(work: WorkItem, submittedThisSession: Boolean = false): Boolean {'''
+)
+
+# Duplicate-history checks still protect normal work but must not block a reviewer-returned correction.
+validation = ROOT / "android-app/app/src/main/java/com/receiptocr/app/validation/ReceiptValidationEngine.kt"
+replace_once(
+    validation,
+    '''        if (rule.preventDuplicateReceiptData) {\n            validateDuplicateDataInsideCurrentWork(records, issues)\n            validatePreviouslySubmittedData(context, work, records, issues)\n        }\n        if (rule.preventDuplicateImage) {\n            validateDuplicateImages(context, receiptPaths, issues)\n        }''',
+    '''        val returnedCorrection = SubmissionEditPolicy.canReuseSubmittedEvidence(work)\n        if (rule.preventDuplicateReceiptData) {\n            validateDuplicateDataInsideCurrentWork(records, issues)\n            if (!returnedCorrection) {\n                validatePreviouslySubmittedData(context, work, records, issues)\n            }\n        }\n        if (rule.preventDuplicateImage) {\n            validateDuplicateImages(context, receiptPaths, issues, checkSubmittedHistory = !returnedCorrection)\n        }'''
+)
+replace_once(
+    validation,
+    '''    private fun validateDuplicateImages(\n        context: Context,\n        receiptPaths: List<String?>,\n        issues: MutableList<ValidationIssue>\n    ) {''',
+    '''    private fun validateDuplicateImages(\n        context: Context,\n        receiptPaths: List<String?>,\n        issues: MutableList<ValidationIssue>,\n        checkSubmittedHistory: Boolean = true\n    ) {'''
+)
+replace_once(
+    validation,
+    '''            if (DemoRepository.isSubmittedImageHashUsed(context, hash)) {\n                issues += block(\n                    "DUPLICATE_IMAGE_HISTORY",\n                    "ภาพบิล ${index + 1} เคยถูกใช้กับงานที่ส่งแล้ว กรุณาตรวจสอบว่าเป็นบิลเดิมหรือไม่"\n                )\n            }''',
+    '''            if (checkSubmittedHistory && DemoRepository.isSubmittedImageHashUsed(context, hash)) {\n                issues += block(\n                    "DUPLICATE_IMAGE_HISTORY",\n                    "ภาพบิล ${index + 1} เคยถูกใช้กับงานที่ส่งแล้ว กรุณาตรวจสอบว่าเป็นบิลเดิมหรือไม่"\n                )\n            }'''
+)
+
+# Keep submitted images in a durable private folder and recover older archived images when possible.
+demo = ROOT / "android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt"
+text = demo.read_text(encoding="utf-8")
+if "import android.net.Uri" not in text:
+    text = text.replace("import android.content.Context\n", "import android.content.Context\nimport android.net.Uri\n", 1)
+demo.write_text(text, encoding="utf-8")
+
+replace_once(
+    demo,
+    '''    fun loadPhotoDraft(context: Context, workId: Int, date: LocalDate): PhotoDraft {\n        val k = "${workId}_${date}"\n        val prefs = context.getSharedPreferences("photo_drafts", Context.MODE_PRIVATE)\n\n        fun decodeSlots(raw: String, max: Int): List<String?> {\n            if (raw.isBlank()) return emptyList()\n            return raw.split("|", limit = max)\n                .take(max)\n                .map { path -> path.takeIf { it.isNotBlank() && File(it).exists() } }\n        }\n\n        val r = decodeSlots(prefs.getString("$k.receipts", "") ?: "", 3)\n        val s = decodeSlots(prefs.getString("$k.stores", "") ?: "", 10)\n        return PhotoDraft(r, s)\n    }''',
+    '''    private fun retainedPhotoDir(context: Context, workId: Int, date: LocalDate): File =\n        File(context.filesDir, "submitted_photos/$date/$workId").apply { mkdirs() }\n\n    private fun retainedSlotFile(\n        context: Context,\n        workId: Int,\n        date: LocalDate,\n        kind: String,\n        slot: Int\n    ): File? {\n        val prefix = "${kind}_${slot}."\n        return retainedPhotoDir(context, workId, date).listFiles()\n            ?.filter { it.isFile && it.name.startsWith(prefix) && it.length() > 0L }\n            ?.maxByOrNull { it.lastModified() }\n    }\n\n    private fun copyToRetainedSlot(\n        context: Context,\n        workId: Int,\n        date: LocalDate,\n        kind: String,\n        slot: Int,\n        source: File\n    ): String? {\n        if (!source.exists() || source.length() <= 0L) return null\n        val dir = retainedPhotoDir(context, workId, date)\n        val ext = source.extension.lowercase().takeIf { it in setOf("jpg", "jpeg", "png", "webp") } ?: "jpg"\n        val target = File(dir, "${kind}_${slot}.$ext")\n        if (source.absolutePath != target.absolutePath) {\n            source.copyTo(target, overwrite = true)\n        }\n        dir.listFiles()?.filter { it.isFile && it.name.startsWith("${kind}_${slot}.") && it.absolutePath != target.absolutePath }\n            ?.forEach { it.delete() }\n        return target.takeIf { it.exists() && it.length() > 0L }?.absolutePath\n    }\n\n    private fun recoverArchivedSlot(\n        context: Context,\n        workId: Int,\n        date: LocalDate,\n        kind: String,\n        slot: Int\n    ): String? {\n        retainedSlotFile(context, workId, date, kind, slot)?.let { return it.absolutePath }\n        val entry = PhotoEvidenceManifest.load(context, workId, date)\n            .firstOrNull { it.kind == kind && it.slot == slot } ?: return null\n        val privateFile = File(entry.privatePath)\n        if (privateFile.exists() && privateFile.length() > 0L) {\n            return copyToRetainedSlot(context, workId, date, kind, slot, privateFile)\n        }\n        if (entry.archiveUri.isBlank()) return null\n        return runCatching {\n            val temp = File.createTempFile("restore_${kind}_${slot}_", ".jpg", context.cacheDir)\n            try {\n                val uri = Uri.parse(entry.archiveUri)\n                val input = if (uri.scheme.equals("content", true)) {\n                    context.contentResolver.openInputStream(uri)\n                } else {\n                    File(entry.archiveUri).takeIf { it.exists() }?.inputStream()\n                } ?: return@runCatching null\n                input.use { source -> temp.outputStream().use { out -> source.copyTo(out) } }\n                copyToRetainedSlot(context, workId, date, kind, slot, temp)\n            } finally {\n                temp.delete()\n            }\n        }.getOrNull()\n    }\n\n    fun retainSubmittedPhotoDraft(\n        context: Context,\n        workId: Int,\n        date: LocalDate,\n        receipt: List<String?>,\n        store: List<String?>\n    ): PhotoDraft {\n        fun retain(kind: String, paths: List<String?>, max: Int): List<String?> {\n            val result = MutableList<String?>(max) { null }\n            for (slot in 0 until max) {\n                val path = paths.getOrNull(slot)\n                if (path.isNullOrBlank()) {\n                    val dir = retainedPhotoDir(context, workId, date)\n                    dir.listFiles()?.filter { it.isFile && it.name.startsWith("${kind}_${slot}.") }?.forEach { it.delete() }\n                    continue\n                }\n                result[slot] = copyToRetainedSlot(context, workId, date, kind, slot, File(path))\n                    ?: throw IllegalStateException(if (kind == "R") "ภาพบิล ${slot + 1} เปิดไม่ได้" else "ภาพร้าน ${slot + 1} เปิดไม่ได้")\n            }\n            val last = result.indexOfLast { !it.isNullOrBlank() }\n            return if (last < 0) emptyList() else result.take(last + 1)\n        }\n\n        val retained = PhotoDraft(\n            receiptPaths = retain("R", receipt, 3),\n            storePaths = retain("S", store, 10)\n        )\n        savePhotoDraft(context, workId, date, retained.receiptPaths, retained.storePaths)\n        return retained\n    }\n\n    fun loadPhotoDraft(context: Context, workId: Int, date: LocalDate): PhotoDraft {\n        val k = "${workId}_${date}"\n        val prefs = context.getSharedPreferences("photo_drafts", Context.MODE_PRIVATE)\n\n        fun decodeSlots(raw: String, max: Int): List<String?> {\n            if (raw.isBlank()) return emptyList()\n            return raw.split("|", limit = max)\n                .take(max)\n                .map { path -> path.takeIf { it.isNotBlank() && File(it).exists() } }\n        }\n\n        fun merge(kind: String, saved: List<String?>, max: Int): List<String?> {\n            val result = MutableList<String?>(max) { null }\n            for (slot in 0 until max) {\n                result[slot] = saved.getOrNull(slot) ?: recoverArchivedSlot(context, workId, date, kind, slot)\n            }\n            val last = result.indexOfLast { !it.isNullOrBlank() }\n            return if (last < 0) emptyList() else result.take(last + 1)\n        }\n\n        val r = merge("R", decodeSlots(prefs.getString("$k.receipts", "") ?: "", 3), 3)\n        val s = merge("S", decodeSlots(prefs.getString("$k.stores", "") ?: "", 10), 10)\n        return PhotoDraft(r, s)\n    }'''
+)
+
+# Before upload, copy selected photos to the retained app folder and upload from those durable paths.
+ui = ROOT / "android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt"
+replace_once(
+    ui,
+    '''        message = "กำลังส่งข้อมูล..."\n        scope.launch {\n            val result = withContext(Dispatchers.IO) { runCatching { SubmissionRepository.submit(\n                    context = context,\n                    workPlanItemId = work.id,\n                    records = records.toList(),\n                    storeNote = storeWorkNote,\n                    storeLatitude = work.latitude,\n                    storeLongitude = work.longitude,\n                    receiptPaths = receipts.toList(),\n                    storePaths = stores.toList()\n                ) } }\n            result.onSuccess {\n                ReceiptValidationEngine.markSubmissionAccepted(context = context, work = work, records = records, receiptPaths = receipts.toList())\n                DemoRepository.saveStatus(context, work.id, selectedDate, WorkStatus.SUBMITTED)\n                submittedThisSession = true\n                message = "ส่งข้อมูลแล้ว"\n            }.onFailure {''',
+    '''        message = "กำลังส่งข้อมูล..."\n        val recordsToSubmit = records.toList()\n        val receiptPathsToSubmit = receipts.toList()\n        val storePathsToSubmit = stores.toList()\n        val noteToSubmit = storeWorkNote\n        scope.launch {\n            val result = withContext(Dispatchers.IO) { runCatching {\n                val retained = DemoRepository.retainSubmittedPhotoDraft(\n                    context = context,\n                    workId = work.id,\n                    date = selectedDate,\n                    receipt = receiptPathsToSubmit,\n                    store = storePathsToSubmit\n                )\n                SubmissionRepository.submit(\n                    context = context,\n                    workPlanItemId = work.id,\n                    records = recordsToSubmit,\n                    storeNote = noteToSubmit,\n                    storeLatitude = work.latitude,\n                    storeLongitude = work.longitude,\n                    receiptPaths = retained.receiptPaths,\n                    storePaths = retained.storePaths\n                )\n                retained\n            } }\n            result.onSuccess { retained ->\n                DemoRepository.savePosRecords(context, work, selectedDate, recordsToSubmit)\n                DemoRepository.saveStoreWorkNote(context, work.id, selectedDate, noteToSubmit)\n                DemoRepository.savePhotoDraft(context, work.id, selectedDate, retained.receiptPaths, retained.storePaths)\n                ReceiptValidationEngine.markSubmissionAccepted(context = context, work = work, records = recordsToSubmit, receiptPaths = retained.receiptPaths)\n                DemoRepository.saveStatus(context, work.id, selectedDate, WorkStatus.SUBMITTED)\n                submittedThisSession = true\n                message = "ส่งข้อมูลแล้ว"\n            }.onFailure {'''
+)
+
+print("Round104.27 submitted-work retention patch applied")
