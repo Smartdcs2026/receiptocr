@@ -1,0 +1,267 @@
+/* Round104.30 — concept layout: denser queue, single-source store identity, clearer review focus. */
+.reviewPage.reviewWorkspaceV2.reviewFast10428.reviewConcept10430 .reviewWorkspace{
+  grid-template-columns:clamp(300px,21vw,345px) minmax(0,1fr)!important;
+  gap:7px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewQueuePanel{
+  grid-template-rows:auto auto minmax(0,1fr)!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewQueuePanel>header{
+  min-height:42px!important;
+  padding:6px 9px!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  gap:6px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewQueuePanel>header>div:first-child>strong{
+  font-size:16px!important;
+  line-height:1.1!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 #reviewQueueCaption,
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewCountBox{
+  display:none!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv30QueueHeadMeta{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:5px!important;
+  min-width:0!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv30QueueHeadMeta .rv2Live{
+  min-width:0!important;
+  height:24px!important;
+  padding:0 7px!important;
+  font-size:10px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv30QueueHeadMeta .rv2Live::before{
+  width:6px!important;
+  height:6px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv30QueueHeadMeta .rv2NewBadge{
+  grid-column:auto!important;
+  min-height:24px!important;
+  height:24px!important;
+  padding:0 7px!important;
+  font-size:10px!important;
+  white-space:nowrap!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv30ModeRowHidden{
+  display:none!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewV2Controls{
+  padding:6px!important;
+  gap:5px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv2Search{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  gap:5px!important;
+  align-items:center!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 #reviewSearch{
+  grid-column:1!important;
+  height:34px!important;
+  min-height:34px!important;
+  padding-top:4px!important;
+  padding-bottom:4px!important;
+  font-size:12.5px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv2Search::before{
+  font-size:10.5px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv2ClearSearch{
+  right:78px!important;
+  width:23px!important;
+  height:23px!important;
+  font-size:16px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv2Search>.rv28FilterToggle{
+  position:static!important;
+  grid-column:2!important;
+  height:34px!important;
+  min-width:72px!important;
+  padding:0 9px!important;
+  font-size:11px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv2StatusRow{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:4px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv2StatusRow [data-queue-status=""]{
+  display:block!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv2StatusRow button{
+  height:29px!important;
+  padding:0 4px!important;
+  border-radius:7px!important;
+  font-size:10.5px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv2FilterGrid,
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv216HistoryDates,
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv2Utility{
+  gap:5px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv2Field{
+  gap:2px!important;
+  font-size:10px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv2Field select,
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv216HistoryDates input,
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .rv2MiniBtn{
+  height:31px!important;
+  min-height:31px!important;
+  font-size:11px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewQueue{
+  padding:5px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewQueueItem{
+  min-height:58px!important;
+  margin:0 0 4px!important;
+  padding:5px 6px!important;
+  grid-template-columns:40px minmax(0,1fr) 58px!important;
+  grid-template-rows:auto auto!important;
+  column-gap:5px!important;
+  row-gap:2px!important;
+  align-items:start!important;
+  border-left-width:4px!important;
+  border-radius:8px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .queueBrand{
+  grid-column:1!important;
+  grid-row:1 / 3!important;
+  width:38px!important;
+  min-width:38px!important;
+  height:27px!important;
+  padding:0 3px!important;
+  align-self:start!important;
+  border-radius:7px!important;
+  font-size:9.5px!important;
+  line-height:1!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .queueMain{
+  grid-column:2!important;
+  grid-row:1!important;
+  min-width:0!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .queueMain strong{
+  margin:0!important;
+  font-size:12.5px!important;
+  line-height:1.15!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .queueMain small{
+  margin-top:1px!important;
+  font-size:10px!important;
+  line-height:1.1!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .queueMain small:nth-of-type(2){
+  display:none!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .queueSide{
+  grid-column:3!important;
+  grid-row:1 / 3!important;
+  min-width:56px!important;
+  height:100%!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:space-between!important;
+  align-items:flex-end!important;
+  gap:2px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .statusBadge{
+  min-height:18px!important;
+  padding:1px 5px!important;
+  border-radius:9px!important;
+  font-size:9px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .queueWait{
+  font-size:9.5px!important;
+  line-height:1.05!important;
+  white-space:nowrap!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .queueMetaV2{
+  grid-column:2!important;
+  grid-row:2!important;
+  margin:0!important;
+  gap:3px!important;
+  flex-wrap:nowrap!important;
+  align-self:end!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .queueMetaV2 span{
+  min-height:16px!important;
+  height:16px!important;
+  padding:0 5px!important;
+  border-radius:8px!important;
+  font-size:9px!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewQueueItem.is-new::after{
+  width:6px!important;
+  height:6px!important;
+  top:4px!important;
+  left:3px!important;
+}
+/* Store identity is already visible in the detail header. Keep the right column for review facts. */
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .submissionFacts{
+  grid-template-columns:1fr 1fr!important;
+  min-height:34px!important;
+  padding:4px 5px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .submissionFacts>div:nth-child(1),
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .submissionFacts>div:nth-child(2){
+  display:none!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .submissionFacts>div{
+  min-height:31px!important;
+  padding:4px 7px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewEditorBar{
+  min-height:34px!important;
+  margin:0!important;
+  padding:5px 7px!important;
+  border-width:0 0 1px!important;
+  border-radius:0!important;
+  background:#edf7fb!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewEditorBar>div strong{
+  font-size:0!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewEditorBar>div strong::after{
+  content:"สรุปงาน";
+  font-size:13px!important;
+  color:#183c55!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewEditorBar>div span{
+  display:none!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewEditorBar>button{
+  min-height:29px!important;
+  padding:0 9px!important;
+  font-size:0!important;
+  border-radius:7px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewEditorBar>button::after{
+  content:"แก้ไขข้อมูล";
+  font-size:10.5px!important;
+  font-weight:900!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .submissionPanel>.sectionTitle strong{
+  font-size:0!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewConcept10430 .submissionPanel>.sectionTitle strong::after{
+  content:"ข้อมูล POS";
+  font-size:13px!important;
+}
+@media(max-width:1180px){
+  .reviewPage.reviewWorkspaceV2.reviewFast10428.reviewConcept10430 .reviewWorkspace{
+    grid-template-columns:280px minmax(0,1fr)!important;
+  }
+  .reviewPage.reviewWorkspaceV2.reviewConcept10430 .reviewQueueItem{
+    grid-template-columns:36px minmax(0,1fr) 54px!important;
+  }
+  .reviewPage.reviewWorkspaceV2.reviewConcept10430 .queueBrand{
+    width:34px!important;min-width:34px!important;font-size:9px!important;
+  }
+}
