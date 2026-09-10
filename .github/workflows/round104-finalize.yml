@@ -63,16 +63,16 @@ jobs:
       - name: Verify Round103 baseline
         run: git merge-base --is-ancestor ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 HEAD
 
-      - name: Verify Round104.25 Android version and direct evidence upload
+      - name: Verify Round104.26 Android version and direct evidence upload
         run: |
-          grep -q 'versionCode = 117' android-app/app/build.gradle.kts
-          grep -q 'versionName = "0.104.25"' android-app/app/build.gradle.kts
+          grep -q 'versionCode = 118' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.26"' android-app/app/build.gradle.kts
           grep -q 'X-Evidence-Kind' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'X-Evidence-Slot' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'setFixedLengthStreamingMode' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'Server ยังไม่ยืนยันการบันทึก' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
 
-      - name: Protect Round103 OCR baseline and allow Round104.25 POS identity files
+      - name: Protect Round103 OCR baseline and allow Round104.26 POS identity files
         run: |
           unexpected="$(git diff --name-only ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 -- android-app/app/src/main/java/com/receiptocr/app/ocr | grep -Ev '(^|/)(PosIdentityResolver|RealOcrPipeline|RuleDrivenOcrEngine|PosEvidenceFusion|TemplateSequenceFallback|UniversalTemplateInterpreter)\.kt$' || true)"
           if [ -n "$unexpected" ]; then
@@ -101,7 +101,7 @@ jobs:
           grep -q 'api/app/submissions/.*/finalize' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'EVIDENCE_PENDING_STATUS' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
 
-      - name: Round104.25 CJ binding, submission lock and compact field UI checks
+      - name: Round104.26 CJ binding, submission lock and compact field UI checks
         run: |
           node tests/round10420-cj-terminal-fallback.test.js
           grep -q 'id="fallbackUnknownToLastWorkPos"' web-admin/index.html
@@ -121,6 +121,13 @@ jobs:
           test -f android-app/app/src/main/java/com/receiptocr/app/validation/SubmissionEditPolicy.kt
           test -f android-app/app/src/test/java/com/receiptocr/app/validation/SubmissionEditPolicyTest.kt
           test -f android-app/app/src/test/java/com/receiptocr/app/ocr/CjFourReceiptBindingRound10421Test.kt
+          grep -q 'Icons.AutoMirrored.Outlined.ArrowBack' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'Icons.AutoMirrored.Outlined.Send' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'Icons.AutoMirrored.Outlined.ReceiptLong' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'Icons.Outlined.ArrowBack' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'Icons.Outlined.Send' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'Icons.Outlined.ReceiptLong' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'mixedBoundaryConflict && earliestProposalDate != null && latestProposalDate != null' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
 
       - name: Office speed and Admin UI checks
         run: |
@@ -213,7 +220,7 @@ jobs:
           grep -q 'field_submission_evidence' cloudflare/migrations/round103_submission_evidence.sql
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -236,10 +243,10 @@ jobs:
         working-directory: android-app
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload Round104.25 debug APK
+      - name: Upload Round104.26 debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: ReceiptOCR-Round104-25-debug
+          name: ReceiptOCR-Round104-26-debug
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
           if-no-files-found: error
