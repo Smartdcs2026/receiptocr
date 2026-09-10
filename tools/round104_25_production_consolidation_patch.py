@@ -154,7 +154,7 @@ finalize = finalize.replace("ReceiptOCR-Round104-20-debug", "ReceiptOCR-Round104
 for required in (
     "Verify Round104.25 Android version",
     "versionCode = 117",
-    'versionName = \\"0.104.25\\"',
+    'versionName = "0.104.25"',
     "UniversalTemplateInterpreter",
     "Round104.25 CJ binding, submission lock and compact field UI checks",
     "ReceiptOCR-Round104-25-debug",
