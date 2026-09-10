@@ -35,7 +35,7 @@ assert(pipeline.includes('runtimeLastWorkPos = expectedPosSet.maxOrNull() ?: 0')
 assert(index.includes('ocr-simple.js?v=104200'), 'OCR core must use cache generation 104176');
 assert(spa.includes('VERSION="104176"'), 'Admin SPA cache version must be 104176');
 assert(adminHtml.includes('admin-spa.js?v=104176'), 'Admin shell must force the 104176 SPA asset');
-assert(gradle.includes('versionCode = 113'), 'Android versionCode must be Round104.21');
-assert(gradle.includes('versionName = "0.104.21"'), 'Android versionName must be 0.104.19');
+assert(gradle.includes('versionCode = 117'), 'Android versionCode must be Round104.25');
+assert(gradle.includes('versionName = "0.104.25"'), 'Android versionName must be 0.104.25');
 
-console.log('Round104.21 terminal POS behavior checks passed');
+console.log('Round104.25 terminal POS behavior checks passed');

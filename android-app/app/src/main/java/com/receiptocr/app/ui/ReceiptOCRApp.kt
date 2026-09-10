@@ -815,7 +815,7 @@ private fun StoreInfoScreen(
 
     fun saveLocation(location: CapturedStoreLocation) {
         if (workLocked) {
-            locationMessage = "งานนี้ส่งแล้ว • แก้ไขได้เมื่อผู้ตรวจส่งกลับ"
+            locationMessage = "งานนี้ส่งแล้ว"
             return
         }
         StoreLocationRepository.save(context, work, location)
@@ -1235,7 +1235,7 @@ private fun StoreWorkScreen(
 
     fun saveDraft() {
         if (workLocked) {
-            message = "งานนี้ส่งแล้ว • แก้ไขได้เมื่อผู้ตรวจส่งกลับ"
+            message = "งานนี้ส่งแล้ว"
             return
         }
         DemoRepository.savePosRecords(context, work, selectedDate, records)
@@ -1252,7 +1252,7 @@ private fun StoreWorkScreen(
 
     fun submitData() {
         if (workLocked) {
-            message = "งานนี้ส่งแล้ว • ไม่สามารถส่งซ้ำได้จนกว่าผู้ตรวจจะส่งกลับ"
+            message = "งานนี้ส่งแล้ว"
             return
         }
         val validation = ReceiptValidationEngine.validateBeforeSubmit(
@@ -1298,7 +1298,7 @@ private fun StoreWorkScreen(
                 ReceiptValidationEngine.markSubmissionAccepted(context = context, work = work, records = records, receiptPaths = receipts.toList())
                 DemoRepository.saveStatus(context, work.id, selectedDate, WorkStatus.SUBMITTED)
                 submittedThisSession = true
-                message = "ส่งข้อมูลแล้ว • ล็อกการแก้ไขจนกว่าผู้ตรวจจะส่งกลับ"
+                message = "ส่งข้อมูลแล้ว"
             }.onFailure {
                 DemoRepository.saveStatus(context, work.id, selectedDate, WorkStatus.FAILED)
                 message = it.message ?: "ส่งข้อมูลไม่สำเร็จ"
@@ -2211,7 +2211,7 @@ private fun StoreWorkScreen(
             allowDelete = !workLocked,
             onDelete = {
                 if (workLocked) {
-                    message = "งานนี้ส่งแล้ว • ลบภาพไม่ได้จนกว่าผู้ตรวจจะส่งกลับ"
+                    message = "งานนี้ส่งแล้ว"
                     previewTarget = null
                     return@ZoomableImageDialog
                 }
