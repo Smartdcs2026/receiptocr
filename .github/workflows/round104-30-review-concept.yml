@@ -1,0 +1,45 @@
+name: Round104.30 review concept layout
+
+on:
+  push:
+    branches:
+      - round10430-review-concept-layout
+  workflow_dispatch:
+
+jobs:
+  validate-review-concept:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Round104.30 hooks
+        run: |
+          grep -q 'review-concept-round10430.css?v=104300' web-admin/review.html
+          grep -q 'review-concept-round10430.js?v=104300' web-admin/review.html
+          grep -q 'reviewConcept10430' web-admin/review-concept-round10430.css
+          grep -q 'reviewConcept10430' web-admin/review-concept-round10430.js
+
+      - name: Verify compact queue concept
+        run: |
+          grep -q 'min-height:58px' web-admin/review-concept-round10430.css
+          grep -q 'queueMain small:nth-of-type(2)' web-admin/review-concept-round10430.css
+          grep -q 'grid-template-columns:repeat(4' web-admin/review-concept-round10430.css
+          grep -q 'คิวตรวจงาน (' web-admin/review-concept-round10430.js
+          grep -q "\['', 'SUBMITTED', 'RETURNED', 'APPROVED'\]" web-admin/review-concept-round10430.js
+
+      - name: Verify duplicate store summary reduction
+        run: |
+          grep -q 'submissionFacts>div:nth-child(1)' web-admin/review-concept-round10430.css
+          grep -q 'content:"สรุปงาน"' web-admin/review-concept-round10430.css
+          grep -q 'content:"ข้อมูล POS"' web-admin/review-concept-round10430.css
+
+      - name: JavaScript syntax
+        run: |
+          node --check web-admin/review-concept-round10430.js
+          node --check web-admin/review-fast-round10428.js
+          node --check web-admin/review-workspace-v2.js
+          node --check web-admin/review.js
+
+      - name: Review logic regression
+        run: node tests/review-logic.test.js
