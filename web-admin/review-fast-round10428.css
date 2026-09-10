@@ -1,0 +1,77 @@
+/* Round104.28 — Fast review mode. Keep all review capabilities, but reduce visual load. */
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewWorkspace{grid-template-columns:clamp(285px,20vw,320px) minmax(0,1fr)!important;gap:6px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewV2Controls{gap:6px!important;padding:7px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .rv2ModeRow{grid-template-columns:1fr 1fr auto auto!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .rv28FilterToggle{height:30px!important;min-width:70px!important;padding:0 9px!important;border:1px solid #b8cad7!important;border-radius:8px!important;background:#fff!important;color:#345e7c!important;font-size:11.5px!important;font-weight:900!important;cursor:pointer!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428.rv28FiltersOpen .rv28FilterToggle{border-color:#6aa0c6!important;background:#eaf4ff!important;color:#1d6598!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428:not(.rv28FiltersOpen) .rv2FilterGrid,
+.reviewPage.reviewWorkspaceV2.reviewFast10428:not(.rv28FiltersOpen) .rv216HistoryDates,
+.reviewPage.reviewWorkspaceV2.reviewFast10428:not(.rv28FiltersOpen) .rv2Utility{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .rv2StatusRow{grid-template-columns:repeat(3,1fr)!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .rv2StatusRow [data-queue-status=""]{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewQueueItem{min-height:76px!important;margin-bottom:5px!important;padding:7px!important;grid-template-columns:46px minmax(0,1fr) 70px!important;gap:6px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .queueBrand{width:42px!important;min-width:42px!important;height:30px!important;font-size:10.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .queueMain strong{font-size:14px!important;margin-bottom:1px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .queueMain small{font-size:11.5px!important;line-height:1.2!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .queueSide{min-width:66px!important;gap:3px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .statusBadge{min-height:21px!important;padding:2px 6px!important;font-size:10.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .queueWait{font-size:10.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .queueMetaV2{gap:4px!important;margin-top:0!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .queueMetaV2 span{min-height:19px!important;padding:1px 6px!important;font-size:10.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewDetailHead{min-height:46px!important;padding:5px 8px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewDetailHead h2{font-size:17px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewDetailHead p{font-size:11px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .detailBreadcrumb{font-size:11px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewSummary{min-height:31px!important;padding:3px 6px!important;gap:4px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .summaryTile{min-height:25px!important;padding:2px 6px!important;border-radius:6px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .summaryTile span{font-size:10.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .summaryTile strong{font-size:14px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewAlert.good{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewAlert.warn,
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewAlert.danger{min-height:27px!important;padding:4px 8px!important;font-size:11px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewSplit{grid-template-columns:minmax(0,3fr) minmax(400px,2fr)!important;gap:6px!important;padding:6px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .evidencePanel{grid-template-rows:34px minmax(0,1fr) auto auto!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .evidenceToolbar{min-height:34px!important;padding:2px 6px!important;gap:4px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .evidenceToolbar button{height:28px!important;min-width:30px!important;padding:0 7px!important;font-size:11.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .evidenceToolbar [data-tool="left"],
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .evidenceToolbar [data-tool="right"],
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .evidenceToolbar [data-tool="reset"]{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewDetailPanel.rv28ImageToolsOpen .evidenceToolbar [data-tool="left"],
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewDetailPanel.rv28ImageToolsOpen .evidenceToolbar [data-tool="right"],
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewDetailPanel.rv28ImageToolsOpen .evidenceToolbar [data-tool="reset"]{display:inline-flex!important;align-items:center!important;justify-content:center!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .rv28ImageTools{margin-left:auto!important;min-width:68px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewEvidenceManager{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewDetailPanel.rv28ImageToolsOpen .reviewEvidenceManager{display:block!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .submissionFacts{min-height:42px!important;padding:4px!important;gap:4px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .submissionFacts>div{padding:3px 5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .submissionFacts span{font-size:9.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .submissionFacts strong{font-size:12px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .submissionPanel>.sectionTitle{min-height:30px!important;padding:4px 7px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .submissionPanel>.sectionTitle strong{font-size:14px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .submissionPanel>.sectionTitle span{font-size:10px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewRecordTable thead th{height:27px!important;padding:4px 5px!important;font-size:10.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewRecordTable tbody tr,
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewRecordTable tbody td{height:34px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewRecordTable tbody td{padding:3px 5px!important;font-size:11.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewRecordTable tbody tr.row-danger,
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewRecordTable tbody tr.row-warn{height:auto!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewRecordTable tbody tr.row-danger td,
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewRecordTable tbody tr.row-warn td{height:auto!important;min-height:42px!important;padding-top:5px!important;padding-bottom:5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .recordMain{font-size:12.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .recordSub{font-size:9.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .rowMessage,
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .rowNotice{font-size:9.5px!important;line-height:1.15!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .pill{min-height:19px!important;padding:1px 6px!important;font-size:9.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewNote{padding:5px 7px!important;font-size:10.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 #reviewNote{min-height:48px!important;max-height:76px!important;margin-top:3px!important;padding:5px 7px!important;font-size:12px!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewActions{position:sticky!important;bottom:0!important;z-index:12!important;min-height:46px!important;padding:5px 7px!important;gap:6px!important;background:#f4f8fb!important;box-shadow:0 -3px 10px rgba(34,61,79,.08)!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewActions .actionHint{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewActions button{height:37px!important;min-height:37px!important;font-size:13px!important}
+@media(max-width:1450px){
+  .reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewWorkspace{grid-template-columns:280px minmax(0,1fr)!important}
+  .reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewSplit{grid-template-columns:minmax(0,1fr) 390px!important}
+}
+@media(max-width:1180px){
+  .reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewWorkspace{grid-template-columns:265px minmax(0,1fr)!important}
+  .reviewPage.reviewWorkspaceV2.reviewFast10428 .reviewSplit{grid-template-columns:minmax(0,1fr) 365px!important}
+}
