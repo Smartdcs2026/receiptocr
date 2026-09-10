@@ -25,7 +25,8 @@
     filterToggle.className='rv28FilterToggle';
     filterToggle.textContent='ตัวกรอง';
     filterToggle.setAttribute('aria-expanded','false');
-    modeRow.appendChild(filterToggle);
+    const newBadge=modeRow.querySelector('.rv2NewBadge');
+    modeRow.insertBefore(filterToggle,newBadge||null);
   }
 
   function filterCount(){
