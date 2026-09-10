@@ -1,0 +1,92 @@
+name: Round104.24 compact POS field UI
+
+on:
+  push:
+    branches: ["round10424-compact-pos-ui"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Round104.24 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate patch syntax
+        run: python -m py_compile tools/round104_24_compact_pos_ui_patch.py
+
+      - name: Apply Round104.24 compact UI patch
+        run: python tools/round104_24_compact_pos_ui_patch.py
+
+      - name: Verify compact field UX
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          ui = Path('android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt').read_text(encoding='utf-8')
+          gradle = Path('android-app/app/build.gradle.kts').read_text(encoding='utf-8')
+          assert 'versionCode = 116' in gradle
+          assert 'versionName = "0.104.24"' in gradle
+          assert 'ดูข้อมูลได้ แต่แก้ไขหรือลบไม่ได้' not in ui
+          start = ui.index('@Composable\nprivate fun PosCard(')
+          end = ui.index('@Composable\nprivate fun SectionHeader(', start)
+          pos = ui[start:end]
+          assert 'FilledTonalButton' not in pos, 'Per-POS OCR button must be removed from compact field card'
+          assert 'expanded = !expanded' not in pos, 'POS cards must stay open like the old field workflow'
+          assert 'Color(0xFFE7E7E7)' in pos, 'Compact gray POS header is required'
+          assert 'ยังอ่านไม่พบหรือยังไม่ได้กรอก' not in pos, 'Do not show repeated empty-field warnings while entering data'
+          assert 'ไม่ได้บิล' in pos and 'เลือกเหตุผล' in pos
+          assert 'CollapsibleAdminNoteField' in pos
+          print('Round104.24 compact POS UI guards passed')
+          PY
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Round104.24 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReceiptOCR-Round104-24-debug
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Commit tested Round104.24 source
+        run: |
+          git config user.name "receiptocr-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            android-app/app/build.gradle.kts \
+            android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          if git diff --cached --quiet; then
+            echo "Round104.24 source already committed"
+            exit 0
+          fi
+          git commit -m "Round104.24 simplify field POS workflow"
+          git push origin HEAD:round10424-compact-pos-ui

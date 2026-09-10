@@ -1,0 +1,87 @@
+name: Round104.21 CJ exact POS binding
+
+on:
+  push:
+    branches: ["round10421-cj-exact-pos-binding"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout Round104.21 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate patch syntax
+        run: python -m py_compile tools/round104_21_cj_exact_pos_binding_patch.py
+
+      - name: Apply Round104.21 patch
+        run: python tools/round104_21_cj_exact_pos_binding_patch.py
+
+      - name: Verify exact work-plan POS bridge
+        run: |
+          grep -q 'versionCode = 113' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.21"' android-app/app/build.gradle.kts
+          grep -q 'PosIdentityResolver.resolve(rawPos, posIdentityRule, availableWorkPos)' android-app/app/src/main/java/com/receiptocr/app/ocr/UniversalTemplateInterpreter.kt
+          ! grep -q 'updated\[index\] = updated\[index\].copy(posNumber = pos)' android-app/app/src/main/java/com/receiptocr/app/ocr/UniversalTemplateInterpreter.kt
+          grep -A10 'val sequenceFallback' android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt | grep -q 'posIdentityRule = runtimePosIdentityRule'
+          grep -q 'class CjFourReceiptBindingRound10421Test' android-app/app/src/test/java/com/receiptocr/app/ocr/CjFourReceiptBindingRound10421Test.kt
+          grep -q 'BNO:S26090690N01-000684' android-app/app/src/test/java/com/receiptocr/app/ocr/CjFourReceiptBindingRound10421Test.kt
+          grep -q 'BNO:S26090690B01-000694' android-app/app/src/test/java/com/receiptocr/app/ocr/CjFourReceiptBindingRound10421Test.kt
+          node tests/round10417-pos-terminal.test.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload Round104.21 debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReceiptOCR-Round104-21-debug-premerge
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Commit tested Round104.21 source
+        run: |
+          git config user.name "receiptocr-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            tools/round104_21_cj_exact_pos_binding_patch.py \
+            android-app/app/build.gradle.kts \
+            android-app/app/src/main/java/com/receiptocr/app/ocr/UniversalTemplateInterpreter.kt \
+            android-app/app/src/main/java/com/receiptocr/app/ocr/RealOcrPipeline.kt \
+            android-app/app/src/test/java/com/receiptocr/app/ocr/CjFourReceiptBindingRound10421Test.kt \
+            tests/round10417-pos-terminal.test.js
+          if git diff --cached --quiet; then
+            echo "Round104.21 source already committed"
+            exit 0
+          fi
+          git commit -m "Round104.21 bind CJ receipt POS strictly to work plan"
+          git push origin HEAD:round10421-cj-exact-pos-binding
