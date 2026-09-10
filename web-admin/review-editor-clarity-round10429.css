@@ -1,0 +1,199 @@
+/* Round104.29 — clearer reviewer edit modal. Visual-only enhancement; no API or payload changes. */
+.swal2-popup:has(.reviewEditForm){
+  width:min(96vw,1380px)!important;
+  max-width:1380px!important;
+  padding:18px 20px 14px!important;
+  border-radius:16px!important;
+}
+.swal2-popup:has(.reviewEditForm) .swal2-title{
+  text-align:left!important;
+  margin:0 0 14px!important;
+  padding:0!important;
+  font-size:22px!important;
+  line-height:1.25!important;
+  color:#0f172a!important;
+}
+.swal2-popup:has(.reviewEditForm) .swal2-html-container{
+  margin:0!important;
+  padding:0!important;
+  overflow:visible!important;
+}
+.swal2-popup:has(.reviewEditForm) .swal2-actions{
+  width:100%!important;
+  margin:14px 0 0!important;
+  padding-top:12px!important;
+  border-top:1px solid #dbe5ee!important;
+  justify-content:flex-end!important;
+  gap:10px!important;
+}
+.swal2-popup:has(.reviewEditForm) .swal2-actions button{
+  min-width:132px!important;
+  min-height:42px!important;
+  border-radius:9px!important;
+  font-size:14px!important;
+  font-weight:800!important;
+}
+.reviewEditForm{font-size:13px!important;color:#1e293b!important}
+.reviewEditStoreGrid{
+  grid-template-columns:1fr 2.15fr 1fr 1.15fr!important;
+  gap:10px 12px!important;
+  padding:13px!important;
+  border:1px solid #d9e5ee!important;
+  border-radius:12px!important;
+  background:#f8fbfd!important;
+}
+.reviewEditStoreGrid label{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:5px!important;
+  font-size:12px!important;
+  line-height:1.25!important;
+  font-weight:800!important;
+  color:#334155!important;
+}
+.reviewEditStoreGrid input,.reviewEditStoreGrid textarea{
+  min-height:40px!important;
+  margin:0!important;
+  padding:9px 10px!important;
+  border:1px solid #b9cbd9!important;
+  border-radius:8px!important;
+  background:#fff!important;
+  font-size:14px!important;
+  font-weight:650!important;
+  color:#0f172a!important;
+  box-shadow:none!important;
+}
+.reviewEditStoreGrid input:focus,.reviewEditStoreGrid textarea:focus,.reviewEditTable input:focus{
+  outline:0!important;
+  border-color:#3b82f6!important;
+  box-shadow:0 0 0 3px rgba(59,130,246,.13)!important;
+}
+.reviewEditStoreNote{grid-column:1/-1!important}
+.reviewEditStoreNote textarea{min-height:66px!important;resize:vertical!important}
+.reviewEditSectionHead{
+  margin:14px 0 7px!important;
+  min-height:34px!important;
+}
+.reviewEditSectionHead strong{
+  font-size:15px!important;
+  color:#0f172a!important;
+}
+.reviewEditSectionHead button{
+  min-height:34px!important;
+  padding:7px 12px!important;
+  border-radius:8px!important;
+  font-size:12px!important;
+}
+.reviewEditTableWrap{
+  max-height:min(50vh,500px)!important;
+  overflow:auto!important;
+  border:1px solid #ccd9e4!important;
+  border-radius:11px!important;
+  background:#fff!important;
+}
+.reviewEditTable{
+  min-width:1080px!important;
+  table-layout:fixed!important;
+  font-size:12px!important;
+}
+.reviewEditTable th{
+  top:0!important;
+  z-index:3!important;
+  height:38px!important;
+  padding:8px 9px!important;
+  background:#edf4f8!important;
+  border-bottom:1px solid #c8d7e2!important;
+  color:#334155!important;
+  font-size:11px!important;
+  font-weight:900!important;
+  white-space:nowrap!important;
+}
+.reviewEditTable th:nth-child(1){width:7%!important}
+.reviewEditTable th:nth-child(2){width:16%!important}
+.reviewEditTable th:nth-child(3){width:17%!important}
+.reviewEditTable th:nth-child(4){width:14%!important}
+.reviewEditTable th:nth-child(5){width:19%!important}
+.reviewEditTable th:nth-child(6){width:21%!important}
+.reviewEditTable th:nth-child(7){width:6%!important}
+.reviewEditTable td{
+  padding:9px!important;
+  border-bottom:1px solid #e7eef4!important;
+  vertical-align:middle!important;
+  background:#fff!important;
+}
+.reviewEditTable tbody tr:nth-child(even) td{background:#fbfdff!important}
+.reviewEditTable tbody tr:focus-within td{background:#f2f8ff!important}
+.reviewEditTable input{
+  width:100%!important;
+  min-width:0!important;
+  min-height:40px!important;
+  margin:0!important;
+  padding:8px 9px!important;
+  border:1px solid #bdccd8!important;
+  border-radius:8px!important;
+  background:#fff!important;
+  color:#0f172a!important;
+  font-size:13px!important;
+  font-weight:650!important;
+}
+.reviewEditTable .edPos{
+  text-align:center!important;
+  font-size:15px!important;
+  font-weight:900!important;
+}
+.reviewEditTable .edCustomer{
+  font-variant-numeric:tabular-nums!important;
+  letter-spacing:.2px!important;
+}
+.reviewEditTable .edBillDate,.reviewEditTable .edBillTime{font-variant-numeric:tabular-nums!important}
+.editNoReceiptCell{
+  min-width:0!important;
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr)!important;
+  align-items:center!important;
+  gap:7px!important;
+}
+.editNoReceiptCell label{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:5px!important;
+  min-height:40px!important;
+  padding:0 6px!important;
+  border:1px solid #d7e1e8!important;
+  border-radius:8px!important;
+  background:#f8fafc!important;
+  color:#334155!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  white-space:nowrap!important;
+}
+.editNoReceiptCell label input{
+  width:17px!important;
+  min-height:auto!important;
+  height:17px!important;
+  margin:0!important;
+  padding:0!important;
+}
+.editNoReceiptCell .edNoReceiptReason{min-width:0!important}
+.editRowDelete{
+  min-height:38px!important;
+  padding:7px 9px!important;
+  border-radius:8px!important;
+  font-size:11px!important;
+  font-weight:800!important;
+}
+.reviewEditNotice{
+  margin-top:8px!important;
+  padding:8px 10px!important;
+  border-radius:8px!important;
+  background:#f8fafc!important;
+  color:#64748b!important;
+  font-size:10.5px!important;
+  line-height:1.35!important;
+}
+@media(max-width:1050px){
+  .swal2-popup:has(.reviewEditForm){width:97vw!important;padding:14px!important}
+  .reviewEditStoreGrid{grid-template-columns:1fr 1fr!important}
+  .reviewEditTable{min-width:1000px!important}
+}

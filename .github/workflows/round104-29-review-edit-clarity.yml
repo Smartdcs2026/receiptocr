@@ -1,0 +1,32 @@
+name: Round104.29 review edit clarity
+
+on:
+  push:
+    branches: ["round10429-review-edit-clarity"]
+    paths:
+      - "web-admin/review.html"
+      - "web-admin/review-editor-clarity-round10429.css"
+      - ".github/workflows/round104-29-review-edit-clarity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-review-edit-clarity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify Round104.29 stylesheet hook
+        run: |
+          test -f web-admin/review-editor-clarity-round10429.css
+          grep -q 'review-editor-clarity-round10429.css?v=104290' web-admin/review.html
+          grep -q 'swal2-popup:has(.reviewEditForm)' web-admin/review-editor-clarity-round10429.css
+          grep -q 'min-width:1080px' web-admin/review-editor-clarity-round10429.css
+          grep -q 'editNoReceiptCell' web-admin/review-editor-clarity-round10429.css
+      - name: Protect review behavior
+        run: |
+          node --check web-admin/review.js
+          node --check web-admin/review-editor-round104.js
+          node tests/review-logic.test.js
