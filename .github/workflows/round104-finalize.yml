@@ -63,18 +63,18 @@ jobs:
       - name: Verify Round103 baseline
         run: git merge-base --is-ancestor ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 HEAD
 
-      - name: Verify Round104.20 Android version and direct evidence upload
+      - name: Verify Round104.25 Android version and direct evidence upload
         run: |
-          grep -q 'versionCode = 112' android-app/app/build.gradle.kts
-          grep -q 'versionName = "0.104.20"' android-app/app/build.gradle.kts
+          grep -q 'versionCode = 117' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.25"' android-app/app/build.gradle.kts
           grep -q 'X-Evidence-Kind' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'X-Evidence-Slot' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'setFixedLengthStreamingMode' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'Server ยังไม่ยืนยันการบันทึก' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
 
-      - name: Protect Round103 OCR baseline and allow Round104.20 POS identity files
+      - name: Protect Round103 OCR baseline and allow Round104.25 POS identity files
         run: |
-          unexpected="$(git diff --name-only ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 -- android-app/app/src/main/java/com/receiptocr/app/ocr | grep -Ev '(^|/)(PosIdentityResolver|RealOcrPipeline|RuleDrivenOcrEngine|PosEvidenceFusion|TemplateSequenceFallback)\.kt$' || true)"
+          unexpected="$(git diff --name-only ba4bbfeb1f20bf1c80583967bc73cfc51b79f089 -- android-app/app/src/main/java/com/receiptocr/app/ocr | grep -Ev '(^|/)(PosIdentityResolver|RealOcrPipeline|RuleDrivenOcrEngine|PosEvidenceFusion|TemplateSequenceFallback|UniversalTemplateInterpreter)\.kt$' || true)"
           if [ -n "$unexpected" ]; then
             echo "Unexpected OCR changes:"
             echo "$unexpected"
@@ -95,12 +95,13 @@ jobs:
           grep -q 'PosIdentityResolver.resolve(raw, posIdentityRule, allowedPos)' android-app/app/src/main/java/com/receiptocr/app/ocr/PosEvidenceFusion.kt
           grep -q 'resolveSequencePosIdentity' android-app/app/src/main/java/com/receiptocr/app/ocr/TemplateSequenceFallback.kt
           grep -q 'PosIdentityResolver.resolve(raw, posIdentityRule, allowedPos)' android-app/app/src/main/java/com/receiptocr/app/ocr/TemplateSequenceFallback.kt
+          grep -q 'PosIdentityResolver.resolve' android-app/app/src/main/java/com/receiptocr/app/ocr/UniversalTemplateInterpreter.kt
           grep -q 'syncEvidenceForLatestSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'finalizeSubmission' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'api/app/submissions/.*/finalize' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
           grep -q 'EVIDENCE_PENDING_STATUS' android-app/app/src/main/java/com/receiptocr/app/data/remote/SubmissionRepository.kt
 
-      - name: Round104.20 CJ fallback and simple APK UI checks
+      - name: Round104.25 CJ binding, submission lock and compact field UI checks
         run: |
           node tests/round10420-cj-terminal-fallback.test.js
           grep -q 'id="fallbackUnknownToLastWorkPos"' web-admin/index.html
@@ -108,10 +109,18 @@ jobs:
           grep -q 'ocr-simple.js?v=104200' web-admin/index.html
           grep -q 'POS("POS")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -q 'RECEIPTS("รูปบิล")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
-          grep -q 'STORE_PHOTOS("ภาพร้าน")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -q 'NOTES("หมายเหตุ")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'STORE_PHOTOS("ภาพร้าน")' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'SubmissionEditPolicy.isLocked' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'enabled = !workLocked' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'message = "ส่งข้อมูลแล้ว"' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'ดูข้อมูลได้ แต่แก้ไขหรือลบไม่ได้' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          ! grep -q 'ล็อกการแก้ไขจนกว่าผู้ตรวจจะส่งกลับ' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -q 'DatePickerDialog(' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
           grep -q 'TimePickerDialog(' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          test -f android-app/app/src/main/java/com/receiptocr/app/validation/SubmissionEditPolicy.kt
+          test -f android-app/app/src/test/java/com/receiptocr/app/validation/SubmissionEditPolicyTest.kt
+          test -f android-app/app/src/test/java/com/receiptocr/app/ocr/CjFourReceiptBindingRound10421Test.kt
 
       - name: Office speed and Admin UI checks
         run: |
@@ -227,10 +236,10 @@ jobs:
         working-directory: android-app
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload Round104.20 debug APK
+      - name: Upload Round104.25 debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: ReceiptOCR-Round104-20-debug
+          name: ReceiptOCR-Round104-25-debug
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
           if-no-files-found: error
