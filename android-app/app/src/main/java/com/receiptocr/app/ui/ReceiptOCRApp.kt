@@ -77,6 +77,7 @@ import com.receiptocr.app.data.remote.WorkPlanRepository
 import com.receiptocr.app.data.remote.AppAuthRepository
 import com.receiptocr.app.data.remote.SubmissionRepository
 import com.receiptocr.app.data.remote.StoreLocationRepository
+import com.receiptocr.app.data.remote.StoreHoursRepository
 import com.receiptocr.app.data.remote.CapturedStoreLocation
 import com.receiptocr.app.data.remote.WorkPlanSource
 import com.receiptocr.app.config.TemplateSource
@@ -806,7 +807,7 @@ private fun StoreInfoScreen(
         mutableStateOf(DemoRepository.loadStoreWorkNote(context, work.id, selectedDate))
     }
     var effectiveWork by remember(work.id, work.latitude, work.longitude) {
-        mutableStateOf(StoreLocationRepository.applySaved(context, work))
+        mutableStateOf(StoreHoursRepository.applySaved(context, StoreLocationRepository.applySaved(context, work)))
     }
     var locationBusy by remember { mutableStateOf(false) }
     var locationMessage by remember { mutableStateOf("") }
@@ -909,7 +910,7 @@ private fun StoreInfoScreen(
                     InfoRow("รหัสร้านสาขา", effectiveWork.storeCode)
                     InfoRow("ชื่อร้านสาขา", effectiveWork.storeName)
                     InfoRow("จำนวนเครื่อง", "${effectiveWork.posCount} เครื่อง")
-                    InfoRow("เวลาเปิด-ปิด", effectiveWork.openClose)
+                    StoreHoursEditorRow(effectiveWork) { effectiveWork = it }
                     InfoRow("ที่อยู่ร้าน", effectiveWork.address)
                     InfoRow("รูปแบบร้าน", effectiveWork.storeFormat)
                     InfoRow("ระดับร้าน", effectiveWork.rank)
@@ -985,6 +986,86 @@ private fun StoreInfoScreen(
 }
 
 @Composable
+private fun StoreHoursEditorRow(
+    work: WorkItem,
+    onSaved: (WorkItem) -> Unit
+) {
+    val context = LocalContext.current
+    val normalized = StoreHoursRepository.normalize(work.openClose).orEmpty()
+    val initial24 = normalized == "เปิด 24 ชั่วโมง"
+    fun initialTime(index: Int, fallback: LocalTime): LocalTime {
+        if (initial24) return fallback
+        val m = Regex("""^(\d{2})\.(\d{2})-(\d{2})\.(\d{2})$""").matchEntire(normalized) ?: return fallback
+        val h = m.groupValues[if (index == 0) 1 else 3].toIntOrNull() ?: return fallback
+        val min = m.groupValues[if (index == 0) 2 else 4].toIntOrNull() ?: return fallback
+        return runCatching { LocalTime.of(h, min) }.getOrDefault(fallback)
+    }
+    var showEditor by remember(work.id, work.openClose) { mutableStateOf(false) }
+    var is24Hours by remember(work.id, work.openClose) { mutableStateOf(initial24) }
+    var openTime by remember(work.id, work.openClose) { mutableStateOf(initialTime(0, LocalTime.of(6, 0))) }
+    var closeTime by remember(work.id, work.openClose) { mutableStateOf(initialTime(1, LocalTime.of(23, 0))) }
+    var errorText by remember(work.id, work.openClose) { mutableStateOf("") }
+    val locked = SubmissionEditPolicy.isLocked(work)
+    val display = StoreHoursRepository.displayValue(work.openClose)
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("เวลาเปิด-ปิด", color = TextSub, fontSize = 11.sp)
+            Text(display, color = if (work.openClose.isBlank()) WarningOrange else TextMain, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        }
+        if (!locked) {
+            TextButton(onClick = { errorText = ""; showEditor = true }) {
+                Text(if (work.openClose.isBlank()) "เพิ่มเวลา" else "แก้ไข")
+            }
+        }
+    }
+
+    if (showEditor) {
+        AlertDialog(
+            onDismissRequest = { showEditor = false },
+            title = { Text("เวลาเปิด-ปิดร้าน") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = is24Hours, onCheckedChange = { is24Hours = it; errorText = "" })
+                        Spacer(Modifier.width(8.dp))
+                        Text("เปิด 24 ชั่วโมง", fontWeight = FontWeight.SemiBold)
+                    }
+                    if (!is24Hours) {
+                        OutlinedButton(
+                            onClick = {
+                                TimePickerDialog(context, { _, h, m -> openTime = LocalTime.of(h, m); errorText = "" }, openTime.hour, openTime.minute, true).show()
+                            }, modifier = Modifier.fillMaxWidth()
+                        ) { Text("เวลาเปิด  ${openTime.format(DateTimeFormatter.ofPattern("HH.mm"))}") }
+                        OutlinedButton(
+                            onClick = {
+                                TimePickerDialog(context, { _, h, m -> closeTime = LocalTime.of(h, m); errorText = "" }, closeTime.hour, closeTime.minute, true).show()
+                            }, modifier = Modifier.fillMaxWidth()
+                        ) { Text("เวลาปิด  ${closeTime.format(DateTimeFormatter.ofPattern("HH.mm"))}") }
+                        Text("ร้านข้ามวันตั้งได้ เช่น 18.00-02.00", color = TextSub, fontSize = 11.sp)
+                    } else {
+                        Text("ระบบจะใช้เวลาขายครบ 24 ชั่วโมงในการคำนวณ", color = TextSub, fontSize = 11.sp)
+                    }
+                    if (errorText.isNotBlank()) Text(errorText, color = CriticalRed, fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val value = if (is24Hours) "เปิด 24 ชั่วโมง" else "%02d.%02d-%02d.%02d".format(openTime.hour, openTime.minute, closeTime.hour, closeTime.minute)
+                    runCatching { StoreHoursRepository.save(context, work, value) }
+                        .onSuccess { saved -> onSaved(work.copy(openClose = saved.value)); showEditor = false }
+                        .onFailure { errorText = it.message ?: "บันทึกเวลาไม่สำเร็จ" }
+                }) { Text("บันทึก") }
+            },
+            dismissButton = { TextButton(onClick = { showEditor = false }) { Text("ยกเลิก") } }
+        )
+    }
+}
+
+@Composable
 private fun InfoRow(label: String, value: String) {
     Row(
         modifier = Modifier
@@ -1004,7 +1085,7 @@ private fun StoreInfoWorkTab(
 ) {
     val context = LocalContext.current
     var effectiveWork by remember(work.id, work.latitude, work.longitude) {
-        mutableStateOf(StoreLocationRepository.applySaved(context, work))
+        mutableStateOf(StoreHoursRepository.applySaved(context, StoreLocationRepository.applySaved(context, work)))
     }
     var locationBusy by remember { mutableStateOf(false) }
     var locationMessage by remember { mutableStateOf("") }
@@ -1092,7 +1173,7 @@ private fun StoreInfoWorkTab(
             InfoRow("รหัสร้านสาขา", effectiveWork.storeCode)
             InfoRow("ชื่อร้านสาขา", effectiveWork.storeName)
             InfoRow("จำนวนเครื่อง", "${effectiveWork.posCount} เครื่อง")
-            InfoRow("เวลาเปิด-ปิด", effectiveWork.openClose)
+            StoreHoursEditorRow(effectiveWork) { effectiveWork = it }
             InfoRow("ที่อยู่ร้าน", effectiveWork.address)
             InfoRow("รูปแบบร้าน", effectiveWork.storeFormat)
             InfoRow("ระดับร้าน", effectiveWork.rank)
@@ -1166,7 +1247,7 @@ private fun StoreWorkScreen(
 ) {
     val context = LocalContext.current
     var effectiveWork by remember(work.id, work.latitude, work.longitude) {
-        mutableStateOf(StoreLocationRepository.applySaved(context, work))
+        mutableStateOf(StoreHoursRepository.applySaved(context, StoreLocationRepository.applySaved(context, work)))
     }
     val hapticFeedback = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
