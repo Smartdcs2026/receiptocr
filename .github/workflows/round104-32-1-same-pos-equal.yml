@@ -1,0 +1,22 @@
+name: Round104.32.1 same POS equal guard
+
+on:
+  push:
+    branches:
+      - round10432-1-same-pos-equal-guard
+  workflow_dispatch:
+
+jobs:
+  validate-same-pos-equal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify equal counters on different POS stay valid
+        run: node tests/review-customer-trend-round10432.test.js
+      - name: JavaScript syntax
+        run: |
+          node --check web-admin/review-customer-trend-model-round10432.js
+          node --check web-admin/review-customer-trend-round10432.js
+      - name: Existing review regression
+        run: node tests/review-logic.test.js
