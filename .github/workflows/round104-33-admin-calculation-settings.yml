@@ -1,0 +1,29 @@
+name: Round104.33 admin calculation settings
+
+on:
+  push:
+    branches: ["round10433-admin-calculation-settings"]
+  pull_request:
+    branches: ["round104-production-evidence-runtime"]
+    paths:
+      - "web-admin/**"
+      - "tests/admin-calculation-location-round10433.test.js"
+      - ".github/workflows/round104-33-admin-calculation-settings.yml"
+
+jobs:
+  validate-admin-calculation-settings:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify Admin calculation settings location
+        run: node tests/admin-calculation-location-round10433.test.js
+      - name: JavaScript syntax
+        run: |
+          node --check web-admin/brand-calculation-round10433.js
+          node --check web-admin/review-customer-trend-model-round10432.js
+          node --check web-admin/review-customer-trend-round10432.js
+      - name: Existing review regression
+        run: node tests/review-logic.test.js
+      - name: Customer trend regression
+        run: node tests/review-customer-trend-round10432.test.js
