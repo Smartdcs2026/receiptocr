@@ -36,7 +36,9 @@ function upgradeToggle(id,def){
     btn.setAttribute('aria-pressed',input.checked?'true':'false');
     btn.querySelector('.r36ToggleText').textContent=input.checked?'เปิด':'ปิด';
   }
-  btn.addEventListener('click',()=>{
+  btn.addEventListener('click',e=>{
+    e.preventDefault();
+    e.stopPropagation();
     input.checked=!input.checked;
     sync();
     input.dispatchEvent(new Event('change',{bubbles:true}));
