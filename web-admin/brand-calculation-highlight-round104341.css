@@ -18,3 +18,30 @@
 .swal2-popup:has(.r34Calc) .swal2-cancel{min-width:110px!important}
 .swal2-popup:has(.r34Calc) .r35ResetUi{height:42px!important;min-height:42px!important;min-width:138px!important;line-height:1!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;padding:0 16px!important;margin-right:auto!important;white-space:nowrap!important;overflow:visible!important}
 @media(max-width:900px){.swal2-popup:has(.r34Calc){width:98vw!important;height:94vh!important;max-height:94vh!important}.swal2-popup:has(.r34Calc) .r34Preview{position:relative!important;top:auto!important}.swal2-popup:has(.r34Calc) .swal2-actions{flex-wrap:wrap!important}.swal2-popup:has(.r34Calc) .r35ResetUi{margin-right:0!important;order:3!important;width:100%!important}}
+/* Round104.35.2: override the older swal-compact button rules with higher specificity. */
+.swal2-popup.swal-compact:not(.receiptStoreModal):has(.r34Calc) .swal2-actions .swal2-confirm,
+.swal2-popup.swal-compact:not(.receiptStoreModal):has(.r34Calc) .swal2-actions .swal2-cancel,
+.swal2-popup.swal-compact:not(.receiptStoreModal):has(.r34Calc) .swal2-actions .r35ResetUi{
+  height:46px!important;
+  min-height:46px!important;
+  max-height:none!important;
+  padding:0 18px 2px!important;
+  margin-top:0!important;
+  margin-bottom:0!important;
+  line-height:20px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  vertical-align:middle!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+  box-sizing:border-box!important;
+  font-family:Tahoma,"Leelawadee UI","Segoe UI",sans-serif!important;
+  font-size:13px!important;
+  font-weight:700!important;
+  text-indent:0!important;
+  transform:none!important;
+}
+.swal2-popup.swal-compact:not(.receiptStoreModal):has(.r34Calc) .swal2-actions .swal2-cancel{min-width:112px!important}
+.swal2-popup.swal-compact:not(.receiptStoreModal):has(.r34Calc) .swal2-actions .swal2-confirm{min-width:120px!important}
+.swal2-popup.swal-compact:not(.receiptStoreModal):has(.r34Calc) .swal2-actions .r35ResetUi{min-width:152px!important}
