@@ -1,0 +1,59 @@
+/* Round104.32 — monthly store rounds and POS customer comparison. */
+.reviewPage .rv32Panel{margin:6px 8px 8px;border:1px solid #cadce8;border-radius:10px;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(20,58,82,.04)}
+.reviewPage .rv32Head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 9px;background:#eef7fb;border-bottom:1px solid #d6e6ef}
+.reviewPage .rv32Head>div{min-width:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.reviewPage .rv32Head strong{font-size:13px;color:#173f58;white-space:nowrap}
+.reviewPage .rv32Head span{font-size:10.5px;color:#5c7180}
+.reviewPage #rv32RuleBtn{min-height:27px;padding:0 9px;border:1px solid #b8d0df;border-radius:7px;background:#fff;color:#225d82;font-size:10.5px;font-weight:800;white-space:nowrap;cursor:pointer}
+.reviewPage .rv32Rounds{display:flex;gap:4px;padding:6px 8px 3px;overflow-x:auto;scrollbar-width:thin}
+.reviewPage .rv32Round{display:inline-flex;align-items:center;min-height:22px;padding:0 7px;border:1px solid #d9e3e9;border-radius:12px;background:#f8fafb;color:#677782;font-size:9.5px;font-weight:700;white-space:nowrap}
+.reviewPage .rv32Round.done{background:#edf9f2;border-color:#cbe8d7;color:#247048}
+.reviewPage .rv32Round.sent{background:#fff7df;border-color:#f1dfaa;color:#8b691a}
+.reviewPage .rv32Round.current{background:#e8f3ff;border-color:#9bc8ef;color:#17629a;box-shadow:inset 0 0 0 1px rgba(23,98,154,.08)}
+.reviewPage .rv32Method{display:flex;gap:5px;flex-wrap:wrap;padding:3px 8px 6px}
+.reviewPage .rv32Method span{padding:2px 6px;border-radius:6px;background:#f4f7f9;color:#647580;font-size:9.5px}
+.reviewPage .rv32Method b{color:#344f60}
+.reviewPage .rv32Alert{margin:0 8px 6px;padding:6px 8px;border-radius:7px;display:flex;gap:6px;align-items:flex-start;font-size:10px}
+.reviewPage .rv32Alert strong{white-space:nowrap}
+.reviewPage .rv32Alert span{min-width:0;line-height:1.25}
+.reviewPage .rv32Alert.warn{background:#fff8df;border:1px solid #f0d98f;color:#795b12}
+.reviewPage .rv32Alert.danger{background:#fff0ed;border:1px solid #f0b1a6;color:#9c382c}
+.reviewPage .rv32TableWrap{overflow-x:auto;border-top:1px solid #e3eaee}
+.reviewPage .rv32Table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10.5px}
+.reviewPage .rv32Table th{height:26px;padding:3px 5px;background:#f1f7fa;color:#607482;font-size:9.5px;text-align:left;white-space:nowrap}
+.reviewPage .rv32Table td{height:34px;padding:4px 5px;border-top:1px solid #edf1f3;vertical-align:middle;color:#213d4e}
+.reviewPage .rv32Table th:nth-child(1),.reviewPage .rv32Table td:nth-child(1){width:12%}
+.reviewPage .rv32Table th:nth-child(2),.reviewPage .rv32Table td:nth-child(2),.reviewPage .rv32Table th:nth-child(3),.reviewPage .rv32Table td:nth-child(3){width:14%}
+.reviewPage .rv32Table th:nth-child(4),.reviewPage .rv32Table td:nth-child(4){width:12%}
+.reviewPage .rv32Table th:nth-child(5),.reviewPage .rv32Table td:nth-child(5){width:18%}
+.reviewPage .rv32Table th:nth-child(6),.reviewPage .rv32Table td:nth-child(6){width:11%}
+.reviewPage .rv32Table th:nth-child(7),.reviewPage .rv32Table td:nth-child(7){width:19%}
+.reviewPage .rv32Table tr.warn td{background:#fffdf5}
+.reviewPage .rv32Table tr.danger td{background:#fff7f5}
+.reviewPage .rv32Table td small{display:block;margin-top:2px;color:#73838d;font-size:8.5px;line-height:1.15}
+.reviewPage .rv32Delta{font-weight:900}
+.reviewPage .rv32Pill{display:inline-flex;align-items:center;min-height:18px;padding:1px 6px;border-radius:9px;font-size:8.5px;font-weight:900;white-space:nowrap}
+.reviewPage .rv32Pill.good{background:#eaf7ef;color:#247047}
+.reviewPage .rv32Pill.warn{background:#fff2cc;color:#896515}
+.reviewPage .rv32Pill.danger{background:#ffe5e0;color:#aa3d31}
+.reviewPage .rv32Foot{padding:5px 8px;background:#fafcfd;border-top:1px solid #edf1f3;color:#70808b;font-size:9px}
+.reviewPage .rv32ApprovalBlock{grid-column:1/-1;padding:5px 7px;border-radius:6px;background:#fff0ed;color:#a13c30;font-size:10px;font-weight:900;text-align:center}
+.reviewPage .rv32LoadError{padding:9px;display:flex;gap:8px;align-items:center;color:#7a6b4c;background:#fffdf5}
+.reviewPage .rv32LoadError strong{font-size:11px}.reviewPage .rv32LoadError span{font-size:10px}
+
+.rv32RuleForm{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px;text-align:left;font-family:inherit}
+.rv32RuleForm label{display:flex;flex-direction:column;gap:4px;margin:0;color:#344d5c;font-size:12px;font-weight:800}
+.rv32RuleForm label>span{line-height:1.2}
+.rv32RuleForm select,.rv32RuleForm input[type="number"]{box-sizing:border-box;width:100%;height:36px;margin:0;padding:0 9px;border:1px solid #cbd8df;border-radius:7px;background:#fff;color:#17384b;font:inherit;font-weight:600}
+.rv32RuleForm .wide{grid-column:1/-1}
+.rv32InputLine{display:grid;grid-template-columns:110px minmax(0,1fr);align-items:center;gap:7px}
+.rv32InputLine em{color:#70818b;font-size:10.5px;font-style:normal;font-weight:500}
+.rv32RuleForm .rv32Check{display:flex;flex-direction:row;align-items:center;gap:7px;padding:8px;border:1px solid #dce6ec;border-radius:7px;background:#f9fbfc}
+.rv32RuleForm .rv32Check input{width:16px;height:16px;margin:0}
+.rv32RuleNote{padding:8px 9px;border-radius:7px;background:#eef8f2;color:#387054;font-size:11px;font-weight:700;line-height:1.35}
+
+@media(max-width:1180px){
+  .reviewPage .rv32Table{min-width:580px}
+  .reviewPage .rv32Head{align-items:flex-start}
+}
+@media(max-width:720px){.rv32RuleForm{grid-template-columns:1fr}.rv32RuleForm .wide{grid-column:1}.reviewPage .rv32Panel{margin-left:4px;margin-right:4px}}
