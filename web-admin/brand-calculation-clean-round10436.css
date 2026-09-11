@@ -198,3 +198,11 @@
   .r34Check.r36ToggleRow{grid-template-columns:1fr!important}
   .r36ToggleButton{justify-self:start!important}
 }
+
+/* Round104.37 — compact summary for current calculation choices. */
+.r37CalcSummary{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;border:1px solid #dbe7f3;border-radius:12px;background:#f8fbff}
+.r37CalcSummaryTitle{font-size:11px;font-weight:900;color:#3b5167;margin-right:2px}
+.r37CalcChip{display:inline-flex;align-items:center;min-height:26px;max-width:100%;padding:4px 9px;border:1px solid #dbe5ef;border-radius:999px;background:#fff;color:#41566e;font-size:10.5px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r37CalcChip.blue{border-color:#c9dcff;background:#f2f7ff;color:#245fae}.r37CalcChip.green{border-color:#cdebdc;background:#f0faf5;color:#18754c}.r37CalcChip.purple{border-color:#ddd3ff;background:#f7f4ff;color:#6546b8}.r37CalcChip.amber{border-color:#f3dfb1;background:#fffaf0;color:#986a10}
+.swal2-popup:has(.r34Calc) .r34Section{margin-bottom:12px!important}.swal2-popup:has(.r34Calc) .r34Section>h3{margin-bottom:8px!important}.swal2-popup:has(.r34Calc) .r34HoursExample{padding:9px 11px!important;line-height:1.45!important}.swal2-popup:has(.r34Calc) .r36ToggleCopy small{font-size:10.5px!important;line-height:1.35!important}
+@media(max-width:760px){.r37CalcSummary{align-items:flex-start}.r37CalcSummaryTitle{width:100%}.r37CalcChip{white-space:normal}}
