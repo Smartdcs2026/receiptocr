@@ -1,0 +1,200 @@
+/* Round104.36 - clean calculation modal repair.
+   Purpose: restore stable layout, keep footer actions visible, and replace checkbox-looking controls with clear switches. */
+
+.swal2-popup:has(.r34Calc){
+  width:min(1180px,96vw)!important;
+  height:min(900px,92vh)!important;
+  max-height:92vh!important;
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+  padding:0!important;
+  border-radius:22px!important;
+}
+.swal2-popup:has(.r34Calc)>.swal2-title{
+  flex:0 0 auto!important;
+  min-height:62px!important;
+  margin:0!important;
+  box-sizing:border-box!important;
+}
+.swal2-popup:has(.r34Calc) .swal2-html-container{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  margin:0!important;
+  padding:0 18px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+  box-sizing:border-box!important;
+}
+.swal2-popup:has(.r34Calc) .r35QuickTabs{
+  flex:0 0 auto!important;
+  margin:0 12px 10px!important;
+  min-height:42px!important;
+}
+.swal2-popup:has(.r34Calc) .r34Calc{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding:10px 12px 22px!important;
+  box-sizing:border-box!important;
+  scrollbar-gutter:stable;
+}
+.swal2-popup:has(.r34Calc) .r34Preview{
+  max-height:none!important;
+  overflow:visible!important;
+}
+
+/* Clear on/off controls: no tick-box UI. */
+.r34Check.r36ToggleRow{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  gap:14px!important;
+  align-items:center!important;
+  width:100%!important;
+  min-height:68px!important;
+  margin:0!important;
+  padding:12px 14px!important;
+  border:1px solid #dce6f1!important;
+  border-radius:14px!important;
+  background:#fff!important;
+  color:#24364b!important;
+  cursor:default!important;
+  box-sizing:border-box!important;
+}
+.r36NativeToggle{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  opacity:0!important;
+  pointer-events:none!important;
+  margin:0!important;
+}
+.r36ToggleCopy{min-width:0;text-align:left}
+.r36ToggleCopy b{display:block;font-size:13px;line-height:1.35;color:#21354c;margin-bottom:3px}
+.r36ToggleCopy small{display:block;font-size:11px;line-height:1.45;color:#718096}
+.r36ToggleButton{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  width:84px!important;
+  height:36px!important;
+  min-width:84px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:7px!important;
+  padding:4px 9px 4px 5px!important;
+  border:1px solid #cbd5e1!important;
+  border-radius:999px!important;
+  background:#eef2f6!important;
+  color:#59697b!important;
+  font:700 11px/1 Tahoma,"Leelawadee UI","Segoe UI",sans-serif!important;
+  cursor:pointer!important;
+  box-sizing:border-box!important;
+  transition:.18s ease!important;
+}
+.r36ToggleButton .r36Knob{
+  width:26px!important;
+  height:26px!important;
+  flex:0 0 26px!important;
+  border-radius:50%!important;
+  background:#fff!important;
+  box-shadow:0 1px 4px rgba(15,23,42,.22)!important;
+}
+.r36ToggleButton[aria-pressed="true"]{
+  justify-content:flex-end!important;
+  flex-direction:row-reverse!important;
+  border-color:#7cc69f!important;
+  background:#e9f8f0!important;
+  color:#147449!important;
+}
+.r36ToggleButton.r36RankSwitch[aria-pressed="true"]{
+  border-color:#b4a0eb!important;
+  background:#f1ecff!important;
+  color:#6746c3!important;
+}
+.r36ToggleButton:focus-visible{outline:3px solid rgba(47,111,237,.18)!important;outline-offset:2px!important}
+
+/* Footer: one stable row, only three real actions. */
+.swal2-popup:has(.r34Calc) .swal2-actions{
+  flex:0 0 auto!important;
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:10px!important;
+  width:100%!important;
+  min-height:68px!important;
+  margin:0!important;
+  padding:11px 20px 13px!important;
+  overflow:visible!important;
+  box-sizing:border-box!important;
+  border-top:1px solid #e7edf5!important;
+  background:#fff!important;
+}
+.swal2-popup:has(.r34Calc) .swal2-deny{display:none!important}
+.swal2-popup:has(.r34Calc) .swal2-cancel,
+.swal2-popup:has(.r34Calc) .swal2-confirm,
+.swal2-popup:has(.r34Calc) .r35ResetUi{
+  height:44px!important;
+  min-height:44px!important;
+  max-height:44px!important;
+  margin:0!important;
+  padding:0 20px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  line-height:normal!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  box-sizing:border-box!important;
+  border-radius:10px!important;
+  font-family:Tahoma,"Leelawadee UI","Segoe UI",sans-serif!important;
+  font-size:13px!important;
+  font-weight:700!important;
+  text-indent:0!important;
+  transform:none!important;
+}
+.swal2-popup:has(.r34Calc) .r35ResetUi{
+  order:1!important;
+  min-width:138px!important;
+  margin-right:auto!important;
+  border:1px solid #d9e2ec!important;
+  background:#fff!important;
+  color:#41566e!important;
+}
+.swal2-popup:has(.r34Calc) .swal2-cancel{
+  order:2!important;
+  min-width:108px!important;
+  border:1px solid #d9e2ec!important;
+  background:#fff!important;
+  color:#41566e!important;
+}
+.swal2-popup:has(.r34Calc) .swal2-confirm{
+  order:3!important;
+  min-width:118px!important;
+  border:1px solid #1f6eea!important;
+  background:#2478ee!important;
+  color:#fff!important;
+  box-shadow:0 4px 12px rgba(36,120,238,.18)!important;
+}
+.swal2-popup:has(.r34Calc) .r35ResetUi:hover,
+.swal2-popup:has(.r34Calc) .swal2-cancel:hover{background:#f6f8fb!important}
+.swal2-popup:has(.r34Calc) .swal2-confirm:hover{background:#176be1!important}
+
+@media(max-width:900px){
+  .swal2-popup:has(.r34Calc){width:98vw!important;height:94vh!important;max-height:94vh!important}
+  .swal2-popup:has(.r34Calc) .r34Preview{position:relative!important;top:auto!important}
+}
+@media(max-width:650px){
+  .swal2-popup:has(.r34Calc) .swal2-actions{gap:8px!important;padding:10px 12px!important}
+  .swal2-popup:has(.r34Calc) .r35ResetUi{min-width:0!important;padding:0 13px!important}
+  .swal2-popup:has(.r34Calc) .swal2-cancel,.swal2-popup:has(.r34Calc) .swal2-confirm{min-width:92px!important;padding:0 14px!important}
+  .r34Check.r36ToggleRow{grid-template-columns:1fr!important}
+  .r36ToggleButton{justify-self:start!important}
+}
