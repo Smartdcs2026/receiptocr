@@ -33,8 +33,11 @@ function upgradeToggle(id,def){
   btn.innerHTML='<span class="r36Knob"></span><span class="r36ToggleText"></span>';
 
   function sync(){
-    btn.setAttribute('aria-pressed',input.checked?'true':'false');
-    btn.querySelector('.r36ToggleText').textContent=input.checked?'เปิด':'ปิด';
+    const on=input.checked;
+    btn.setAttribute('aria-pressed',on?'true':'false');
+    const label=btn.querySelector('.r36ToggleText');
+    const next=on?'เปิด':'ปิด';
+    if(label&&label.textContent!==next)label.textContent=next;
   }
   btn.addEventListener('click',e=>{
     e.preventDefault();
@@ -48,30 +51,45 @@ function upgradeToggle(id,def){
   sync();
 }
 
+function setText(el,value){
+  if(el&&el.textContent!==value)el.textContent=value;
+}
+
 function repairFooter(calc){
-  const popup=calc.closest('.swal2-popup');
+  const popup=calc?.closest?.('.swal2-popup');
   if(!popup)return;
-  const reset=popup.querySelector('.r35ResetUi');
-  if(reset)reset.textContent='คืนค่าเริ่มต้น';
-  const confirm=popup.querySelector('.swal2-confirm');
-  const cancel=popup.querySelector('.swal2-cancel');
-  if(confirm)confirm.textContent='บันทึก';
-  if(cancel)cancel.textContent='ยกเลิก';
+  setText(popup.querySelector('.r35ResetUi'),'คืนค่าเริ่มต้น');
+  setText(popup.querySelector('.swal2-confirm'),'บันทึก');
+  setText(popup.querySelector('.swal2-cancel'),'ยกเลิก');
   const deny=popup.querySelector('.swal2-deny');
-  if(deny)deny.style.display='none';
+  if(deny&&deny.style.display!=='none')deny.style.display='none';
 }
 
 function upgrade(calc){
   if(!calc)return;
   Object.entries(defs).forEach(([id,def])=>upgradeToggle(id,def));
   repairFooter(calc);
+  requestAnimationFrame(()=>repairFooter(calc));
 }
 
 function scan(){
   document.querySelectorAll('.r34Calc').forEach(upgrade);
 }
 
-new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});
-document.addEventListener('DOMContentLoaded',scan);
-scan();
+const observer=new MutationObserver(mutations=>{
+  let shouldScan=false;
+  for(const mutation of mutations){
+    for(const node of mutation.addedNodes){
+      if(node.nodeType!==1)continue;
+      if(node.matches?.('.r34Calc,.r35ResetUi')||node.querySelector?.('.r34Calc,.r35ResetUi')){
+        shouldScan=true;
+        break;
+      }
+    }
+    if(shouldScan)break;
+  }
+  if(shouldScan)scan();
+});
+observer.observe(document.body,{childList:true,subtree:true});
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan,{once:true});else scan();
 })();
