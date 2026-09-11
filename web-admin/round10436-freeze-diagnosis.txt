@@ -1,0 +1,1 @@
+Round104.36 freeze diagnosis: the body-wide MutationObserver in brand-calculation-clean-round10436.js calls repairFooter repeatedly. repairFooter assigns textContent on SweetAlert footer buttons on every mutation, which itself creates child-list mutations and can loop continuously. Hotfix must only mutate when values actually differ and observe only modal/reset insertions.
