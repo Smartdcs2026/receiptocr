@@ -1,0 +1,68 @@
+name: Round104.34 APK store hours
+
+on:
+  push:
+    branches: ["round10434-apk-store-hours"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate and apply store-hours patch
+        run: |
+          python -m py_compile tools/round104_34_apk_store_hours_patch.py
+          python tools/round104_34_apk_store_hours_patch.py
+      - name: Verify Round104.34 field behavior
+        run: |
+          grep -q 'versionCode = 120' android-app/app/build.gradle.kts
+          grep -q 'versionName = "0.104.34"' android-app/app/build.gradle.kts
+          grep -q 'StoreHoursRepository' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'เปิด 24 ชั่วโมง' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q 'ร้านข้ามวันตั้งได้ เช่น 18.00-02.00' android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          grep -q '06.00-23.00' android-app/app/src/main/java/com/receiptocr/app/data/remote/StoreHoursRepository.kt || true
+          grep -q '00.00-00.00' android-app/app/src/main/java/com/receiptocr/app/data/remote/StoreHoursRepository.kt
+          grep -q 'StoreHoursRepository.applySaved' android-app/app/src/main/java/com/receiptocr/app/data/remote/WorkPlanRepository.kt
+          grep -q 'retainSubmittedPhotoDraft' android-app/app/src/main/java/com/receiptocr/app/data/DemoRepository.kt
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Make Gradle wrapper executable
+        run: chmod +x android-app/gradlew
+      - name: Android unit tests
+        working-directory: android-app
+        run: ./gradlew testDebugUnitTest --stacktrace
+      - name: Build debug APK
+        working-directory: android-app
+        run: ./gradlew assembleDebug --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReceiptOCR-Round104-34-store-hours-debug
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+      - name: Commit tested Round104.34 APK source
+        run: |
+          git config user.name "receiptocr-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add android-app/app/build.gradle.kts android-app/app/src/main/java/com/receiptocr/app/ui/ReceiptOCRApp.kt
+          if git diff --cached --quiet; then
+            echo "Round104.34 APK source already committed"
+            exit 0
+          fi
+          git commit -m "Round104.34 add editable store hours and 24-hour mode"
+          git push origin HEAD:round10434-apk-store-hours
