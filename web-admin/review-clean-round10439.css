@@ -1,0 +1,79 @@
+/* Round104.39 — clean review layout, immediate POS comparison, shorter copy. UI only. */
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewWorkspace{grid-template-columns:270px minmax(0,1fr)!important;gap:5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewQueuePanel>header{min-height:44px!important;padding:6px 8px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewQueuePanel>header strong{font-size:15px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #reviewQueueCaption{font-size:9px!important;margin-top:1px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewV2Controls{padding:5px!important;gap:5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #reviewSearch{height:32px!important;min-height:32px!important;font-size:11.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .rv2StatusRow button{height:28px!important;font-size:10px!important}
+
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewDetailHead{min-height:48px!important;padding:5px 8px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewDetailHead h2{font-size:15px!important;line-height:1.05!important;margin:1px 0!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewDetailHead p{font-size:8.5px!important;line-height:1.1!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .detailBreadcrumb{font-size:9px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .detailNav button{height:27px!important;padding:0 7px!important;font-size:10px!important}
+
+/* Compact summary strip; no wide boxes. */
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewSummary{min-height:26px!important;height:26px!important;padding:2px 6px!important;display:flex!important;align-items:center!important;gap:8px!important;border-bottom:1px solid #dde6ec!important;background:#fafcfd!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .summaryTile{min-width:0!important;width:auto!important;height:auto!important;min-height:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;display:inline-flex!important;align-items:center!important;justify-content:flex-start!important;gap:3px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .summaryTile+ .summaryTile{padding-left:8px!important;border-left:1px solid #dce5eb!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .summaryTile span{font-size:8px!important;color:#6b7e8c!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .summaryTile strong{font-size:11px!important;color:#1c7450!important}
+
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewSplit{padding:5px!important;gap:5px!important;grid-template-columns:minmax(0,1fr) 445px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .evidenceToolbar{min-height:32px!important;height:32px!important;padding:2px 5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .evidenceToolbar button{height:26px!important;font-size:10px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .evidenceTabs{min-height:34px!important;padding:3px 5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .evidenceTabs button{height:27px!important;min-width:72px!important;font-size:10px!important}
+
+/* Right panel uses one scroll area; decisions stay visible. */
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .submissionPanel{overflow-y:auto!important;overflow-x:hidden!important;background:#fbfdfe!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewEditorBar{order:0!important;min-height:30px!important;padding:3px 6px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewEditorBar strong{font-size:11.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewEditorBar button{height:25px!important;font-size:9.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .submissionFacts{order:1!important;min-height:38px!important;padding:4px!important;grid-template-columns:1fr 1fr!important;gap:4px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .submissionFacts>div{min-height:30px!important;padding:3px 6px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .submissionFacts span{font-size:7.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .submissionFacts strong{font-size:11px!important}
+
+/* POS comparison is always visible and moved directly below the summary. */
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview{order:2!important;margin:4px 5px!important;max-height:none!important;overflow:visible!important;border-radius:8px!important;background:#fff!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .r38MonthToggle{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Head{min-height:30px!important;padding:4px 6px!important;display:block!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Head strong{font-size:0!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Head strong::after{content:"เทียบ POS"!important;font-size:11px!important;font-weight:900!important;color:#21475f!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Head span{margin-top:1px!important;font-size:8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Rounds{padding:3px 6px!important;gap:3px!important;min-height:26px!important;overflow-x:auto!important;flex-wrap:nowrap!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Round{min-height:20px!important;padding:2px 6px!important;font-size:8px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Alert{margin:3px 6px!important;padding:4px 6px!important;min-height:25px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Alert strong{font-size:8.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Alert span{font-size:8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32TableWrap{display:block!important;margin:3px 6px 5px!important;overflow:visible!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Table{width:100%!important;table-layout:fixed!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Table th,.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Table td{padding:3px 3px!important;font-size:8px!important;line-height:1.1!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Table small{display:block!important;margin-top:1px!important;font-size:7px!important;line-height:1.05!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Pill{padding:2px 4px!important;font-size:7px!important;min-height:16px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Foot,.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview .rv32Method{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview #r34ReviewRank{display:block!important;margin:4px 6px 6px!important;padding:6px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 #rv32CustomerReview #r34ReviewRank .r34ReviewRankMeta{font-size:8px!important;line-height:1.3!important}
+
+/* Current POS comes after the comparison. */
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .submissionPanel>.sectionTitle{order:3!important;min-height:26px!important;padding:3px 6px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .submissionPanel>.sectionTitle strong{font-size:12px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .recordTableWrap{order:4!important;max-height:170px!important;overflow:auto!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewRecordTable thead th{height:25px!important;padding:3px 4px!important;font-size:9px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewRecordTable tbody tr,.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewRecordTable tbody td{height:33px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewRecordTable tbody td{padding:3px 4px!important;font-size:10.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .recordMain{font-size:11px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .recordSub,.reviewPage.reviewWorkspaceV2.reviewClean10439 .rowMessage,.reviewPage.reviewWorkspaceV2.reviewClean10439 .rowNotice{font-size:7.5px!important;line-height:1.05!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .pill{min-height:18px!important;padding:2px 5px!important;font-size:8px!important}
+
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewNote{order:5!important;padding:4px 6px!important;font-size:9px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewNote textarea{min-height:44px!important;height:44px!important;max-height:70px!important;margin-top:3px!important;padding:5px 6px!important;font-size:10px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewActions{order:6!important;position:sticky!important;bottom:0!important;z-index:7!important;min-height:44px!important;padding:5px 6px!important;background:#f4f8fb!important;box-shadow:0 -1px 5px rgba(24,51,71,.08)!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewActions button{height:34px!important;min-height:34px!important;font-size:10.5px!important}
+
+@media(max-width:1180px){
+  .reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewWorkspace{grid-template-columns:250px minmax(0,1fr)!important}
+  .reviewPage.reviewWorkspaceV2.reviewClean10439 .reviewSplit{grid-template-columns:minmax(0,1fr) 420px!important}
+}
