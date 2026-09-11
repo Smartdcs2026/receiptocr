@@ -17,7 +17,6 @@
   const ym=v=>text(v).slice(0,7);
   const pad=n=>String(n).padStart(2,'0');
   const monthBounds=v=>{const m=text(v).match(/^(\d{4})-(\d{2})/);if(!m)return null;const y=+m[1],mo=+m[2],last=new Date(Date.UTC(y,mo,0)).getUTCDate();return{from:`${y}-${pad(mo)}-01`,to:`${y}-${pad(mo)}-${pad(last)}`}};
-  const statusLabel={SUBMITTED:'รอตรวจ',RETURNED:'ส่งกลับ',APPROVED:'ผ่านแล้ว',REJECTED:'ไม่ผ่าน'};
 
   let runSerial=0,listCache={at:0,items:[]},detailCache=new Map(),ruleCache=new Map(),planCache=new Map();
 
@@ -31,7 +30,7 @@
     const p=AdminAuth.json(`/api/admin/submissions/${key}`).catch(e=>{detailCache.delete(key);throw e});detailCache.set(key,p);return p;
   }
   async function brandRule(brand,force=false){
-    const key=text(brand);if(!key)return {receiptRule:{},config:M.normalizeConfig({})};
+    const key=text(brand);if(!key)return {receiptRule:{},config:M.normalizeConfig({}),counterMode:'CONTINUOUS'};
     if(!force&&ruleCache.has(key))return ruleCache.get(key);
     const d=await AdminAuth.json(`/api/brands/${encodeURIComponent(key)}/ocr-templates`);
     const receiptRule=d.receiptRule||{};
@@ -48,7 +47,6 @@
   }
   function sameStore(a,b){return norm(storeCode(a))&&norm(storeCode(a))===norm(storeCode(b))&&(!brandName(a)||!brandName(b)||norm(brandName(a))===norm(brandName(b)));}
   function sameStorePlan(x,s){return norm(first(x,['store_code','storeCode']))===norm(storeCode(s))&&(!brandName(s)||!first(x,['brand','brand_name','brandName'])||norm(first(x,['brand','brand_name','brandName']))===norm(brandName(s)));}
-  function submissionDateSort(a,b){return workDate(a).localeCompare(workDate(b))||Number(a.id||0)-Number(b.id||0)}
   function chooseAttempt(rows,currentId){
     if(!rows.length)return null;
     const current=rows.find(x=>Number(x.id)===Number(currentId));if(current)return current;
@@ -58,6 +56,12 @@
   function distinctRounds(items,s,currentId){
     const map=new Map();items.filter(x=>sameStore(x,s)).forEach(x=>{const d=workDate(x);if(!d)return;if(!map.has(d))map.set(d,[]);map.get(d).push(x)});
     return [...map.entries()].map(([date,rows])=>({date,item:chooseAttempt(rows,currentId),attempts:rows})).sort((a,b)=>a.date.localeCompare(b.date));
+  }
+  async function calculationEndpoint(all,selected,selectedId,selectedDetail,rule){
+    if(rule.config.endPoint!=='LATEST_SAME_DAY')return {id:selectedId,s:selected,data:selectedDetail};
+    const candidates=all.filter(x=>sameStore(x,selected)&&workDate(x)===workDate(selected)).sort((a,b)=>Number(b.id||0)-Number(a.id||0));
+    const latest=candidates[0];if(!latest||Number(latest.id)===Number(selectedId))return {id:selectedId,s:selected,data:selectedDetail};
+    const d=await detail(latest.id),s={...(d.submission||{}),...latest};return {id:Number(latest.id),s,data:d};
   }
   function allowedPreviousRounds(rounds,currentDate,counterMode,cfg){
     return rounds.filter(r=>r.date<currentDate&&M.counterPeriodAllows(r.date,currentDate,counterMode,cfg.monthBoundary));
@@ -110,7 +114,8 @@
     return `<span class="rv32Pill good">ปกติ</span>`;
   }
   function startPointLabel(v){return {PREVIOUS_APPROVED:'รอบก่อนที่ผ่านแล้ว',PREVIOUS_LATEST:'รอบก่อนล่าสุด',LAST_VALID_POS:'ครั้งล่าสุดของ POS ที่มีข้อมูล',MONTH_FIRST:'รอบแรกของเดือน'}[v]||'รอบก่อนที่ผ่านแล้ว'}
-  function percentLabel(v){return {SHARE_INCREASE:'สัดส่วนยอดเพิ่มของ POS ต่อยอดเพิ่มรวมร้าน',GROWTH_FROM_PREVIOUS:'เพิ่มจากรอบก่อนกี่เปอร์เซ็นต์',CURRENT_SHARE:'สัดส่วนยอดปัจจุบันของ POS ต่อรวมร้าน',NONE:'ไม่แสดงเปอร์เซ็นต์'}[v]||''}
+  function endPointLabel(v){return v==='LATEST_SAME_DAY'?'ข้อมูลล่าสุดของวันงานนี้':'รอบที่กำลังตรวจ'}
+  function percentLabel(v){return {SHARE_INCREASE:'ยอดเพิ่ม POS ÷ ยอดเพิ่มรวมร้าน',GROWTH_FROM_PREVIOUS:'ยอดเพิ่ม ÷ ยอดครั้งก่อน',CURRENT_SHARE:'ยอด POS ÷ ยอดรวมร้าน',NONE:'ไม่แสดงเปอร์เซ็นต์'}[v]||''}
 
   function monthOverview(plan,rounds,s){
     const month=ym(workDate(s)),monthRounds=rounds.filter(r=>ym(r.date)===month),plans=plan.filter(x=>sameStorePlan(x,s)).sort((a,b)=>text(a.work_date).localeCompare(text(b.work_date)));
@@ -146,7 +151,7 @@
     const planText=overview.expected?`เดือนนี้ ${overview.sent}/${overview.expected} รอบ · ผ่าน ${overview.approved} · เหลือ ${overview.remaining}`:`เดือนนี้ส่งแล้ว ${overview.sent} รอบ · ไม่พบจำนวนรอบในแผน`;
     host.innerHTML=`<div class="rv32Head"><div><strong>ตรวจยอดลูกค้าทั้งเดือน</strong><span>${esc(planText)}</span></div><button type="button" id="rv32RuleBtn">กติกาการคำนวณ</button></div>
       <div class="rv32Rounds">${overview.chips||'<span class="rv32Round">ยังไม่มีประวัติรอบอื่น</span>'}</div>
-      <div class="rv32Method"><span>เทียบจาก: <b>${esc(startPointLabel(rule.config.startPoint))}</b></span><span>${rule.counterMode==='MONTHLY_RESET'?'เริ่มใหม่ทุกเดือน':'นับต่อเนื่อง'}</span><span>${esc(percentLabel(rule.config.percentMode))}</span></div>
+      <div class="rv32Method"><span>จาก: <b>${esc(startPointLabel(rule.config.startPoint))}</b></span><span>ถึง: <b>${esc(endPointLabel(rule.config.endPoint))}</b></span><span>${rule.counterMode==='MONTHLY_RESET'?'เริ่มใหม่ทุกเดือน':'นับต่อเนื่อง'}</span><span>${esc(percentLabel(rule.config.percentMode))}</span></div>
       ${hard.length?`<div class="rv32Alert danger"><strong>ต้องแก้ ${hard.length} จุด</strong><span>${esc(hard.slice(0,4).join(' • '))}</span></div>`:warn.length?`<div class="rv32Alert warn"><strong>ควรตรวจ ${warn.length} จุด</strong><span>${esc(warn.slice(0,4).join(' • '))}</span></div>`:''}
       <div class="rv32TableWrap"><table class="rv32Table"><thead><tr><th>POS</th><th>ก่อน</th><th>รอบนี้</th><th>เพิ่ม</th><th>ผ่านไป</th><th>%</th><th>ผล</th></tr></thead><tbody>${comp.map(r=>`<tr class="${r.level==='BLOCK'?'danger':r.level==='WARN'?'warn':''}"><td><b>POS ${esc(r.pos)}</b></td><td>${valueText(r.previousValue)}</td><td>${valueText(r.currentValue)}</td><td class="rv32Delta">${deltaText(r.delta)}</td><td>${M.durationText(r.minutes)}${r.skipped?'<small>เทียบจากครั้งล่าสุดที่มีข้อมูล</small>':''}</td><td>${pct(r.percent)}</td><td>${resultPill(r)}${r.message?`<small>${esc(r.message)}</small>`:''}</td></tr>`).join('')}</tbody></table></div>
       <div class="rv32Foot">ยอดเท่ากันคนละ POS ในร้านเดียวกันถือว่าเกิดขึ้นได้ และไม่ถือว่าเป็นบิลซ้ำ</div>`;
@@ -198,14 +203,15 @@
     const serial=++runSerial;
     try{
       if(force){detailCache.delete(id);listCache.at=0;planCache.clear();}
-      const [d,all]=await Promise.all([detail(id),allSubmissions(force)]);if(serial!==runSerial)return;
-      const queue=all.find(x=>Number(x.id)===id)||{},s={...(d.submission||{}),...queue},brand=brandName(s),currentRows=d.records||[];
-      const [rule,plan]=await Promise.all([brandRule(brand,force),workPlan(s)]);if(serial!==runSerial)return;
-      const rounds=distinctRounds(all,s,id),ctx=await previousContext(rounds,s,id,rule.counterMode,rule.config);if(serial!==runSerial)return;
-      const comp=compareRows(currentRows,s,ctx,rule),safety=safetyFromCore(currentRows,s),overview=monthOverview(plan,rounds,s);
-      const planDate=nearestPlanDate(overview.plans,workDate(s)),planCheck=planDate?M.planStatus(planDate,workDate(s),rule.config):{message:''};
+      const [selectedDetail,all]=await Promise.all([detail(id),allSubmissions(force)]);if(serial!==runSerial)return;
+      const queue=all.find(x=>Number(x.id)===id)||{},selected={...(selectedDetail.submission||{}),...queue},selectedRows=selectedDetail.records||[],brand=brandName(selected);
+      const [rule,plan]=await Promise.all([brandRule(brand,force),workPlan(selected)]);if(serial!==runSerial)return;
+      const endpoint=await calculationEndpoint(all,selected,id,selectedDetail,rule);if(serial!==runSerial)return;
+      const rounds=distinctRounds(all,endpoint.s,endpoint.id),ctx=await previousContext(rounds,endpoint.s,endpoint.id,rule.counterMode,rule.config);if(serial!==runSerial)return;
+      const comp=compareRows(endpoint.data.records||[],endpoint.s,ctx,rule),safety=safetyFromCore(selectedRows,selected),overview=monthOverview(plan,rounds,selected);
+      const planDate=nearestPlanDate(overview.plans,workDate(selected)),planCheck=planDate?M.planStatus(planDate,workDate(selected),rule.config):{message:''};
       const sourceUnapproved=Boolean(ctx.primary&&status(ctx.primary.round.item)!=='APPROVED'&&rule.config.startPoint!=='PREVIOUS_APPROVED');
-      renderPanel({s,overview,comp,safety,rule,planWarn:overview.offPlan?'วันงานนี้ไม่ตรงกับรอบในแผน':planCheck.message,sourceUnapproved});
+      renderPanel({s:selected,overview,comp,safety,rule,planWarn:overview.offPlan?'วันงานนี้ไม่ตรงกับรอบในแผน':planCheck.message,sourceUnapproved});
     }catch(e){
       if(serial!==runSerial)return;document.getElementById('rv32CustomerReview')?.remove();
       const note=document.querySelector('.reviewNote'),panelNow=document.querySelector('.submissionPanel');if(panelNow&&note){const div=document.createElement('section');div.id='rv32CustomerReview';div.className='rv32Panel rv32LoadError';div.innerHTML='<strong>ยังเปิดข้อมูลเปรียบเทียบไม่ได้</strong><span>ตรวจงานปัจจุบันได้ตามปกติ</span>';panelNow.insertBefore(div,note);}
