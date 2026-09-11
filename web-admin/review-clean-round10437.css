@@ -1,0 +1,217 @@
+/* Round104.37 — clean review workspace. Focus on evidence, POS and decision. */
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewWorkspace{
+  grid-template-columns:clamp(285px,20vw,325px) minmax(0,1fr)!important;
+  gap:6px!important;
+}
+
+/* Queue: more stores visible, keep only scan-critical information. */
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewQueue{padding:4px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewQueueItem{
+  min-height:50px!important;
+  margin:0 0 3px!important;
+  padding:4px 5px!important;
+  grid-template-columns:34px minmax(0,1fr) 52px!important;
+  column-gap:5px!important;
+  row-gap:1px!important;
+  border-radius:7px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .queueBrand{
+  width:32px!important;
+  min-width:32px!important;
+  height:24px!important;
+  padding:0 2px!important;
+  border-radius:6px!important;
+  font-size:8.5px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .queueBrand .rv31BrandLogo{
+  max-width:28px!important;max-height:20px!important
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .queueMain strong{
+  font-size:11.5px!important;
+  line-height:1.12!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .queueMain small{
+  font-size:9px!important;
+  line-height:1.05!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .queueMetaV2 span{
+  height:14px!important;
+  min-height:14px!important;
+  padding:0 4px!important;
+  font-size:8px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .queueSide{min-width:49px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .statusBadge{
+  min-height:16px!important;
+  padding:0 4px!important;
+  font-size:8px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .queueWait{font-size:8.5px!important}
+
+/* Detail header and summary: one glance, no repeated prose. */
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewDetailHead{
+  min-height:58px!important;
+  padding:6px 9px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewDetailHead h2{
+  margin:1px 0!important;
+  font-size:16px!important;
+  line-height:1.1!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewDetailHead p{
+  margin:0!important;
+  font-size:9.5px!important;
+  line-height:1.15!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .detailSubmittedMeta{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewSummary{
+  gap:4px!important;
+  padding:4px 6px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .summaryTile{
+  min-height:30px!important;
+  padding:3px 6px!important;
+  border-radius:7px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .summaryTile span{font-size:8.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .summaryTile strong{font-size:14px!important;line-height:1!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewAlert.good{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewAlert{
+  min-height:28px!important;
+  padding:5px 8px!important;
+  gap:6px!important;
+  font-size:9.5px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewAlert span{
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+/* Right review panel: compact facts and POS, less repeated wording. */
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .submissionPanel{gap:0!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewEditorBar{
+  min-height:32px!important;
+  padding:4px 7px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .submissionFacts{
+  min-height:32px!important;
+  padding:3px 5px!important;
+  gap:4px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .submissionFacts>div{
+  min-height:28px!important;
+  padding:3px 6px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .submissionFacts span{font-size:8px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .submissionFacts strong{font-size:11.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .sectionTitle{
+  min-height:28px!important;
+  padding:4px 7px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .sectionTitle>span{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewRecordTable th{
+  padding:4px 5px!important;
+  font-size:9px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewRecordTable td{
+  padding:5px!important;
+  font-size:10px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .recordSub,
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rowNotice,
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rowMessage{
+  font-size:8.5px!important;
+  line-height:1.2!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewNote{
+  padding:6px 7px!important;
+  font-size:10px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewNote textarea{
+  min-height:52px!important;
+  height:52px!important;
+  padding:6px 8px!important;
+  font-size:10.5px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .actionHint{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewActions{
+  min-height:48px!important;
+  padding:6px 7px!important;
+  gap:6px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewActions button{
+  min-height:36px!important;
+  height:36px!important;
+  font-size:11px!important;
+}
+
+/* Monthly comparison: show plan, rounds, exceptions and numbers only. Admin rules stay on Admin page. */
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Panel{
+  margin:5px 6px!important;
+  border-radius:9px!important;
+  overflow:hidden!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Head{
+  min-height:32px!important;
+  padding:5px 7px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Head strong{font-size:11.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Head span{font-size:8.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 #rv32RuleBtn,
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Method,
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Foot{
+  display:none!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Rounds{
+  padding:5px 7px!important;
+  gap:4px!important;
+  flex-wrap:nowrap!important;
+  overflow-x:auto!important;
+  scrollbar-width:thin;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Round{
+  min-height:22px!important;
+  padding:3px 7px!important;
+  font-size:8.5px!important;
+  white-space:nowrap!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Alert{
+  margin:4px 7px!important;
+  padding:5px 7px!important;
+  min-height:30px!important;
+  border-radius:7px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Alert strong{font-size:9.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Alert span{
+  display:block!important;
+  font-size:8.5px!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32TableWrap{margin:4px 7px 7px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Table th,
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Table td{
+  padding:4px!important;
+  font-size:8.5px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Table small{font-size:7.5px!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437 .rv32Pill{font-size:7.5px!important;padding:2px 5px!important}
+
+/* When there is genuinely no image, give the review data the space instead of showing an empty dark panel. */
+.reviewPage.reviewWorkspaceV2.reviewClean10437.r37NoEvidence .reviewSplit{
+  grid-template-columns:minmax(0,1fr)!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewClean10437.r37NoEvidence .evidencePanel{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewClean10437.r37NoEvidence .submissionPanel{max-width:none!important}
+
+@media(max-width:1180px){
+  .reviewPage.reviewWorkspaceV2.reviewClean10437 .reviewWorkspace{grid-template-columns:270px minmax(0,1fr)!important}
+}
