@@ -1,0 +1,84 @@
+/* Round104.31 — brand clarity for fast review. Keep logos small and text short. */
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .queueBrand.rv31BrandVisual{
+  overflow:hidden!important;
+  padding:2px!important;
+  background:#fff!important;
+  border:1px solid #dbe5ec!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .queueBrand.rv31BrandVisual img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:30px!important;
+  max-height:22px!important;
+  margin:auto!important;
+  object-fit:contain!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .queueBrand .rv31BrandFallback{
+  width:100%!important;
+  height:100%!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0 2px!important;
+  color:#245f95!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  line-height:1!important;
+  text-align:center!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .queueBrand .rv31BrandFallback[hidden]{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .reviewQueueItem .queueSide>:not(.statusBadge):not(.queueWait){display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .queueMain strong{
+  overflow:hidden!important;
+  white-space:nowrap!important;
+  text-overflow:ellipsis!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .queueMain small:first-of-type{
+  overflow:hidden!important;
+  white-space:nowrap!important;
+  text-overflow:ellipsis!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .reviewDetailHead .rv31Identity{
+  position:relative!important;
+  min-width:0!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .reviewDetailHead .rv31Identity.rv31HasLogo{
+  padding-left:36px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .rv31DetailBrandLogo{
+  position:absolute!important;
+  left:0!important;
+  top:50%!important;
+  width:30px!important;
+  height:30px!important;
+  transform:translateY(-50%)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  padding:3px!important;
+  border:1px solid #d8e4ec!important;
+  border-radius:7px!important;
+  background:#fff!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .rv31DetailBrandLogo img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  object-fit:contain!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .detailSubmittedMeta{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .submissionFacts>div span{
+  white-space:nowrap!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .submissionPanel>.sectionTitle.rv216PosTitle span{display:none!important}
+.reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 #reviewSearch::placeholder{
+  color:#8293a0!important;
+  opacity:1!important;
+}
+@media(max-width:1180px){
+  .reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .reviewDetailHead .rv31Identity.rv31HasLogo{padding-left:32px!important}
+  .reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .rv31DetailBrandLogo{width:27px!important;height:27px!important}
+  .reviewPage.reviewWorkspaceV2.reviewBrandClarity10431 .queueBrand.rv31BrandVisual img{max-width:26px!important;max-height:20px!important}
+}
