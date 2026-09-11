@@ -1,0 +1,49 @@
+name: Round104.31 review brand clarity
+
+on:
+  push:
+    branches:
+      - round10431-review-brand-clarity
+  workflow_dispatch:
+
+jobs:
+  validate-review-brand-clarity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Round104.31 hooks
+        run: |
+          grep -q 'review-brand-clarity-round10431.css?v=104310' web-admin/review.html
+          grep -q 'review-brand-clarity-round10431.js?v=104310' web-admin/review.html
+          grep -q 'reviewBrandClarity10431' web-admin/review-brand-clarity-round10431.css
+          grep -q 'reviewBrandClarity10431' web-admin/review-brand-clarity-round10431.js
+
+      - name: Verify brand catalog and logo fallback
+        run: |
+          grep -q "AdminAuth.json('/api/brands')" web-admin/review-brand-clarity-round10431.js
+          grep -q 'logo_url' web-admin/review-brand-clarity-round10431.js
+          grep -q 'rv31BrandFallback' web-admin/review-brand-clarity-round10431.js
+          grep -q 'rv31DetailBrandLogo' web-admin/review-brand-clarity-round10431.js
+          grep -q 'object-fit:contain' web-admin/review-brand-clarity-round10431.css
+
+      - name: Verify short review text and compact queue
+        run: |
+          grep -q 'รหัส / ร้าน / คนส่ง' web-admin/review.html
+          grep -q "text==='วันที่ทำงาน'?'วันที่'" web-admin/review-brand-clarity-round10431.js
+          grep -q "text==='ผู้ปฏิบัติงาน'?'ผู้ส่ง'" web-admin/review-brand-clarity-round10431.js
+          grep -q 'detailSubmittedMeta' web-admin/review-brand-clarity-round10431.css
+          grep -q 'queueSide>:not(.statusBadge):not(.queueWait)' web-admin/review-brand-clarity-round10431.css
+          grep -q 'min-height:58px' web-admin/review-concept-round10430.css
+
+      - name: JavaScript syntax
+        run: |
+          node --check web-admin/review-brand-clarity-round10431.js
+          node --check web-admin/review-concept-round10430.js
+          node --check web-admin/review-fast-round10428.js
+          node --check web-admin/review-workspace-v2.js
+          node --check web-admin/review.js
+
+      - name: Review logic regression
+        run: node tests/review-logic.test.js
