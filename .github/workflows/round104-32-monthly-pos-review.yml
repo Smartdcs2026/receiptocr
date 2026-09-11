@@ -1,0 +1,61 @@
+name: Round104.32 monthly POS review
+
+on:
+  push:
+    branches:
+      - round10432-monthly-pos-review-rules
+  workflow_dispatch:
+
+jobs:
+  validate-monthly-pos-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Round104.32 assets
+        run: |
+          grep -q 'review-customer-trend-round10432.css?v=104320' web-admin/review.html
+          grep -q 'review-customer-trend-model-round10432.js?v=104320' web-admin/review.html
+          grep -q 'review-customer-trend-round10432.js?v=104320' web-admin/review.html
+          test -f web-admin/review-customer-trend-model-round10432.js
+          test -f web-admin/review-customer-trend-round10432.js
+          test -f web-admin/review-customer-trend-round10432.css
+
+      - name: Verify monthly plan and comparison rules
+        run: |
+          grep -q '/api/admin/work-plan-items' web-admin/review-customer-trend-round10432.js
+          grep -q '/api/admin/submissions?status=' web-admin/review-customer-trend-round10432.js
+          grep -q 'เดือนนี้' web-admin/review-customer-trend-round10432.js
+          grep -q 'PREVIOUS_APPROVED' web-admin/review-customer-trend-model-round10432.js
+          grep -q 'MONTHLY_RESET' web-admin/review-customer-trend-model-round10432.js
+          grep -q 'SHARE_INCREASE' web-admin/review-customer-trend-model-round10432.js
+          grep -q 'GROWTH_FROM_PREVIOUS' web-admin/review-customer-trend-model-round10432.js
+          grep -q 'CURRENT_SHARE' web-admin/review-customer-trend-model-round10432.js
+
+      - name: Verify Admin changeable calculation settings
+        run: |
+          grep -q 'กติกาการคำนวณ' web-admin/review-customer-trend-round10432.js
+          grep -q 'เริ่มเทียบจาก' web-admin/review-customer-trend-round10432.js
+          grep -q 'สิ้นสุดที่' web-admin/review-customer-trend-round10432.js
+          grep -q 'การคิดเปอร์เซ็นต์' web-admin/review-customer-trend-round10432.js
+          grep -q '/api/admin/brand-receipt-rules' web-admin/review-customer-trend-round10432.js
+          grep -q 'reviewCalculation' web-admin/review-customer-trend-round10432.js
+
+      - name: Protect equal customer totals on different POS
+        run: |
+          grep -q 'Equal values alone are never considered duplicate evidence' web-admin/review-customer-trend-model-round10432.js
+          grep -q 'ยอดเท่ากันคนละ POS ในร้านเดียวกันถือว่าเกิดขึ้นได้' web-admin/review-customer-trend-round10432.js
+          node tests/review-customer-trend-round10432.test.js
+
+      - name: JavaScript syntax
+        run: |
+          node --check web-admin/review-customer-trend-model-round10432.js
+          node --check web-admin/review-customer-trend-round10432.js
+          node --check web-admin/review.js
+          node --check web-admin/review-logic.js
+
+      - name: Existing review regression
+        run: |
+          node tests/review-logic.test.js
+          node tests/round10417-pos-terminal.test.js
