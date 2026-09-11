@@ -93,3 +93,27 @@ const observer=new MutationObserver(mutations=>{
 observer.observe(document.body,{childList:true,subtree:true});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan,{once:true});else scan();
 })();
+
+/* Round104.37 — short summary of active calculation choices. */
+(function(){
+'use strict';
+const start={PREVIOUS_APPROVED:'รอบก่อนที่ผ่าน',PREVIOUS_LATEST:'รอบก่อนล่าสุด',LAST_VALID_POS:'ข้อมูลล่าสุดของ POS',MONTH_FIRST:'รอบแรกเดือน'};
+const end={CURRENT_REVIEW:'รอบนี้',LATEST_SAME_DAY:'ล่าสุดของวัน'};
+const month={FOLLOW_BRAND:'ตามแบรนด์',SAME_MONTH:'เดือนเดียวกัน',ALWAYS_CONTINUE:'ต่อเนื่องข้ามเดือน'};
+const time={OPEN_HOURS:'เวลาเปิดร้าน',ELAPSED:'เวลาระหว่างบิล'};
+const percent={SHARE_INCREASE:'สัดส่วนยอดเพิ่ม',GROWTH_FROM_PREVIOUS:'เพิ่มจากรอบก่อน',CURRENT_SHARE:'สัดส่วนยอดปัจจุบัน',NONE:'ไม่ใช้ %'};
+const val=id=>document.getElementById(id)?.value||'';
+const checked=id=>!!document.getElementById(id)?.checked;
+function render(calc){
+  if(!calc)return;
+  let host=calc.querySelector('.r37CalcSummary');
+  if(!host){host=document.createElement('div');host.className='r37CalcSummary';calc.insertBefore(host,calc.querySelector('.r34Section')||calc.firstChild)}
+  host.innerHTML=`<span class="r37CalcSummaryTitle">สรุปที่ใช้อยู่</span><span class="r37CalcChip blue">เทียบ ${start[val('r34Start')]||'รอบก่อน'} → ${end[val('r34End')]||'รอบนี้'}</span><span class="r37CalcChip green">เดือน ${month[val('r34Month')]||'ตามแบรนด์'}</span><span class="r37CalcChip green">เวลา ${time[val('r34SellingTime')]||'เวลาเปิดร้าน'}</span><span class="r37CalcChip amber">% ${percent[val('r34Percent')]||'ตามที่ตั้ง'}</span><span class="r37CalcChip purple">ระดับ ${checked('r34RankOn')?'เปิด':'ปิด'}</span>`;
+  if(calc.dataset.r37Bound!=='1'){
+    calc.dataset.r37Bound='1';
+    calc.addEventListener('change',()=>render(calc));
+    calc.addEventListener('input',e=>{if(e.target?.matches('select,input'))render(calc)});
+  }
+}
+document.addEventListener('click',e=>{if(e.target.closest?.('.calcRuleBtn'))[150,350,700,1300,2200].forEach(ms=>setTimeout(()=>render(document.querySelector('.r34Calc')),ms))});
+})();
