@@ -31,13 +31,13 @@ object WorkPlanRepository {
         val cloud = runCatching { fetchDay(employeeCode, date) }.getOrNull()
         if (cloud != null) {
             save(context, dayKey(employeeCode, date), cloud)
-            return LoadedWorkPlan(applySavedLocations(context, parseItems(cloud)), WorkPlanSource.CLOUD)
+            return LoadedWorkPlan(applySavedStoreData(context, parseItems(cloud)), WorkPlanSource.CLOUD)
         }
 
         val cached = read(context, dayKey(employeeCode, date))
         if (!cached.isNullOrBlank()) {
             return runCatching {
-                LoadedWorkPlan(applySavedLocations(context, parseItems(cached)), WorkPlanSource.CACHE)
+                LoadedWorkPlan(applySavedStoreData(context, parseItems(cached)), WorkPlanSource.CACHE)
             }.getOrElse { fallback(date) }
         }
 
@@ -48,7 +48,7 @@ object WorkPlanRepository {
         val cached = read(context, dayKey(employeeCode, date))
         if (!cached.isNullOrBlank()) {
             return runCatching {
-                LoadedWorkPlan(applySavedLocations(context, parseItems(cached)), WorkPlanSource.CACHE)
+                LoadedWorkPlan(applySavedStoreData(context, parseItems(cached)), WorkPlanSource.CACHE)
             }.getOrElse { fallback(date) }
         }
         return fallback(date)
@@ -74,7 +74,11 @@ object WorkPlanRepository {
     }
 
     private fun fallback(date: LocalDate): LoadedWorkPlan =
-        LoadedWorkPlan(DemoRepository.getWorkItems(date), WorkPlanSource.FALLBACK)
+        LoadedWorkPlan(applySavedStoreDataFallback(DemoRepository.getWorkItems(date)), WorkPlanSource.FALLBACK)
+
+    // Fallback data has no Context. Store overrides are applied as soon as a real/cached plan is available
+    // and again inside the store screens.
+    private fun applySavedStoreDataFallback(items: List<WorkItem>): List<WorkItem> = items
 
     private fun fetchDay(employeeCode: String, date: LocalDate): String {
         val user = enc(employeeCode)
@@ -109,8 +113,10 @@ object WorkPlanRepository {
         return if (value.equals("null", true) || value.equals("undefined", true)) fallback else value
     }
 
-    private fun applySavedLocations(context: Context, items: List<WorkItem>): List<WorkItem> =
-        items.map { StoreLocationRepository.applySaved(context, it) }
+    private fun applySavedStoreData(context: Context, items: List<WorkItem>): List<WorkItem> =
+        items.map { item ->
+            StoreHoursRepository.applySaved(context, StoreLocationRepository.applySaved(context, item))
+        }
 
     private fun JSONObject.receiptStoreId(): String =
         cleanString("receiptStoreId").ifBlank {
