@@ -74,7 +74,18 @@ const M=require('../web-admin/review-customer-trend-model-round10432.js');
   assert.strictEqual(M.planStatus('2026-09-10','2026-09-12',{planAfterDays:2}).level,'NORMAL');
 }
 
-// Same POS can stay equal without warning when the threshold is disabled.
+// The same POS with the same counter on a later visit is suspicious by default.
+{
+  const c=M.comparePair(
+    {pos_number:'1',customer_no:'500',bill_date:'01/09/2026',bill_time:'08:00'},
+    {pos_number:'1',customer_no:'500',bill_date:'03/09/2026',bill_time:'08:00'},
+    {previousWorkDate:'2026-09-01',currentWorkDate:'2026-09-03',counterMode:'CONTINUOUS',config:{}}
+  );
+  assert.strictEqual(c.level,'WARN');
+  assert.ok(c.message.includes('POS เดิม'));
+}
+
+// Admin can still turn the unchanged-value warning off with 0 hours.
 {
   const c=M.comparePair(
     {pos_number:'1',customer_no:'500',bill_date:'01/09/2026',bill_time:'08:00'},
