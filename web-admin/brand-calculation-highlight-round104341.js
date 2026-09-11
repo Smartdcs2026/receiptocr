@@ -1,14 +1,9 @@
 (function(){
 'use strict';
-function mark(target){
-  if(!target?.closest?.('.r34Calc'))return;
-  requestAnimationFrame(()=>{
-    document.querySelectorAll('.r34Calc .r34Field.active,.r34Calc .r34RankThreshold.active').forEach(x=>x.classList.remove('active'));
-    const field=target.closest('.r34Field,.r34RankThreshold');
-    if(field)field.classList.add('active');
-  });
-}
-document.addEventListener('focusin',e=>mark(e.target));
-document.addEventListener('change',e=>mark(e.target));
-document.addEventListener('input',e=>mark(e.target));
+const M=window.ReviewCustomerTrendModel10432,R=window.ReviewCustomerRank10434,q=id=>document.getElementById(id);
+function mark(target){if(!target?.closest?.('.r34Calc'))return;requestAnimationFrame(()=>{document.querySelectorAll('.r34Calc .r34Field.active,.r34Calc .r34RankThreshold.active').forEach(x=>x.classList.remove('active'));target.closest('.r34Field,.r34RankThreshold')?.classList.add('active')})}
+document.addEventListener('focusin',e=>mark(e.target));document.addEventListener('change',e=>mark(e.target));document.addEventListener('input',e=>mark(e.target));
+function reset(){if(!M||!R)return;const d=M.normalizeConfig({}),r=R.normalizeRank({}),pairs={r34Start:d.startPoint,r34End:d.endPoint,r34Month:d.monthBoundary,r34Time:d.timeSource,r34Percent:d.percentMode,r34Decrease:d.decreaseAction,r34NoPrev:d.noPreviousAction,r34SellingTime:'OPEN_HOURS',r34RankWhen:r.summaryPoint,r34RankMeasure:r.measure};Object.entries(pairs).forEach(([id,v])=>{if(q(id))q(id).value=v});[['r34Same',d.sameValueHours],['r34Fast',d.fastIncreasePerHour],['r34Before',d.planBeforeDays],['r34After',d.planAfterDays]].forEach(([id,v])=>{if(q(id))q(id).value=v});if(q('r34Skip'))q('r34Skip').checked=d.skipNoReceipt;if(q('r34RankOn'))q('r34RankOn').checked=Boolean(r.enabled);['A+','A','B+','B','C+','C'].forEach(k=>{const x=q('r34T'+k.replace('+','P'));if(x)x.value=r.thresholds?.[k]??''});document.querySelectorAll('.r34Calc select,.r34Calc input').forEach(x=>x.dispatchEvent(new Event('change',{bubbles:true})))}
+function enhance(calc){if(calc.dataset.nav35)return;calc.dataset.nav35='1';const popup=calc.closest('.swal2-popup'),host=calc.parentElement,secs=[...calc.querySelectorAll(':scope>.r34Section')],nav=document.createElement('div');nav.className='r35QuickTabs';nav.innerHTML='<button class="active">ภาพรวม</button><button>1. วิธีคำนวณ</button><button>2. เวลาและเตือน</button><button>3. การจัดระดับ</button>';nav.querySelectorAll('button').forEach((b,i)=>b.onclick=()=>{nav.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(i===0)calc.scrollIntoView({behavior:'smooth',block:'start'});else secs[i-1]?.scrollIntoView({behavior:'smooth',block:'start'})});host.insertBefore(nav,calc);const actions=popup?.querySelector('.swal2-actions');if(actions&&!actions.querySelector('.r35ResetUi')){const b=document.createElement('button');b.type='button';b.className='r35ResetUi';b.textContent='รีเซ็ตเป็นค่าเริ่มต้น';b.onclick=reset;actions.prepend(b)}}
+function scan(){document.querySelectorAll('.r34Calc').forEach(enhance)}new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});scan();
 })();
