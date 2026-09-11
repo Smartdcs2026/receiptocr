@@ -1,40 +1,42 @@
-/* Round104.38 — monthly review section disclosure. UI only. */
+/* Round104.38/104.39 — monthly comparison always visible. UI only. */
 (function(){
   'use strict';
   const root=document.querySelector('.reviewPage.reviewWorkspaceV2');
   const detail=document.getElementById('reviewDetail');
   if(!root||!detail)return;
-  root.classList.add('reviewMonthCompact10438');
+  root.classList.add('reviewMonthCompact10438','reviewClean10439');
 
+  const setText=(el,value)=>{if(el&&el.textContent!==value)el.textContent=value;};
   function enhance(panel){
-    if(!panel||panel.dataset.r38==='1')return;
+    if(!panel)return;
     panel.dataset.r38='1';
-    panel.classList.add('r38MonthlyCompact');
-    const head=panel.querySelector('.rv32Head');
-    if(!head)return;
-    const btn=document.createElement('button');
-    btn.type='button';
-    btn.className='r38MonthToggle';
-    btn.textContent='เทียบ POS';
-    btn.title='ดูยอดรอบก่อน เทียบรอบนี้ เวลาที่ผ่านไป และระดับ';
-    btn.setAttribute('aria-expanded','false');
-    btn.addEventListener('click',()=>{
-      const open=panel.classList.toggle('r38Expanded');
-      btn.textContent=open?'ย่อ':'เทียบ POS';
-      btn.setAttribute('aria-expanded',open?'true':'false');
-    });
-    head.appendChild(btn);
+    panel.classList.add('r38MonthlyCompact','r38Expanded');
+    panel.querySelector('.r38MonthToggle')?.remove();
+    const plan=panel.querySelector('.rv32Head span');
+    if(plan){
+      const t=String(plan.textContent||'').trim().replace(/^เดือนนี้\s*/,'').replace('ไม่พบจำนวนรอบในแผน','ไม่พบแผน');
+      if(t&&plan.textContent!==t)plan.textContent=t;
+    }
   }
 
-  function scan(){enhance(detail.querySelector('#rv32CustomerReview'));}
+  function clean(){
+    setText(document.querySelector('.reviewQueuePanel>header strong'),'คิวงาน');
+    setText(detail.querySelector('.reviewEditorBar strong'),'สรุป');
+    const section=detail.querySelector('.submissionPanel>.sectionTitle strong');
+    if(section&&/ข้อมูล\s*POS|POS/i.test(section.textContent||''))setText(section,'POS');
+    setText(detail.querySelector('#returnSubmission'),'ส่งกลับ');
+    setText(detail.querySelector('#approveSubmission'),'ผ่าน');
+    enhance(detail.querySelector('#rv32CustomerReview'));
+  }
+
   let queued=false;
-  const schedule=()=>{
+  function schedule(){
     if(queued)return;
     queued=true;
-    requestAnimationFrame(()=>{queued=false;scan();});
-  };
+    requestAnimationFrame(()=>{queued=false;clean();});
+  }
   new MutationObserver(mutations=>{
-    if(mutations.some(m=>[...m.addedNodes].some(n=>n.nodeType===1&&(n.id==='rv32CustomerReview'||n.querySelector?.('#rv32CustomerReview')))))schedule();
+    if(mutations.some(m=>m.type==='childList'&&[...m.addedNodes].some(n=>n.nodeType===1&&!n.closest?.('#rv32CustomerReview'))))schedule();
   }).observe(detail,{childList:true,subtree:true});
-  scan();
+  schedule();
 })();
