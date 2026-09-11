@@ -62,3 +62,30 @@ const obs=new MutationObserver(m=>{if(m.some(x=>[...x.addedNodes].some(n=>n.node
 function start(){obs.observe(document.getElementById('reviewDetail')||document.body,{childList:true,subtree:true});document.addEventListener('click',e=>{if(e.target.closest?.('.reviewQueueItem'))schedule()});schedule()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
+
+/* Round104.37 — concise review copy and evidence-first layout. */
+(function(){
+'use strict';
+const root=document.querySelector('.reviewPage.reviewWorkspaceV2');
+const detail=document.getElementById('reviewDetail');
+if(!root||!detail)return;
+root.classList.add('reviewClean10437');
+const setText=(el,value)=>{if(el&&el.textContent!==value)el.textContent=value};
+function compactMonthly(){
+ const panel=detail.querySelector('#rv32CustomerReview');if(!panel)return;
+ setText(panel.querySelector('.rv32Head strong'),'รอบเดือน');
+ const plan=panel.querySelector('.rv32Head span');if(plan){let t=String(plan.textContent||'').trim().replace(/^เดือนนี้\s*/,'').replace('ไม่พบจำนวนรอบในแผน','ไม่พบแผนรอบ');if(plan.textContent!==t)plan.textContent=t}
+ const alert=panel.querySelector('.rv32Alert');if(alert){const strong=alert.querySelector('strong');if(strong){const next=String(strong.textContent||'').replace(/^ควรตรวจ/,'ตรวจเพิ่ม').replace(/^ต้องแก้ก่อนผ่านการตรวจ$/,'ต้องแก้');setText(strong,next)}}
+}
+function compactDetail(){
+ const tiles=[...detail.querySelectorAll('.reviewSummary .summaryTile span')];['POS','ครบ','เตือน','ภาพ'].forEach((label,i)=>setText(tiles[i],label));
+ const mainAlert=detail.querySelector('.reviewAlert:not(.good)');if(mainAlert){const strong=mainAlert.querySelector('strong');if(strong){setText(strong,String(strong.textContent||'').replace('ต้องแก้ก่อนผ่านการตรวจ','ต้องแก้').replace('ข้อมูลยังไม่ครบ','ข้อมูลไม่ครบ'))}const span=mainAlert.querySelector('span');if(span){const next=String(span.textContent||'').replace(/\s*กรุณาเทียบกับภาพบิล\s*$/,'');if(next&&span.textContent!==next)span.textContent=next}}
+ setText(detail.querySelector('#returnSubmission'),'ส่งกลับ');setText(detail.querySelector('#approveSubmission'),'ผ่าน');
+ const repair=[...detail.querySelectorAll('button')].find(b=>/ตรวจและซ่อมภาพ|ตรวจ\/ซ่อมภาพ/.test(String(b.textContent||'')));if(repair)setText(repair,'ตรวจภาพ');
+ const missing=detail.querySelector('.evidenceMissing strong');if(missing&&/ยังไม่มีภาพ/.test(String(missing.textContent||'')))setText(missing,'ยังไม่มีภาพ');
+ compactMonthly();
+ const stage=detail.querySelector('.evidenceStage'),tabs=detail.querySelector('#evidenceTabsHost'),hasVisual=!!stage?.querySelector('img,canvas,video'),words=`${stage?.textContent||''} ${tabs?.textContent||''}`;root.classList.toggle('r37NoEvidence',!hasVisual&&/ไม่มีภาพสำหรับแสดง|ยังไม่มีภาพสำหรับตรวจ/.test(words));
+}
+let queued=false;function scheduleClean(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;compactDetail()})}
+new MutationObserver(scheduleClean).observe(detail,{childList:true,subtree:true});scheduleClean();
+})();
