@@ -1,0 +1,32 @@
+name: Round104.34 calculation preview rank store hours
+
+on:
+  push:
+    branches: ["round10434-calculation-rank-store-hours"]
+  pull_request:
+    branches: ["round104-production-evidence-runtime"]
+    paths:
+      - "web-admin/**"
+      - "tests/calculation-rank-store-hours-round10434.test.js"
+      - ".github/workflows/round104-34-calculation-rank-store-hours.yml"
+
+jobs:
+  validate-round10434:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: JavaScript syntax
+        run: |
+          node --check web-admin/review-customer-rank-round10434.js
+          node --check web-admin/brand-calculation-round10434.js
+          node --check web-admin/review-customer-rank-ui-round10434.js
+          node --check web-admin/review-customer-trend-model-round10432.js
+          node --check web-admin/review-customer-trend-round10432.js
+      - name: Round104.34 calculation tests
+        run: node tests/calculation-rank-store-hours-round10434.test.js
+      - name: Existing review regression
+        run: node tests/review-logic.test.js
+      - name: Customer trend regression
+        run: node tests/review-customer-trend-round10432.test.js
+      - name: Admin calculation location regression
+        run: node tests/admin-calculation-location-round10433.test.js
