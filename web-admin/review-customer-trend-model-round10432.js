@@ -12,7 +12,7 @@
     timeSource:'BILL_DATETIME',
     percentMode:'SHARE_INCREASE',
     decreaseAction:'BLOCK',
-    sameValueHours:0,
+    sameValueHours:1,
     noPreviousAction:'WARN',
     skipNoReceipt:true,
     fastIncreasePerHour:0,
