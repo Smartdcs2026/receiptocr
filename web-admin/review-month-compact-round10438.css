@@ -1,0 +1,116 @@
+/* Round104.38 — compact review summary + monthly comparison. UI only; no review/calculation rule changes. */
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .reviewSummary{
+  min-height:30px!important;
+  padding:3px 6px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:4px!important;
+  background:#f7fafc!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .summaryTile{
+  flex:0 0 auto!important;
+  width:auto!important;
+  min-width:84px!important;
+  min-height:24px!important;
+  height:24px!important;
+  padding:2px 8px!important;
+  justify-content:center!important;
+  gap:6px!important;
+  border-radius:999px!important;
+  background:#fff!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .summaryTile span{
+  font-size:8.5px!important;
+  line-height:1!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .summaryTile strong{
+  font-size:12px!important;
+  line-height:1!important;
+}
+
+/* Monthly section: the first view is a clean monthly status strip. Detailed POS comparison opens on demand. */
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact{
+  margin:4px 6px!important;
+  border-radius:9px!important;
+  background:#fff!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact .rv32Head{
+  min-height:34px!important;
+  padding:5px 7px!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  gap:6px!important;
+  align-items:center!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact .rv32Head>div{
+  min-width:0!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact .rv32Head strong{
+  font-size:0!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact .rv32Head strong::after{
+  content:"รอบตรวจเดือนนี้";
+  font-size:11px!important;
+  font-weight:900!important;
+  color:#23465f!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact .rv32Head span{
+  display:block!important;
+  margin-top:1px!important;
+  font-size:8px!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .r38MonthToggle{
+  height:26px!important;
+  min-width:72px!important;
+  padding:0 8px!important;
+  border:1px solid #b9cfdf!important;
+  border-radius:7px!important;
+  background:#fff!important;
+  color:#28658e!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  cursor:pointer!important;
+  white-space:nowrap!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .r38MonthToggle:hover{
+  background:#eef7ff!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact .rv32Rounds{
+  min-height:29px!important;
+  padding:4px 7px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact .rv32Alert{
+  margin:3px 7px 5px!important;
+  min-height:28px!important;
+  padding:4px 7px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact:not(.r38Expanded) .rv32TableWrap,
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact:not(.r38Expanded) #r34ReviewRank{
+  display:none!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact.r38Expanded{
+  max-height:250px!important;
+  overflow:auto!important;
+  scrollbar-gutter:stable!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact.r38Expanded .rv32Head{
+  position:sticky!important;
+  top:0!important;
+  z-index:3!important;
+  background:#eef7fb!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact.r38Expanded .rv32TableWrap{
+  margin:4px 7px 6px!important;
+}
+.reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .rv32Panel.r38MonthlyCompact.r38Expanded .r34ReviewRank{
+  margin:5px 7px 7px!important;
+  padding:7px!important;
+}
+
+@media(max-width:1180px){
+  .reviewPage.reviewWorkspaceV2.reviewMonthCompact10438 .summaryTile{min-width:72px!important;padding:2px 6px!important}
+}
